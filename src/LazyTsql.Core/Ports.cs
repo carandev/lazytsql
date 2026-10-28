@@ -16,6 +16,9 @@ public interface IDatabaseSession : IAsyncDisposable
 
     string CurrentDatabase { get; }
 
+    /// <summary>Database named in the connection string; null when the connection is not scoped to one.</summary>
+    string? ConfiguredDatabase { get; }
+
     Task<BatchResult> ExecuteAsync(SqlBatch batch, QueryOptions options, CancellationToken cancellationToken);
 
     Task ChangeDatabaseAsync(string database, CancellationToken cancellationToken);

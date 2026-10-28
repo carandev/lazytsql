@@ -67,6 +67,17 @@ public class SqlServerSessionTests
     }
 
     [SqlServerFact]
+    public async Task Exposes_the_database_named_in_the_connection_string()
+    {
+        var withDatabase = SqlServerFactAttribute.ConnectionString + ";Database=tempdb";
+        await using var scoped = await new SqlServerConnector().OpenAsync(withDatabase, CancellationToken.None);
+        await using var unscoped = await OpenAsync();
+
+        Assert.Equal("tempdb", scoped.ConfiguredDatabase);
+        Assert.Null(unscoped.ConfiguredDatabase);
+    }
+
+    [SqlServerFact]
     public async Task Reports_records_affected()
     {
         await using var session = await OpenAsync();

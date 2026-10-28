@@ -12,7 +12,7 @@ public sealed class SqlServerConnector : IDatabaseConnector
         try
         {
             await connection.OpenAsync(cancellationToken);
-            return new SqlServerSession(connection);
+            return new SqlServerSession(connection, string.IsNullOrEmpty(builder.InitialCatalog) ? null : builder.InitialCatalog);
         }
         catch
         {

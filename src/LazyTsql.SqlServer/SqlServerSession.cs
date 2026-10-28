@@ -14,15 +14,18 @@ internal sealed class SqlServerSession : IDatabaseSession
     private readonly SqlConnection _connection;
     private List<ServerMessage>? _messageSink;
 
-    public SqlServerSession(SqlConnection connection)
+    public SqlServerSession(SqlConnection connection, string? configuredDatabase)
     {
         _connection = connection;
+        ConfiguredDatabase = configuredDatabase;
         _connection.InfoMessage += (_, e) => _messageSink?.AddRange(e.Errors.Cast<SqlError>().Select(ToMessage));
     }
 
     public string ServerVersion => _connection.ServerVersion;
 
     public string CurrentDatabase => _connection.Database;
+
+    public string? ConfiguredDatabase { get; }
 
     public async Task<BatchResult> ExecuteAsync(SqlBatch batch, QueryOptions options, CancellationToken cancellationToken)
     {

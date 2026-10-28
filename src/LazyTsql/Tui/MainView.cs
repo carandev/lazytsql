@@ -246,7 +246,7 @@ public sealed class MainView : Runnable
         RunInBackground(async token =>
         {
             var session = await _connector.OpenAsync(connectionString, token);
-            var databases = await session.GetDatabasesAsync(token);
+            var databases = await SchemaDatabasesAsync(session, token);
             var previous = _session;
             _session = session;
             _sessionName = displayName;
@@ -254,13 +254,23 @@ public sealed class MainView : Runnable
 
             OnUi(() =>
             {
-                _schema.ClearObjects();
-                _schema.AddObjects(databases.Select(name => (SchemaNode)new DatabaseNode(name)));
+                ShowDatabases(databases, session);
                 UpdateEditorTitle();
                 Log($"Connected to {displayName} (SQL Server {session.ServerVersion}), database {session.CurrentDatabase}.");
                 FocusPanel(1);
             });
         });
+    }
+
+    /// <summary>A connection scoped to a database shows only that one; otherwise every accessible database.</summary>
+    private static async Task<IReadOnlyList<string>> SchemaDatabasesAsync(IDatabaseSession session, CancellationToken token) =>
+        session.ConfiguredDatabase is { } database ? [database] : await session.GetDatabasesAsync(token);
+
+    private void ShowDatabases(IReadOnlyList<string> databases, IDatabaseSession session)
+    {
+        _schema.ClearObjects();
+        _schema.AddObjects(databases.Select(name => (SchemaNode)new DatabaseNode(name)));
+        if (session.ConfiguredDatabase is not null && _schema.Objects?.FirstOrDefault() is { } only) _schema.Expand(only);
     }
 
     private IEnumerable<SchemaNode> GetChildren(SchemaNode node)
@@ -331,11 +341,11 @@ public sealed class MainView : Runnable
         if (_session is null) return;
         RunInBackground(async token =>
         {
-            var databases = await RequireSession().GetDatabasesAsync(token);
+            var session = RequireSession();
+            var databases = await SchemaDatabasesAsync(session, token);
             OnUi(() =>
             {
-                _schema.ClearObjects();
-                _schema.AddObjects(databases.Select(name => (SchemaNode)new DatabaseNode(name)));
+                ShowDatabases(databases, session);
                 Log($"Schema reloaded: {databases.Count} databases.");
             });
         });

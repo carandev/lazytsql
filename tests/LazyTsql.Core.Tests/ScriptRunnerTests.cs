@@ -53,6 +53,7 @@ public class ScriptRunnerTests
         public string? InfoText { get; init; }
         public string ServerVersion => "fake";
         public string CurrentDatabase => "master";
+        public string? ConfiguredDatabase => null;
 
         public Task<BatchResult> ExecuteAsync(SqlBatch batch, QueryOptions options, CancellationToken cancellationToken)
         {
