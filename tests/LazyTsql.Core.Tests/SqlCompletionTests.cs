@@ -86,6 +86,17 @@ public class SqlCompletionTests
     }
 
     [Fact]
+    public void A_name_typed_in_full_comes_first_but_a_keyword_typed_in_full_is_not_suggested()
+    {
+        var catalog = Catalog();
+        catalog.SetObjects("shop", [new DbObject("dbo", "orders", DbObjectKind.Table), new DbObject("dbo", "orders_archive", DbObjectKind.Table)]);
+
+        Assert.Equal(["orders", "orders_archive"], Texts(Suggest("SELECT * FROM orders|", catalog)));
+        Assert.Equal(["customers"], Texts(Suggest("SELECT * FROM customers|")));
+        Assert.DoesNotContain("SELECT", Texts(Suggest("SELECT|")));
+    }
+
+    [Fact]
     public void Nothing_inside_strings_comments_or_without_a_prefix()
     {
         Assert.Empty(Suggest("SELECT 'FROM cu|").Items);

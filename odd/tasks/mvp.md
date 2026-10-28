@@ -23,7 +23,8 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - S18 "Al exportar debería exportar todo, no solo las primeras 1000, además debería haber una opción para escoger la cantidad que quiero o si quiero que traiga todo al visualizar"
 - S19 "ahora el autocompletado según la bd cómo se podría hacer?" → "Dale" to the proposed plan: suggestions from the connected database (tables and views after FROM/JOIN, procedures after EXEC, columns by alias or table name, other databases with db.schema.object), Tab accepts, Ctrl+Space opens, Esc closes the popup before leaving the editor, no suggestions inside strings or comments; one commit per step.
 - S20 "Puede sugerir relaciones y que no sugiera el dbo. para la tabla? Si no es necesario? No sé si hay manera de tener eso en cuenta"
-- Backlog (not in scope yet): "que se pueda cargar un directorio con archivos sql o abrir un archivo sql directamente y también poder importar o exportar archivos .bacpac con sqlpackage"; "agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta"
+- S21 "La tabla que está escrita existe pero no me la sugiere, debería hacerlo"
+- Backlog (not in scope yet): "sería bueno que me señale de alguna manera si escribo una tabla o columna que no existe"; "que se pueda cargar un directorio con archivos sql o abrir un archivo sql directamente y también poder importar o exportar archivos .bacpac con sqlpackage"; "agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta"
 
 ## Tasks
 - [x] T1 S4 Core domain: batch splitter (`GO`, `GO n`), result models, ports — inline — 14 tests green
@@ -49,6 +50,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T21 S19 Other databases: db. → schemas, db.schema. → objects, db.schema.object. → columns — inline — 4 engine tests (3 RED then GREEN; the alias case already passed through T20) + tmux e2e from master: `sh`→`shop`, `shop.`→`dbo`, `shop.dbo.c`→`customers`, `x.`→columns, title stays `› master`
 - [x] T22 S20 Insert dbo names without the schema when no other schema has the same name — inline — 3 engine tests RED then GREEN + 1 ambiguity test
 - [x] T23 S20 Relationships from foreign keys: after JOIN suggest `table alias ON ...`, after ON the condition — inline — 5 engine tests RED then GREEN + 1 SQL Server test (composite key in another database, current database unchanged) + tmux e2e: `JOIN ` → `orders o ON o.customer_id = c.id` accepted mid-line, `ON ` → `customers.id = orders.customer_id`, `cus` → `customers`
+- [x] T24 S21 A name typed in full is suggested first (keywords still are not); the popup does not reopen right after accepting — inline — 1 engine test RED then GREEN + tmux e2e: `POS_Transactions` listed first, Tab closes the popup
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"
@@ -83,3 +85,4 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - L30 2026-10-28 "Puede sugerir relaciones y que no sugiera el dbo. para la tabla? Si no es necesario? No sé si hay manera de tener eso en cuenta"
 - L31 Decision: an unqualified name resolves in the user's default schema and then in dbo, so the schema is dropped only for dbo objects whose name no other schema in that database uses (safe whatever the default schema is); other schemas keep it because the default schema is not loaded.
 - L32 Decision: foreign keys load once per database (`GetForeignKeysAsync`, through sp_executesql like the rest of the catalog). Right after JOIN or ON the popup opens without a prefix, showing only relationships; with a prefix they come first, then the usual names. The alias is the table's initials, numbered when taken or a keyword.
+- L33 2026-10-28 "La tabla que está escrita existe pero no me la sugiere, debería hacerlo, además sería bueno que me señale de alguna manera si escribo una tabla o columna que no existe, no sé si eso esté contemplado en otro pendiente" — cause: T19 excluded the suggestion equal to the typed word so the popup would not reopen after accepting; now the editor skips regenerating while the cursor stays where the accepted text left it. Unknown-name diagnostics were not in the backlog; added.

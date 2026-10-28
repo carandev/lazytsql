@@ -63,12 +63,31 @@ public sealed class SqlEditor : TextView
     /// </summary>
     private sealed class PrefixAutocomplete : TextViewAutocomplete
     {
+        // Where the cursor was left by the last accepted suggestion. A name typed in full is suggested, so without this
+        // the popup would reopen right after accepting it, offering the same name.
+        private (int Row, int Column)? _accepted;
+
         protected override bool InsertSelection(Suggestion accepted)
         {
             var editor = (TextView)HostControl!;
+            _accepted = (-1, -1);
             for (var i = 0; i < accepted.Remove; i++) editor.DeleteCharLeft();
             editor.InsertText(accepted.Replacement);
+            _accepted = (editor.CurrentRow, editor.CurrentColumn);
             return true;
+        }
+
+        public override void GenerateSuggestions(AutocompleteContext context)
+        {
+            if (HostControl is TextView editor && _accepted is { } at
+                && (at == (-1, -1) || at == (editor.CurrentRow, editor.CurrentColumn)))
+            {
+                ClearSuggestions();
+                return;
+            }
+
+            _accepted = null;
+            base.GenerateSuggestions(context);
         }
     }
 }

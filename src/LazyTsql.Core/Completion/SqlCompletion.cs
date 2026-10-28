@@ -358,22 +358,29 @@ public static class SqlCompletion
 
     private static bool Same(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Collects matches of the prefix, keeping the first of each text, ordered by kind and then by name.</summary>
+    /// <summary>
+    /// Collects matches of the prefix, keeping the first of each text: a name typed in full first, so it shows that it
+    /// exists, then by kind and by name.
+    /// </summary>
     private sealed class Candidates(string prefix)
     {
         private readonly List<CompletionItem> _items = [];
         private readonly HashSet<string> _seen = new(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<CompletionItem> _exact = [];
 
         public string Prefix { get; } = prefix;
 
         public void Add(CompletionItem item, params string[] matchOn)
         {
-            // The word already typed in full is not a suggestion.
-            if (item.Text.Equals(Prefix, StringComparison.OrdinalIgnoreCase)) return;
-            if (matchOn.Any(name => name.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)) && _seen.Add(item.Text)) _items.Add(item);
+            var exact = Prefix.Length > 0 && matchOn.Any(name => name.Equals(Prefix, StringComparison.OrdinalIgnoreCase));
+            // A keyword typed in full is not a suggestion.
+            if (exact && item.Kind == CompletionKind.Keyword) return;
+            if (!matchOn.Any(name => name.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)) || !_seen.Add(item.Text)) return;
+            _items.Add(item);
+            if (exact) _exact.Add(item);
         }
 
         public IReadOnlyList<CompletionItem> Ordered() =>
-            [.. _items.OrderBy(item => item.Kind).ThenBy(item => item.Text, StringComparer.OrdinalIgnoreCase).Take(MaxItems)];
+            [.. _items.OrderBy(item => !_exact.Contains(item)).ThenBy(item => item.Kind).ThenBy(item => item.Text, StringComparer.OrdinalIgnoreCase).Take(MaxItems)];
     }
 }
