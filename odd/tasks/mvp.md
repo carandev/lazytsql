@@ -11,7 +11,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 
 ## Tasks
 - [x] T1 S4 Core domain: batch splitter (`GO`, `GO n`), result models, ports — inline — 14 tests green
-- T2 S1 SQL Server adapter: execute batches, multiple result sets, PRINT messages, schema introspection — inline
+- [x] T2 S1 SQL Server adapter: execute batches, multiple result sets, PRINT messages, schema introspection — inline — 12 tests green against SQL Server 2022 container
 - T3 S4,S5 Headless CLI: `query`, `schema`, `connections` with `--json`; connection config — inline
 - T4 S2 TUI: numbered panels (connections, schema, editor, results), keybindings, status bar — inline
 - T5 S3 Native AOT publish, measure binary size and memory — inline
