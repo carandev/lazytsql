@@ -22,7 +22,7 @@ public static class TuiApplication
         if (app.Driver is { } driver) driver.Force16Colors = true;
         using var view = new MainView(connector, store);
         if (script is { } opened) view.OpenScript(opened.Script, opened.Text);
-        if (connectionString is not null) view.ConnectOnStart(connectionString, initialConnection ?? ConnectionResolver.EnvironmentVariable);
+        if (connectionString is not null) view.ConnectOnStart(connectionString, ConnectionResolver.DisplayName(initialConnection, store));
         app.Run(view);
         return 0;
     }

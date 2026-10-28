@@ -37,6 +37,19 @@ public sealed class CliTests : IDisposable
     }
 
     [Fact]
+    public void Display_name_never_includes_the_raw_connection_string()
+    {
+        var store = Store;
+        store.Upsert(new ConnectionProfile("dev", "Server=db;Password=saved"));
+
+        Assert.Equal("dev", ConnectionResolver.DisplayName("DEV", store));
+        Assert.Equal("localhost,14339/shop", ConnectionResolver.DisplayName("Server=localhost,14339;Database=shop;User Id=sa;Password=s3cret!", store));
+        Assert.Equal("tcp:host", ConnectionResolver.DisplayName("Data Source=tcp:host;Pwd=s3cret!", store));
+        Assert.Equal("connection string", ConnectionResolver.DisplayName("Password=s3cret!;=broken", store));
+        Assert.Equal(ConnectionResolver.EnvironmentVariable, ConnectionResolver.DisplayName(null, store));
+    }
+
+    [Fact]
     public void Store_round_trips_profiles_with_owner_only_permissions()
     {
         Store.Upsert(new ConnectionProfile("dev", "Server=a;"));
