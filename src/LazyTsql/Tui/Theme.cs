@@ -44,6 +44,13 @@ public static class Theme
 
     public static Scheme Hints { get; } = Uniform(new Attribute(Muted, Default));
 
+    // The completion list sits over the script, so it gets a background; the chosen item uses the selection color.
+    public static Scheme Popup { get; } = new(Content)
+    {
+        Normal = new Attribute(Default, Muted),
+        Focus = new Attribute(new Color(ColorName16.White), Selection, TextStyle.Bold),
+    };
+
     private static readonly Attribute KeywordText = new(Selection, Default, TextStyle.Bold);
     private static readonly Attribute StringText = new(Accent, Default);
     private static readonly Attribute CommentText = new(Muted, Default, TextStyle.Italic);

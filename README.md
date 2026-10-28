@@ -46,6 +46,7 @@ lazytsql -c dev migration.sql   # edit a script (created on the first save if it
 | `1`-`5`, `Alt+1`-`Alt+5`, `Tab` | Focus panel: connections, schema, query, results, messages |
 | `F5` / `Ctrl+E` | Run the selection, or the whole script batch by batch (`GO`, `GO n`) |
 | `Ctrl+K` | Cancel the running query |
+| `Tab` / `Ctrl+Space` | Accept / open the completion list in the editor (`Esc` closes it) |
 | `Ctrl+O` / `Ctrl+S` | Open / save a `.sql` file; the title shows `*` while there are unsaved changes |
 | `Enter` | Connect (panel 1), expand or collapse (panel 2) |
 | `a` / `e` / `d` | Add, edit or delete a connection (panel 1) |
@@ -75,7 +76,10 @@ unchanged. Quitting or replacing the editor contents (`s`, `e`) asks first when 
 
 The UI keeps the terminal's own background and uses the 16 ANSI colors, so it follows your terminal theme:
 gray borders, green border on the focused panel and a footer with the keys of the focused panel or open dialog.
-The editor highlights T-SQL keywords and types, strings, comments, numbers and `@variables`.
+The editor highlights T-SQL keywords and types, strings, comments, numbers and `@variables`, and completes names
+from the connected database while you type: tables, views and functions after `FROM`/`JOIN`, procedures after
+`EXEC`, the objects of a schema after `schema.`, and keywords elsewhere. Names load in the background the first time
+they are needed, without changing the current database; `r` in the schema panel reloads them.
 
 ## Headless mode (scripts and agents)
 

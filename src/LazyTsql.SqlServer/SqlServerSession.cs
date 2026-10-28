@@ -103,21 +103,21 @@ internal sealed class SqlServerSession : IDatabaseSession
             r => r.GetString(0),
             cancellationToken);
 
-    public Task<IReadOnlyList<DbObject>> GetObjectsAsync(CancellationToken cancellationToken) =>
+    public Task<IReadOnlyList<DbObject>> GetObjectsAsync(string database, CancellationToken cancellationToken) =>
         QueryAsync(
-            """
+            InDatabase(database, """
             SELECT s.name, o.name, RTRIM(o.type)
             FROM sys.objects o
             JOIN sys.schemas s ON s.schema_id = o.schema_id
             WHERE o.type IN ('U', 'V', 'P', 'FN', 'IF', 'TF') AND o.is_ms_shipped = 0
             ORDER BY s.name, o.name
-            """,
+            """),
             r => new DbObject(r.GetString(0), r.GetString(1), ToKind(r.GetString(2))),
             cancellationToken);
 
-    public Task<IReadOnlyList<ColumnDefinition>> GetColumnsAsync(DbObject table, CancellationToken cancellationToken) =>
+    public Task<IReadOnlyList<ColumnDefinition>> GetColumnsAsync(string database, DbObject table, CancellationToken cancellationToken) =>
         QueryAsync(
-            """
+            InDatabase(database, """
             SELECT c.name, TYPE_NAME(c.user_type_id), c.max_length, c.precision, c.scale,
                    c.is_nullable, c.is_identity,
                    CAST(CASE WHEN pk.column_id IS NULL THEN 0 ELSE 1 END AS bit)
@@ -130,7 +130,7 @@ internal sealed class SqlServerSession : IDatabaseSession
             ) pk ON pk.object_id = c.object_id AND pk.column_id = c.column_id
             WHERE c.object_id = OBJECT_ID(@name)
             ORDER BY c.column_id
-            """,
+            """, "@name nvarchar(512)"),
             r => new ColumnDefinition(
                 r.GetString(0),
                 SqlTypeFormatter.Format(r.GetString(1), r.GetInt16(2), r.GetByte(3), r.GetByte(4)),
@@ -210,6 +210,16 @@ internal sealed class SqlServerSession : IDatabaseSession
         }
 
         return items;
+    }
+
+    /// <summary>
+    /// Runs <paramref name="sql"/> in <paramref name="database"/> through its sp_executesql, so the session keeps its
+    /// current database. The name is bracket-quoted, so it cannot inject SQL.
+    /// </summary>
+    private static string InDatabase(string database, string sql, string? parameters = null)
+    {
+        var call = $"EXEC [{database.Replace("]", "]]")}].sys.sp_executesql N'{sql.Replace("'", "''")}'";
+        return parameters is null ? call : $"{call}, N'{parameters}', {parameters.Split(' ')[0]} = {parameters.Split(' ')[0]}";
     }
 
     private static ServerMessage ToMessage(SqlError error) =>

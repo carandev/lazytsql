@@ -100,10 +100,10 @@ public class SqlServerSessionTests
             await RunAsync(session, "CREATE PROCEDURE dbo.get_customers AS SELECT * FROM dbo.customers");
 
             var databases = await session.GetDatabasesAsync(CancellationToken.None);
-            var objects = await session.GetObjectsAsync(CancellationToken.None);
+            var objects = await session.GetObjectsAsync(database, CancellationToken.None);
             var table = Assert.Single(objects, o => o.Kind == DbObjectKind.Table);
             var procedure = Assert.Single(objects, o => o.Kind == DbObjectKind.Procedure);
-            var columns = await session.GetColumnsAsync(table, CancellationToken.None);
+            var columns = await session.GetColumnsAsync(database, table, CancellationToken.None);
             var definition = await session.GetDefinitionAsync(procedure, CancellationToken.None);
 
             Assert.Contains(database, databases);
@@ -121,6 +121,32 @@ public class SqlServerSessionTests
         {
             await session.ChangeDatabaseAsync("master", CancellationToken.None);
             await RunAsync(session, $"ALTER DATABASE [{database}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{database}]");
+        }
+    }
+
+    [SqlServerFact]
+    public async Task Reads_another_database_without_changing_the_current_one()
+    {
+        await using var session = await OpenAsync();
+        // A ] and a quote in the name prove it is quoted, not concatenated.
+        var database = $"lazytsql_{Guid.NewGuid():N}]'x";
+        var quoted = $"[{database.Replace("]", "]]")}]";
+        await RunAsync(session, $"CREATE DATABASE {quoted}");
+        try
+        {
+            await RunAsync(session, $"EXEC {quoted}.sys.sp_executesql N'CREATE TABLE dbo.items (id int NOT NULL)'");
+
+            var objects = await session.GetObjectsAsync(database, CancellationToken.None);
+            var table = Assert.Single(objects);
+            var columns = await session.GetColumnsAsync(database, table, CancellationToken.None);
+
+            Assert.Equal(new DbObject("dbo", "items", DbObjectKind.Table), table);
+            Assert.Equal("id", Assert.Single(columns).Name);
+            Assert.Equal("master", session.CurrentDatabase);
+        }
+        finally
+        {
+            await RunAsync(session, $"ALTER DATABASE {quoted} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE {quoted}");
         }
     }
 

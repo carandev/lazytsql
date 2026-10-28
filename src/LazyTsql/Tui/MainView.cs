@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using LazyTsql.Core;
+using LazyTsql.Core.Completion;
 using LazyTsql.Core.Execution;
 using LazyTsql.Core.Schema;
 using LazyTsql.Infrastructure;
@@ -24,6 +25,7 @@ public sealed class MainView : Runnable
     private readonly IDatabaseConnector _connector;
     private readonly FileConnectionStore _store;
     private readonly SemaphoreSlim _sessionGate = new(1, 1);
+    private readonly SchemaCatalog _catalog = new();
     private readonly ObservableCollection<string> _connectionNames = [];
     private readonly FrameView[] _panels;
     private readonly ListView _connections;
@@ -80,6 +82,9 @@ public sealed class MainView : Runnable
         _hints.SetScheme(Theme.Hints);
         foreach (var panel in _panels) panel.HasFocusChanged += (_, _) => UpdateHints();
         _editor.ContentsChanged += (_, _) => UpdateEditorTitle();
+        _editor.EnableCompletion(() => _session is { } session ? (_catalog, session.CurrentDatabase) : null);
+        _editor.Autocomplete.Scheme = Theme.Popup;
+        _catalog.ObjectsNeeded += LoadCatalogObjects;
 
         SetScheme(Theme.Content);
         Add(connectionsPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel, _hints);
@@ -169,7 +174,8 @@ public sealed class MainView : Runnable
         else if (key == Key.S.WithCtrl) SaveScript();
         else if (key == Key.O.WithCtrl) PromptOpenScript();
         else if (key == Key.Q.WithCtrl) Quit();
-        else if (key == Key.Esc && inEditor) FocusPanel(3);
+        // Esc first closes the completion popup; the editor handles that.
+        else if (key == Key.Esc && inEditor && !_editor.Autocomplete.Visible) FocusPanel(3);
         else if (key.IsAlt && PanelIndex(key.NoAlt) is { } altPanel) FocusPanel(altPanel);
         else if (!inEditor && VimMotion(key) is { } motion) _panels[CurrentPanel()].SubViews.First().NewKeyDownEvent(motion);
         else if (inEditor || _messages.HasFocus && key != Key.Tab) handled = false;
@@ -321,6 +327,7 @@ public sealed class MainView : Runnable
 
             OnUi(() =>
             {
+                ResetCatalog(databases);
                 ShowDatabases(databases, session);
                 UpdateEditorTitle();
                 Log($"Connected to {displayName} (SQL Server {session.ServerVersion}), database {session.CurrentDatabase}.");
@@ -361,7 +368,7 @@ public sealed class MainView : Runnable
             {
                 DatabaseNode database => await LoadDatabaseAsync(session, database.Name, token),
                 ObjectNode table => [.. (await UseDatabaseAsync(session, table.Database, token)
-                    .ContinueWith(_ => session.GetColumnsAsync(table.Value, token), token).Unwrap())
+                    .ContinueWith(_ => session.GetColumnsAsync(table.Database, table.Value, token), token).Unwrap())
                     .Select(c => (SchemaNode)new ColumnNode(c))],
                 _ => [],
             };
@@ -380,7 +387,7 @@ public sealed class MainView : Runnable
     private static async Task<List<SchemaNode>> LoadDatabaseAsync(IDatabaseSession session, string database, CancellationToken token)
     {
         await UseDatabaseAsync(session, database, token);
-        var objects = await session.GetObjectsAsync(token);
+        var objects = await session.GetObjectsAsync(database, token);
         return objects
             .GroupBy(o => o.Kind)
             .OrderBy(g => g.Key)
@@ -395,6 +402,30 @@ public sealed class MainView : Runnable
 
     private static Task UseDatabaseAsync(IDatabaseSession session, string database, CancellationToken token) =>
         session.CurrentDatabase == database ? Task.CompletedTask : session.ChangeDatabaseAsync(database, token);
+
+    private void ResetCatalog(IReadOnlyList<string> databases)
+    {
+        _catalog.Clear();
+        _catalog.Databases = databases;
+    }
+
+    /// <summary>Loads completion names in the background; suggestions refresh when they arrive.</summary>
+    private void LoadCatalogObjects(string database)
+    {
+        var session = _session;
+        if (session is null) return;
+        RunInBackground(async token =>
+        {
+            var objects = await session.GetObjectsAsync(database, token);
+            OnUi(() =>
+            {
+                // A reconnect while loading starts a new catalog; these names belong to the old connection.
+                if (_session != session) return;
+                _catalog.SetObjects(database, objects);
+                _editor.RefreshCompletion();
+            });
+        }, onError: () => _catalog.SetObjects(database, []));
+    }
 
     private void ToggleSchemaNode()
     {
@@ -412,6 +443,7 @@ public sealed class MainView : Runnable
             var databases = await SchemaDatabasesAsync(session, token);
             OnUi(() =>
             {
+                ResetCatalog(databases);
                 ShowDatabases(databases, session);
                 Log($"Schema reloaded: {databases.Count} databases.");
             });

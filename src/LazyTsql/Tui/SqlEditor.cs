@@ -1,5 +1,7 @@
+using LazyTsql.Core.Completion;
 using LazyTsql.Core.Syntax;
 using Terminal.Gui.Drawing;
+using Terminal.Gui.Input;
 using Terminal.Gui.Views;
 
 // TextView is marked obsolete in favor of tui-cs/Editor; its color hook is enough for T-SQL highlighting.
@@ -7,12 +9,40 @@ using Terminal.Gui.Views;
 
 namespace LazyTsql.Tui;
 
-/// <summary>Query editor with T-SQL highlighting. The script is re-tokenized on the first draw after an edit.</summary>
+/// <summary>
+/// Query editor with T-SQL highlighting and completion. The script is re-tokenized on the first draw after an edit.
+/// </summary>
 public sealed class SqlEditor : TextView
 {
     private SqlTokenKind[][]? _kinds;
 
     public SqlEditor() => ContentsChanged += (_, _) => _kinds = null;
+
+    /// <summary>Turns on completion from <paramref name="source"/>: the catalog and current database, or null when offline.</summary>
+    public void EnableCompletion(Func<(SchemaCatalog Catalog, string Database)?> source)
+    {
+        Autocomplete.SuggestionGenerator = new SqlSuggestionGenerator(this, source);
+        Autocomplete.SelectionKey = Key.Tab;
+        Autocomplete.CloseKey = Key.Esc;
+        Autocomplete.Reopen = Key.Space.WithCtrl;
+        Autocomplete.MaxHeight = 8;
+        Autocomplete.MaxWidth = 60;
+    }
+
+    /// <summary>Recomputes the open suggestions, for names that finished loading after the last keystroke.</summary>
+    public void RefreshCompletion()
+    {
+        if (!HasFocus || SelectedLength > 0) return;
+
+        // Mirrors what TextView does after each edit, the only time it updates the popup.
+        var line = GetCurrentLine();
+        Autocomplete.Context = new AutocompleteContext(line, Math.Min(CurrentColumn, line.Count), false);
+        Autocomplete.GenerateSuggestions(Autocomplete.Context);
+        var at = new System.Drawing.Point(Autocomplete.Context.CursorPosition, Autocomplete.PopupInsideContainer ? InsertionPoint.Y + 1 - Viewport.Y : 0);
+        // A closed popup only opens on the first call; the second one draws it.
+        Autocomplete.RenderOverlay(at);
+        Autocomplete.RenderOverlay(at);
+    }
 
     protected override void OnDrawNormalColor(List<Cell> line, int idxCol, int idxRow)
     {

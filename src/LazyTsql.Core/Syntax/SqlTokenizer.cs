@@ -34,6 +34,10 @@ public static class SqlTokenizer
         "SQL_VARIANT", "TEXT", "TIME", "TINYINT", "UNIQUEIDENTIFIER", "VARBINARY", "VARCHAR", "XML",
     };
 
+    public static IReadOnlyCollection<string> KeywordNames => Keywords;
+
+    public static bool IsKeyword(string word) => Keywords.Contains(word);
+
     private enum State
     {
         Code,

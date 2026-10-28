@@ -31,9 +31,10 @@ public interface IDatabaseSession : IAsyncDisposable
 
     Task<IReadOnlyList<string>> GetDatabasesAsync(CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<DbObject>> GetObjectsAsync(CancellationToken cancellationToken);
+    /// <summary>Objects of <paramref name="database"/>; reading another database does not change <see cref="CurrentDatabase"/>.</summary>
+    Task<IReadOnlyList<DbObject>> GetObjectsAsync(string database, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<ColumnDefinition>> GetColumnsAsync(DbObject table, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ColumnDefinition>> GetColumnsAsync(string database, DbObject table, CancellationToken cancellationToken);
 
     Task<string> GetDefinitionAsync(DbObject routine, CancellationToken cancellationToken);
 }

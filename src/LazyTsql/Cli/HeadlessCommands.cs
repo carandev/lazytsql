@@ -40,7 +40,7 @@ public sealed class HeadlessCommands(
     public async Task<int> SchemaAsync(CliArguments args, CancellationToken cancellationToken)
     {
         await using var session = await OpenAsync(args, cancellationToken);
-        var objects = await session.GetObjectsAsync(cancellationToken);
+        var objects = await session.GetObjectsAsync(session.CurrentDatabase, cancellationToken);
         var objectName = args.Positionals.FirstOrDefault();
 
         if (objectName is null)
@@ -53,7 +53,7 @@ public sealed class HeadlessCommands(
         var target = FindObject(objects, objectName);
         if (target.Kind is DbObjectKind.Table or DbObjectKind.View)
         {
-            var columns = await session.GetColumnsAsync(target, cancellationToken);
+            var columns = await session.GetColumnsAsync(session.CurrentDatabase, target, cancellationToken);
             if (args.Has("--json")) WriteJson(stream => JsonResultWriter.WriteColumns(stream, target, columns));
             else foreach (var c in columns) stdout.WriteLine($"{c.Name,-30} {c.DataType,-20} {(c.IsNullable ? "NULL" : "NOT NULL")}{(c.IsPrimaryKey ? " PK" : "")}{(c.IsIdentity ? " IDENTITY" : "")}");
         }

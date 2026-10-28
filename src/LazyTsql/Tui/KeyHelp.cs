@@ -45,7 +45,13 @@ public static class KeyHelp
             ("e", "open definition"),
             ("r", "reload"),
         ]),
-        new(KeyContext.Query, "Query [3]", [("F5", "run selection or all"), ("Ctrl+K", "cancel"), ("Ctrl+S", "save"), ("Esc", "leave editor")]),
+        new(KeyContext.Query, "Query [3]", [
+            ("F5", "run selection or all"),
+            ("Ctrl+K", "cancel"),
+            ("Ctrl+S", "save"),
+            ("Tab/Ctrl+Space", "complete"),
+            ("Esc", "leave editor"),
+        ]),
         new(KeyContext.Results, "Results [4]", [
             ("[/]", "prev/next set"),
             ("x", "export to CSV"),
