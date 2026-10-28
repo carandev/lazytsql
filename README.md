@@ -15,7 +15,9 @@ present on virtually every distribution.
 ## Connections
 
 Manage them from the TUI: focus panel `[1]` and press `a` to add, `e` to edit (renaming included),
-`d` to delete (Enter cancels the confirmation) and `Enter` to connect. The same profiles are available from the CLI:
+`d` to delete (Enter cancels the confirmation) and `Enter` to connect. The dialog accepts either a raw connection string or
+individual fields (server, port, database, SQL login or integrated authentication, encryption); switch with
+`←`/`→` + `Space` on *Mode*. Strings with settings the form cannot show stay in connection string mode. The same profiles are available from the CLI:
 
 ```bash
 lazytsql connections add dev 'Server=localhost,1433;Database=app;User Id=sa;Password=${DEV_DB_PASSWORD};TrustServerCertificate=true'

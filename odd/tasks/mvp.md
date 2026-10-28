@@ -26,7 +26,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T7 S11 Schema tree shows only the connection's database when one is set — inline — integration test green
 - [x] T8 S8 CSV export: results panel and `query --csv` — inline — 5 tests + tmux e2e export
 - [x] T9 S9 Vim motions (h/j/k/l, g/G, Ctrl+d/u) outside the editor — inline — tmux e2e (tree g/G/j/k/h/l)
-- T10 S10 Connection dialog: connection string or individual fields — inline
+- [x] T10 S10 Connection dialog: connection string or individual fields — inline — 5 unit tests + tmux e2e (create by fields, connect, toggle modes)
 - T11 S7 Minimal theme: terminal background, focused border accent, no filled panels — inline
 
 ## Log
