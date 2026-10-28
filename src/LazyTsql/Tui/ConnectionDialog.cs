@@ -162,6 +162,7 @@ public static class ConnectionDialog
 
         dialog.AddButton(cancel);
         dialog.AddButton(save);
+        Theme.StyleDialog(dialog);
         app.Run(dialog);
         dialog.Dispose();
         return result;

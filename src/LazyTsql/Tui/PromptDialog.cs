@@ -31,6 +31,7 @@ public static class PromptDialog
         dialog.Add(caption, input);
         dialog.AddButton(cancel);
         dialog.AddButton(ok);
+        Theme.StyleDialog(dialog);
         app.Run(dialog);
         dialog.Dispose();
         return result;

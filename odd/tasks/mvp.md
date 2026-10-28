@@ -27,7 +27,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T8 S8 CSV export: results panel and `query --csv` — inline — 5 tests + tmux e2e export
 - [x] T9 S9 Vim motions (h/j/k/l, g/G, Ctrl+d/u) outside the editor — inline — tmux e2e (tree g/G/j/k/h/l)
 - [x] T10 S10 Connection dialog: connection string or individual fields — inline — 5 unit tests + tmux e2e (create by fields, connect, toggle modes)
-- T11 S7 Minimal theme: terminal background, focused border accent, no filled panels — inline
+- [x] T11 S7 Minimal theme: terminal background, focused border accent, no filled panels — inline — rendered screenshots reviewed; AOT TUI smoke test
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"
@@ -40,3 +40,5 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - L8 Follow-ups: Terminal.Gui.Editor for SQL highlighting (TextView is obsolete), ScriptDom-based autocomplete, server-side paging instead of draining capped rows, Entra ID/Windows auth checks under AOT, profiling TUI private memory.
 - L9 2026-10-28 "Ejecutando lazytsql debería abrir la tui y permitir gestionar las conexiones, sin necesidad de hacerlo por aparte por cli"
 - L10 2026-10-28 "Mejora la UI para que se vea más minimalista, agrega una opción para que se pueda exportar en csv, que los movimientos también se puedan hacer con los atajos de vim. Agrega que se pueda escoger si es connection string o por aparte cada valor para iniciar sesión. En el connection string yo especifiqué la bd pero tengo acceso a todas las bases de datos, que si se indica una bd entonces solo aparezca esa, ya si no se indica entonces que se carguen todas. Para futuras funcionalidades después de lo pendiente podemos agregar que se pueda cargar un directorio con archivos sql o abrir un archivo sql directamente y también poder importar o exportar archivos .bacpac con sqlpackage"
+- L11 Terminal.Gui emits 24-bit RGB by default even for ColorName16; `Force16Colors` makes it emit ANSI indices so the theme follows the terminal palette. `Scheme(Attribute)` derives Focus by inverting colors, so header and hint schemes set every role explicitly. OptionSelector needs `TabBehavior.NoStop` to be one Tab stop.
+- L12 Evidence: 47 tests green (14 core, 15 app, 18 SQL Server). AOT binary 21 MB, TUI smoke-tested.

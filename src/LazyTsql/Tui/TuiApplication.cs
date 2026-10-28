@@ -16,6 +16,8 @@ public static class TuiApplication
 
         using var app = Application.Create();
         app.Init();
+        // ANSI palette indices instead of fixed RGB, so the UI follows the terminal's color scheme.
+        if (app.Driver is { } driver) driver.Force16Colors = true;
         using var view = new MainView(connector, store);
         if (connectionString is not null) view.ConnectOnStart(connectionString, initialConnection ?? ConnectionResolver.EnvironmentVariable);
         app.Run(view);

@@ -50,6 +50,7 @@ public sealed class MainView : Runnable
     private readonly TextView _editor;
     private readonly TableView _results;
     private readonly TextView _messages;
+    private readonly Label _hints;
 
     private IReadOnlyList<ConnectionProfile> _profiles = [];
     private IDatabaseSession? _session;
@@ -71,6 +72,7 @@ public sealed class MainView : Runnable
             Width = Dim.Fill(),
             Height = Dim.Fill(),
             AllowLetterBasedNavigation = false,
+            Style = new TreeStyle { ShowBranchLines = false, ExpandableSymbol = new System.Text.Rune('▸'), CollapseableSymbol = new System.Text.Rune('▾') },
             TreeBuilder = new DelegateTreeBuilder<SchemaNode>(GetChildren, node => node.CanExpand),
         };
 
@@ -79,30 +81,27 @@ public sealed class MainView : Runnable
         _results.Style.ExpandLastColumn = false;
         _results.Style.ShowHorizontalHeaderOverline = false;
         _results.Style.ShowHorizontalBottomLine = false;
+        _results.Style.HeaderScheme = Theme.TableHeader;
         _messages = new TextView { Width = Dim.Fill(), Height = Dim.Fill(), ReadOnly = true, WordWrap = true };
 
-        var connectionsPanel = Panel("[1] Connections", _connections, 0, 0, Dim.Percent(28), Dim.Percent(25));
+        var connectionsPanel = Panel("[1] Connections", _connections, 0, 0, Dim.Percent(28), Dim.Percent(20));
         var schemaPanel = Panel("[2] Schema", _schema, 0, Pos.Bottom(connectionsPanel), Dim.Percent(28), Dim.Fill(1));
         var editorPanel = Panel("[3] Query", _editor, Pos.Right(connectionsPanel), 0, Dim.Fill(), Dim.Percent(38));
         var messagesPanel = Panel("[5] Messages", _messages, Pos.Right(schemaPanel), Pos.AnchorEnd(8), Dim.Fill(), 7);
         var resultsPanel = Panel("[4] Results", _results, Pos.Right(schemaPanel), Pos.Bottom(editorPanel), Dim.Fill(), Dim.Fill(8));
         _panels = [connectionsPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel];
 
-        var statusBar = new StatusBar(
-        [
-            new Shortcut(Key.F5, "Run", RunQuery),
-            new Shortcut(Key.K.WithCtrl, "Cancel", CancelQuery),
-            new Shortcut(Key.Tab, "Next panel", () => FocusPanel((CurrentPanel() + 1) % _panels.Length)),
-            new Shortcut(Key.Empty, "1-5 Panels", () => { }),
-            new Shortcut(Key.Empty, "? Help", ShowHelp),
-            new Shortcut(Key.Q.WithCtrl, "Quit", () => App?.RequestStop()),
-        ]);
+        _hints = new Label { X = 1, Y = Pos.AnchorEnd(1), Width = Dim.Fill(1), Height = 1 };
+        _hints.SetScheme(Theme.Hints);
+        foreach (var panel in _panels) panel.HasFocusChanged += (_, _) => UpdateHints();
 
-        Add(connectionsPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel, statusBar);
+        SetScheme(Theme.Content);
+        Add(connectionsPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel, _hints);
         Initialized += (_, _) =>
         {
             App!.Keyboard.KeyDown += OnGlobalKeyDown;
             ReloadConnections();
+            UpdateHints();
         };
     }
 
@@ -125,6 +124,7 @@ public sealed class MainView : Runnable
     {
         var frame = new FrameView { Title = title, X = x, Y = y, Width = width, Height = height, BorderStyle = LineStyle.Rounded };
         frame.Add(content);
+        Theme.StylePanel(frame, content);
         return frame;
     }
 
@@ -179,6 +179,20 @@ public sealed class MainView : Runnable
             'G' => Key.End,
             _ => null,
         };
+    }
+
+    /// <summary>Context key hints for the focused panel, like lazygit's bottom line.</summary>
+    private void UpdateHints()
+    {
+        var context = CurrentPanel() switch
+        {
+            0 => "enter connect · a add · e edit · d delete",
+            1 => "enter/l expand · h collapse · s select top · e definition · r reload",
+            2 => "F5 run (selection or script) · ctrl+k cancel · esc leave editor",
+            3 => "[ ] result set · x export csv · hjkl move",
+            _ => "j/k scroll",
+        };
+        _hints.Text = $"{context} │ 1-5 panels · tab next · ? help · q quit";
     }
 
     private static int? PanelIndex(Key key) =>
@@ -516,6 +530,7 @@ public sealed class MainView : Runnable
         var dialog = new Dialog { Title = "Keys", Width = 72, Height = 18, BorderStyle = LineStyle.Rounded };
         dialog.Add(new Label { Text = HelpText, X = 1, Y = 1 });
         dialog.AddButton(close);
+        Theme.StyleDialog(dialog);
         close.Accepting += (_, e) =>
         {
             e.Handled = true;

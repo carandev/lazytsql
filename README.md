@@ -59,6 +59,9 @@ lazytsql -c dev     # connect on start
 
 Result sets are capped at 1000 rows to keep memory bounded.
 
+The UI keeps the terminal's own background and uses the 16 ANSI colors, so it follows your terminal theme:
+gray borders, green border on the focused panel and a context line with the keys for that panel.
+
 ## Headless mode (scripts and agents)
 
 ```bash
