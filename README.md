@@ -55,7 +55,7 @@ lazytsql -c dev     # connect on start
 | `h` `j` `k` `l`, `g` / `G`, `Ctrl+D` / `Ctrl+U` | Vim motions outside the editor (`h`/`l` collapse/expand in the schema) |
 | `Esc` | Leave the editor |
 | `?` | Help |
-| `q` / `Ctrl+Q` | Quit (`q` only outside the editor) |
+| `q` / `Ctrl+Q` | Quit after confirming (`y`/`Enter` quits, `n`/`Esc` stays; `q` only outside the editor) |
 
 Result sets are capped at 1000 rows to keep memory bounded.
 

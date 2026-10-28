@@ -58,6 +58,7 @@ public sealed class MainView : Runnable
     private CancellationTokenSource? _queryCancellation;
     private List<ResultSet> _resultSets = [];
     private int _resultIndex;
+    private bool _quitConfirmed;
 
     public MainView(IDatabaseConnector connector, FileConnectionStore store)
     {
@@ -120,6 +121,22 @@ public sealed class MainView : Runnable
         base.Dispose(disposing);
     }
 
+    /// <summary>Every way out (q, Ctrl+Q, the Esc quit key) asks first.</summary>
+    protected override bool OnIsRunningChanging(bool oldIsRunning, bool newIsRunning)
+    {
+        if (newIsRunning || _quitConfirmed) return base.OnIsRunningChanging(oldIsRunning, newIsRunning);
+        // Ask after the stop request unwinds instead of nesting a modal inside it.
+        OnUi(Quit);
+        return true;
+    }
+
+    private void Quit()
+    {
+        if (_quitConfirmed || !ConfirmDialog.Show(App!, "Quit", "Quit lazytsql?", "Quit", confirmIsDefault: true)) return;
+        _quitConfirmed = true;
+        App?.RequestStop(this);
+    }
+
     private static FrameView Panel(string title, View content, Pos x, Pos y, Dim width, Dim height)
     {
         var frame = new FrameView { Title = title, X = x, Y = y, Width = width, Height = height, BorderStyle = LineStyle.Rounded };
@@ -138,13 +155,13 @@ public sealed class MainView : Runnable
 
         if (key == Key.F5 || key == Key.E.WithCtrl) RunQuery();
         else if (key == Key.K.WithCtrl) CancelQuery();
-        else if (key == Key.Q.WithCtrl) App?.RequestStop();
+        else if (key == Key.Q.WithCtrl) Quit();
         else if (key == Key.Esc && inEditor) FocusPanel(3);
         else if (key.IsAlt && PanelIndex(key.NoAlt) is { } altPanel) FocusPanel(altPanel);
         else if (!inEditor && VimMotion(key) is { } motion) _panels[CurrentPanel()].SubViews.First().NewKeyDownEvent(motion);
         else if (inEditor || _messages.HasFocus && key != Key.Tab) handled = false;
         else if (PanelIndex(key) is { } panel) FocusPanel(panel);
-        else if (key == Key.Q) App?.RequestStop();
+        else if (key == Key.Q) Quit();
         else if (key == Key.Tab) FocusPanel((CurrentPanel() + 1) % _panels.Length);
         else if (key.AsRune.Value == '?') ShowHelp();
         else if (_connections.HasFocus && key == Key.Enter) ConnectSelected();
@@ -251,8 +268,7 @@ public sealed class MainView : Runnable
     private void DeleteConnection()
     {
         if (SelectedProfile() is not { } profile) return;
-        // MessageBox makes the last button the default, so Enter cancels.
-        if (MessageBox.Query(App!, "Delete connection", $"Delete '{profile.Name}'?", "Delete", "Cancel") != 0) return;
+        if (!ConfirmDialog.Show(App!, "Delete connection", $"Delete '{profile.Name}'?", "Delete", confirmIsDefault: false)) return;
         try
         {
             _store.Remove(profile.Name);

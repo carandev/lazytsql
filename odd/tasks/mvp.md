@@ -14,7 +14,9 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - S9 "que los movimientos también se puedan hacer con los atajos de vim"
 - S10 "Agrega que se pueda escoger si es connection string o por aparte cada valor para iniciar sesión."
 - S11 "En el connection string yo especifiqué la bd pero tengo acceso a todas las bases de datos, que si se indica una bd entonces solo aparezca esa, ya si no se indica entonces que se carguen todas."
-- Backlog (not in scope yet): "que se pueda cargar un directorio con archivos sql o abrir un archivo sql directamente y también poder importar o exportar archivos .bacpac con sqlpackage"
+- S12 "Que haya un mensaje de confirmación antes de cerrar"
+- S13 "sigue con la recomendación": the recommendation accepted was "resaltado + abrir/guardar archivos `.sql`" (T-SQL syntax highlighting in the editor; open a `.sql` file with `lazytsql archivo.sql` and from the TUI, and save it).
+- Backlog (not in scope yet): "que se pueda cargar un directorio con archivos sql o abrir un archivo sql directamente y también poder importar o exportar archivos .bacpac con sqlpackage"; "agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta"
 
 ## Tasks
 - [x] T1 S4 Core domain: batch splitter (`GO`, `GO n`), result models, ports — inline — 14 tests green
@@ -28,6 +30,9 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T9 S9 Vim motions (h/j/k/l, g/G, Ctrl+d/u) outside the editor — inline — tmux e2e (tree g/G/j/k/h/l)
 - [x] T10 S10 Connection dialog: connection string or individual fields — inline — 5 unit tests + tmux e2e (create by fields, connect, toggle modes)
 - [x] T11 S7 Minimal theme: terminal background, focused border accent, no filled panels — inline — rendered screenshots reviewed; AOT TUI smoke test
+- [x] T12 S12 Themed confirmation before quitting (also reused for delete) — inline — tmux e2e: q→n stays, Esc→dialog→Esc stays, Ctrl+Q→Enter exits
+- [ ] T13 S13 Open and save `.sql` files (CLI positional, Ctrl+O, Ctrl+S) — inline
+- [ ] T14 S13 T-SQL syntax highlighting via TextView.OnDrawNormalColor and a Core tokenizer (no new dependency) — inline
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"
@@ -42,3 +47,5 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - L10 2026-10-28 "Mejora la UI para que se vea más minimalista, agrega una opción para que se pueda exportar en csv, que los movimientos también se puedan hacer con los atajos de vim. Agrega que se pueda escoger si es connection string o por aparte cada valor para iniciar sesión. En el connection string yo especifiqué la bd pero tengo acceso a todas las bases de datos, que si se indica una bd entonces solo aparezca esa, ya si no se indica entonces que se carguen todas. Para futuras funcionalidades después de lo pendiente podemos agregar que se pueda cargar un directorio con archivos sql o abrir un archivo sql directamente y también poder importar o exportar archivos .bacpac con sqlpackage"
 - L11 Terminal.Gui emits 24-bit RGB by default even for ColorName16; `Force16Colors` makes it emit ANSI indices so the theme follows the terminal palette. `Scheme(Attribute)` derives Focus by inverting colors, so header and hint schemes set every role explicitly. OptionSelector needs `TabBehavior.NoStop` to be one Tab stop.
 - L12 Evidence: 47 tests green (14 core, 15 app, 18 SQL Server). AOT binary 21 MB, TUI smoke-tested.
+- L13 2026-10-28 "Que haya un mensaje de confirmación antes de cerrar y sigue con la recomendación. Además agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta"
+- L14 Decision: highlighting uses TextView's DrawNormalColor hook with an in-house tokenizer instead of adding the Terminal.Gui.Editor package (TextMate grammars rely on the Oniguruma native library the publish strips). Engram mirror still pending (tools unavailable in this session).
