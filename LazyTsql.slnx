@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LazyTsql.Core/LazyTsql.Core.csproj" />
+    <Project Path="src/LazyTsql.SqlServer/LazyTsql.SqlServer.csproj" />
+    <Project Path="src/LazyTsql/LazyTsql.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LazyTsql.Core.Tests/LazyTsql.Core.Tests.csproj" />
+  </Folder>
+</Solution>
