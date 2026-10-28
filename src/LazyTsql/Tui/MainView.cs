@@ -30,9 +30,9 @@ public sealed class MainView : Runnable
           ?              help
           q / Ctrl+Q     quit          Results [4]
                                          [ ]    previous / next result set
-        Connections [1]
-          Enter          connect       Query [3]
-                                         Esc    leave editor
+        Connections [1]                Query [3]
+          Enter          connect         Esc    leave editor
+          a / e / d      add / edit / delete
         Selected text runs alone; otherwise the whole script runs, batch by batch (GO).
         """;
 
@@ -126,6 +126,9 @@ public sealed class MainView : Runnable
 
     private void OnGlobalKeyDown(object? sender, Key key)
     {
+        // Dialogs own the keyboard while they are open.
+        if (App?.TopRunnableView != this) return;
+
         var inEditor = _editor.HasFocus;
         var handled = true;
 
@@ -140,6 +143,9 @@ public sealed class MainView : Runnable
         else if (key == Key.Tab) FocusPanel((CurrentPanel() + 1) % _panels.Length);
         else if (key.AsRune.Value == '?') ShowHelp();
         else if (_connections.HasFocus && key == Key.Enter) ConnectSelected();
+        else if (_connections.HasFocus && key == Key.A) EditConnection(null);
+        else if (_connections.HasFocus && key == Key.E) EditConnection(SelectedProfile());
+        else if (_connections.HasFocus && key == Key.D) DeleteConnection();
         else if (_schema.HasFocus && key == Key.S) SelectTopFromTable();
         else if (_schema.HasFocus && key == Key.E) OpenDefinition();
         else if (_schema.HasFocus && key == Key.R) ReloadSchema();
@@ -173,14 +179,57 @@ public sealed class MainView : Runnable
         _connectionNames.Clear();
         foreach (var profile in _profiles) _connectionNames.Add(profile.Name);
         if (_profiles.Count > 0) _connections.SelectedItem = 0;
-        if (_profiles.Count == 0) Log($"No saved connections. Add one with: lazytsql connections add <name> \"<connection string>\"");
+        if (_profiles.Count == 0) Log("No saved connections. Focus [1] and press 'a' to add one.");
+    }
+
+    private ConnectionProfile? SelectedProfile()
+    {
+        var index = _connections.SelectedItem ?? 0;
+        return index < _profiles.Count ? _profiles[index] : null;
+    }
+
+    private void SelectProfile(string name)
+    {
+        var index = _profiles.ToList().FindIndex(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (index >= 0) _connections.SelectedItem = index;
+    }
+
+    private void EditConnection(ConnectionProfile? existing)
+    {
+        if (ConnectionDialog.Show(App!, existing) is not { } profile) return;
+        try
+        {
+            _store.Upsert(profile, replacing: existing?.Name);
+            ReloadConnections();
+            SelectProfile(profile.Name);
+            Log(existing is null ? $"Saved connection '{profile.Name}'. Press Enter to connect." : $"Updated connection '{profile.Name}'.");
+        }
+        catch (IOException ex)
+        {
+            Log($"✗ Could not save {_store.Path}: {ex.Message}");
+        }
+    }
+
+    private void DeleteConnection()
+    {
+        if (SelectedProfile() is not { } profile) return;
+        // MessageBox makes the last button the default, so Enter cancels.
+        if (MessageBox.Query(App!, "Delete connection", $"Delete '{profile.Name}'?", "Delete", "Cancel") != 0) return;
+        try
+        {
+            _store.Remove(profile.Name);
+            ReloadConnections();
+            Log($"Deleted connection '{profile.Name}'.");
+        }
+        catch (IOException ex)
+        {
+            Log($"✗ Could not save {_store.Path}: {ex.Message}");
+        }
     }
 
     private void ConnectSelected()
     {
-        var index = _connections.SelectedItem ?? 0;
-        if (index >= _profiles.Count) return;
-        var profile = _profiles[index];
+        if (SelectedProfile() is not { } profile) return;
         try
         {
             Connect(ConnectionStringResolver.Resolve(profile.ConnectionString, Environment.GetEnvironmentVariable), profile.Name);

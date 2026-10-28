@@ -14,6 +14,9 @@ present on virtually every distribution.
 
 ## Connections
 
+Manage them from the TUI: focus panel `[1]` and press `a` to add, `e` to edit (renaming included),
+`d` to delete (Enter cancels the confirmation) and `Enter` to connect. The same profiles are available from the CLI:
+
 ```bash
 lazytsql connections add dev 'Server=localhost,1433;Database=app;User Id=sa;Password=${DEV_DB_PASSWORD};TrustServerCertificate=true'
 lazytsql connections list
@@ -28,7 +31,7 @@ owner-only permissions. Reference secrets as `${VAR}` so they stay in the enviro
 ## TUI
 
 ```bash
-lazytsql            # pick a connection in panel [1]
+lazytsql            # pick or create a connection in panel [1]
 lazytsql -c dev     # connect on start
 ```
 
@@ -38,6 +41,7 @@ lazytsql -c dev     # connect on start
 | `F5` / `Ctrl+E` | Run the selection, or the whole script batch by batch (`GO`, `GO n`) |
 | `Ctrl+K` | Cancel the running query |
 | `Enter` | Connect (panel 1), expand or collapse (panel 2) |
+| `a` / `e` / `d` | Add, edit or delete a connection (panel 1) |
 | `s` | `SELECT TOP (100)` from the selected table or view |
 | `e` | Open the selected procedure or function definition in the editor |
 | `r` | Reload the schema |

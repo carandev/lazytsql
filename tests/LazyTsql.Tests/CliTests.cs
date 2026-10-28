@@ -53,6 +53,17 @@ public sealed class CliTests : IDisposable
     }
 
     [Fact]
+    public void Upsert_replacing_an_old_name_renames_the_profile()
+    {
+        Store.Upsert(new ConnectionProfile("dev", "Server=a;"));
+        Store.Upsert(new ConnectionProfile("prod", "Server=p;"));
+
+        Store.Upsert(new ConnectionProfile("local", "Server=b;"), replacing: "dev");
+
+        Assert.Equal([new ConnectionProfile("local", "Server=b;"), new ConnectionProfile("prod", "Server=p;")], Store.Load());
+    }
+
+    [Fact]
     public void Resolver_prefers_saved_profile_then_raw_string_then_environment()
     {
         Store.Upsert(new ConnectionProfile("dev", "Server=db;Password=${PASS};"));

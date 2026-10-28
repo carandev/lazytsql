@@ -44,9 +44,13 @@ public sealed class FileConnectionStore(string path)
         File.Move(temporary, Path, overwrite: true);
     }
 
-    public void Upsert(ConnectionProfile profile)
+    /// <summary>Adds or replaces a profile by name; <paramref name="replacing"/> also drops the old name, which renames it.</summary>
+    public void Upsert(ConnectionProfile profile, string? replacing = null)
     {
-        var profiles = Load().Where(p => !p.Name.Equals(profile.Name, StringComparison.OrdinalIgnoreCase)).Append(profile);
+        var profiles = Load()
+            .Where(p => !p.Name.Equals(profile.Name, StringComparison.OrdinalIgnoreCase))
+            .Where(p => replacing is null || !p.Name.Equals(replacing, StringComparison.OrdinalIgnoreCase))
+            .Append(profile);
         Save(profiles.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList());
     }
 
