@@ -19,5 +19,5 @@ public static class ValueFormatter
     };
 
     public static string FormatSingleLine(object? value) =>
-        Format(value).ReplaceLineEndings("⏎");
+        Format(value).ReplaceLineEndings("⏎").Replace('\t', ' ');
 }

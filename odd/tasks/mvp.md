@@ -13,7 +13,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T1 S4 Core domain: batch splitter (`GO`, `GO n`), result models, ports — inline — 14 tests green
 - [x] T2 S1 SQL Server adapter: execute batches, multiple result sets, PRINT messages, schema introspection — inline — 12 tests green against SQL Server 2022 container
 - [x] T3 S4,S5 Headless CLI: `query`, `schema`, `connections` with `--json`; connection config — inline — 7 tests green + e2e smoke against container
-- T4 S2 TUI: numbered panels (connections, schema, editor, results), keybindings, status bar — inline
+- [x] T4 S2 TUI: numbered panels (connections, schema, editor, results), keybindings, status bar — inline — 2 tests + tmux e2e (connect, schema tree, SELECT TOP, definitions, multi result sets, PRINT, quit)
 - T5 S3 Native AOT publish, measure binary size and memory — inline
 
 ## Log
