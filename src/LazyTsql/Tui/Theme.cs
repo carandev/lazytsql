@@ -1,3 +1,4 @@
+using LazyTsql.Core.Syntax;
 using Terminal.Gui.Drawing;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
@@ -42,6 +43,23 @@ public static class Theme
     public static Scheme TableHeader { get; } = Uniform(new Attribute(Default, Default, TextStyle.Bold));
 
     public static Scheme Hints { get; } = Uniform(new Attribute(Muted, Default));
+
+    private static readonly Attribute KeywordText = new(Selection, Default, TextStyle.Bold);
+    private static readonly Attribute StringText = new(Accent, Default);
+    private static readonly Attribute CommentText = new(Muted, Default, TextStyle.Italic);
+    private static readonly Attribute NumberText = new(new Color(ColorName16.Magenta), Default);
+    private static readonly Attribute VariableText = new(new Color(ColorName16.Cyan), Default);
+
+    /// <summary>Editor color for a token; null keeps the normal text color.</summary>
+    public static Attribute? Syntax(SqlTokenKind kind) => kind switch
+    {
+        SqlTokenKind.Keyword => KeywordText,
+        SqlTokenKind.String => StringText,
+        SqlTokenKind.Comment => CommentText,
+        SqlTokenKind.Number => NumberText,
+        SqlTokenKind.Variable => VariableText,
+        _ => null,
+    };
 
     // Scheme(Attribute) derives Focus and others by inverting colors; a uniform scheme keeps one look in every role.
     private static Scheme Uniform(Attribute attribute) => new(attribute)

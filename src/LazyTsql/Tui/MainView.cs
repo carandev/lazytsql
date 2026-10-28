@@ -49,7 +49,7 @@ public sealed class MainView : Runnable
     private readonly FrameView[] _panels;
     private readonly ListView _connections;
     private readonly TreeView<SchemaNode> _schema;
-    private readonly TextView _editor;
+    private readonly SqlEditor _editor;
     private readonly TableView _results;
     private readonly TextView _messages;
     private readonly Label _hints;
@@ -81,7 +81,7 @@ public sealed class MainView : Runnable
             TreeBuilder = new DelegateTreeBuilder<SchemaNode>(GetChildren, node => node.CanExpand),
         };
 
-        _editor = new TextView { Width = Dim.Fill(), Height = Dim.Fill(), Text = "SELECT @@VERSION;" };
+        _editor = new SqlEditor { Width = Dim.Fill(), Height = Dim.Fill(), Text = "SELECT @@VERSION;" };
         _results = new TableView { Width = Dim.Fill(), Height = Dim.Fill(), FullRowSelect = false };
         _results.Style.ExpandLastColumn = false;
         _results.Style.ShowHorizontalHeaderOverline = false;

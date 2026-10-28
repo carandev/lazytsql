@@ -66,6 +66,7 @@ unchanged. Quitting or replacing the editor contents (`s`, `e`) asks first when 
 
 The UI keeps the terminal's own background and uses the 16 ANSI colors, so it follows your terminal theme:
 gray borders, green border on the focused panel and a context line with the keys for that panel.
+The editor highlights T-SQL keywords and types, strings, comments, numbers and `@variables`.
 
 ## Headless mode (scripts and agents)
 

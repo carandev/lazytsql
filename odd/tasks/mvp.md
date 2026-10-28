@@ -32,7 +32,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T11 S7 Minimal theme: terminal background, focused border accent, no filled panels — inline — rendered screenshots reviewed; AOT TUI smoke test
 - [x] T12 S12 Themed confirmation before quitting (also reused for delete) — inline — tmux e2e: q→n stays, Esc→dialog→Esc stays, Ctrl+Q→Enter exits
 - [x] T13 S13 Open and save `.sql` files (CLI positional, Ctrl+O, Ctrl+S) — inline — 3 tests (RED then GREEN) + tmux e2e: open CRLF file, dirty title, save keeps CRLF, discard/overwrite confirms, new file, save-as
-- [ ] T14 S13 T-SQL syntax highlighting via TextView.OnDrawNormalColor and a Core tokenizer (no new dependency) — inline
+- [x] T14 S13 T-SQL syntax highlighting via TextView.OnDrawNormalColor and a Core tokenizer (no new dependency) — inline — 7 tokenizer tests + tmux ANSI capture (vertical/horizontal scroll, reload on open, definitions) + AOT smoke
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"
@@ -49,3 +49,5 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - L12 Evidence: 47 tests green (14 core, 15 app, 18 SQL Server). AOT binary 21 MB, TUI smoke-tested.
 - L13 2026-10-28 "Que haya un mensaje de confirmación antes de cerrar y sigue con la recomendación. Además agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta"
 - L14 Decision: highlighting uses TextView's DrawNormalColor hook with an in-house tokenizer instead of adding the Terminal.Gui.Editor package (TextMate grammars rely on the Oniguruma native library the publish strips). Engram mirror still pending (tools unavailable in this session).
+- L15 Evidence: 51 tests green, 6 SQL Server integration tests skipped (no LAZYTSQL_TEST_CONNECTION in this run); TUI e2e against a SQL Server 2022 container. AOT binary 21 MB. Dialog heights were clipping content: PromptDialog (export CSV too) and the new ConfirmDialog. Terminal.Gui marks the last dialog button as default, so the default button goes last.
+- L16 Finding (pre-existing, not fixed): `-c` with a raw connection string uses it as the display name, so the editor title and the messages panel show the password.
