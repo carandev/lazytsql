@@ -73,18 +73,20 @@ public static class SqlCompletion
     {
         if (context is not null && ObjectKeywords.Contains(context))
         {
-            foreach (var item in catalog.Objects(database) ?? [])
+            var objects = catalog.Objects(database) ?? [];
+            foreach (var item in objects)
             {
-                if (item.Kind != DbObjectKind.Procedure) candidates.Add(new(Qualified(item), KindOf(item)), item.Name, $"{item.Schema}.{item.Name}");
+                if (item.Kind != DbObjectKind.Procedure) candidates.Add(new(Qualified(item, objects), KindOf(item)), item.Name, $"{item.Schema}.{item.Name}");
             }
 
             foreach (var name in catalog.Databases) candidates.Add(new(Quote(name), CompletionKind.Database), name);
         }
         else if (context is not null && RoutineKeywords.Contains(context))
         {
-            foreach (var item in catalog.Objects(database) ?? [])
+            var objects = catalog.Objects(database) ?? [];
+            foreach (var item in objects)
             {
-                if (item.Kind == DbObjectKind.Procedure) candidates.Add(new(Qualified(item), CompletionKind.Procedure), item.Name, $"{item.Schema}.{item.Name}");
+                if (item.Kind == DbObjectKind.Procedure) candidates.Add(new(Qualified(item, objects), CompletionKind.Procedure), item.Name, $"{item.Schema}.{item.Name}");
             }
         }
         else
@@ -254,7 +256,14 @@ public static class SqlCompletion
         _ => CompletionKind.Function,
     };
 
-    private static string Qualified(DbObject item) => $"{Quote(item.Schema)}.{Quote(item.Name)}";
+    /// <summary>
+    /// The name to insert. An unqualified name resolves in the user's default schema and then in dbo, so a dbo object
+    /// whose name no other schema uses needs no schema; anything else keeps it.
+    /// </summary>
+    private static string Qualified(DbObject item, IReadOnlyList<DbObject> objects) =>
+        Same(item.Schema, "dbo") && objects.Count(other => Same(other.Name, item.Name)) == 1
+            ? Quote(item.Name)
+            : $"{Quote(item.Schema)}.{Quote(item.Name)}";
 
     /// <summary>Brackets a name unless it is a regular identifier that is not a keyword.</summary>
     public static string Quote(string name)

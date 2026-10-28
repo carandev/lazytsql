@@ -22,6 +22,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - S17 "en el footer del tui se vaya mostrando según el panel o modal las teclas que puede usar y un breve resumen de para qué, incluso si son muchas que al darle en "?" por defecto solo muestre las de ese panel o modal y que pueda expandir a ver las de todo el sistema"
 - S18 "Al exportar debería exportar todo, no solo las primeras 1000, además debería haber una opción para escoger la cantidad que quiero o si quiero que traiga todo al visualizar"
 - S19 "ahora el autocompletado según la bd cómo se podría hacer?" → "Dale" to the proposed plan: suggestions from the connected database (tables and views after FROM/JOIN, procedures after EXEC, columns by alias or table name, other databases with db.schema.object), Tab accepts, Ctrl+Space opens, Esc closes the popup before leaving the editor, no suggestions inside strings or comments; one commit per step.
+- S20 "Puede sugerir relaciones y que no sugiera el dbo. para la tabla? Si no es necesario? No sé si hay manera de tener eso en cuenta"
 - Backlog (not in scope yet): "que se pueda cargar un directorio con archivos sql o abrir un archivo sql directamente y también poder importar o exportar archivos .bacpac con sqlpackage"; "agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta"
 
 ## Tasks
@@ -46,6 +47,8 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T19 S19 Catalog per database without switching the session database + completion engine for objects and keywords + editor popup — inline — 7 engine tests + 1 SQL Server test (another database, name with `]` and `'`, current database unchanged) + tmux e2e: FROM, EXEC, `dbo.`, Tab accepts, Esc closes popup then leaves editor, popup refreshes when names finish loading; CLI `schema` differential vs base identical (5 cases)
 - [x] T20 S19 Columns: alias and table resolution in the current statement, lazy column loading — inline — 5 engine tests (RED then GREEN) + tmux e2e: `c.na`→`c.name` and `o.t`→`o.total` mid-line with text after the cursor, `WHERE em`→`email`
 - [x] T21 S19 Other databases: db. → schemas, db.schema. → objects, db.schema.object. → columns — inline — 4 engine tests (3 RED then GREEN; the alias case already passed through T20) + tmux e2e from master: `sh`→`shop`, `shop.`→`dbo`, `shop.dbo.c`→`customers`, `x.`→columns, title stays `› master`
+- [x] T22 S20 Insert dbo names without the schema when no other schema has the same name — inline — 3 engine tests RED then GREEN + 1 ambiguity test
+- [ ] T23 S20 Relationships from foreign keys: after JOIN suggest `table alias ON ...`, after ON the condition — inline
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"
@@ -77,3 +80,5 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - L27 Finding: TextView only regenerates and draws the popup after an edit, and a closed popup opens on one RenderOverlay call and draws on the next; `SqlEditor.RefreshCompletion` mirrors that so names that finish loading show without another keystroke. The default popup MaxWidth (10) cut names; it is 60.
 - L28 Finding: Terminal.Gui's popup accepts by moving the cursor forward by Suggestion.Remove and deleting backwards, so completing mid-line deleted the text after the cursor; SqlEditor installs its own TextViewAutocomplete that deletes only the typed prefix. Its HostControl must not be set in the constructor (NullReferenceException at startup); TextView attaches it in EndInit.
 - L29 T19-T21 done. Not rebuilt as AOT since T14.
+- L30 2026-10-28 "Puede sugerir relaciones y que no sugiera el dbo. para la tabla? Si no es necesario? No sé si hay manera de tener eso en cuenta"
+- L31 Decision: an unqualified name resolves in the user's default schema and then in dbo, so the schema is dropped only for dbo objects whose name no other schema in that database uses (safe whatever the default schema is); other schemas keep it because the default schema is not loaded.

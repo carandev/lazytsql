@@ -39,25 +39,34 @@ public class SqlCompletionTests
     private static string[] Texts(CompletionResult result) => [.. result.Items.Select(item => item.Text)];
 
     [Fact]
-    public void After_FROM_suggests_tables_views_and_functions_by_name_with_their_schema()
+    public void After_FROM_suggests_tables_views_and_functions_with_their_schema_unless_it_is_dbo()
     {
         var result = Suggest("SELECT * FROM cu|");
 
         Assert.Equal(2, result.Remove);
-        Assert.Equal(["dbo.customers", "sales.customer_totals", "dbo.customer_rank"], Texts(result));
+        Assert.Equal(["customers", "sales.customer_totals", "customer_rank"], Texts(result));
         Assert.Equal([CompletionKind.Table, CompletionKind.View, CompletionKind.Function], result.Items.Select(item => item.Kind));
     }
 
     [Fact]
     public void After_JOIN_names_that_need_brackets_get_them()
     {
-        Assert.Contains("dbo.[order details]", Texts(Suggest("SELECT * FROM a\nJOIN ord|")));
+        Assert.Contains("[order details]", Texts(Suggest("SELECT * FROM a\nJOIN ord|")));
     }
 
     [Fact]
     public void After_EXEC_suggests_only_procedures()
     {
-        Assert.Equal(["dbo.get_customers"], Texts(Suggest("EXEC get|")));
+        Assert.Equal(["get_customers"], Texts(Suggest("EXEC get|")));
+    }
+
+    [Fact]
+    public void A_dbo_name_that_another_schema_also_has_keeps_its_schema()
+    {
+        var catalog = Catalog();
+        catalog.SetObjects("shop", [new DbObject("dbo", "orders", DbObjectKind.Table), new DbObject("sales", "orders", DbObjectKind.Table)]);
+
+        Assert.Equal(["dbo.orders", "sales.orders"], Texts(Suggest("SELECT * FROM ord|", catalog)));
     }
 
     [Fact]
