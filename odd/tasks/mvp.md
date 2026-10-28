@@ -24,8 +24,8 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T5 S3 Native AOT publish, measure binary size and memory — inline — verified at runtime
 - [x] T6 S6 Manage connections (add, edit, delete) from TUI panel [1] — inline — rename test + tmux e2e (add, connect, rename, delete confirm)
 - [x] T7 S11 Schema tree shows only the connection's database when one is set — inline — integration test green
-- T8 S8 CSV export: results panel and `query --csv` — inline
-- T9 S9 Vim motions (h/j/k/l, g/G, Ctrl+d/u) outside the editor — inline
+- [x] T8 S8 CSV export: results panel and `query --csv` — inline — 5 tests + tmux e2e export
+- [x] T9 S9 Vim motions (h/j/k/l, g/G, Ctrl+d/u) outside the editor — inline — tmux e2e (tree g/G/j/k/h/l)
 - T10 S10 Connection dialog: connection string or individual fields — inline
 - T11 S7 Minimal theme: terminal background, focused border accent, no filled panels — inline
 

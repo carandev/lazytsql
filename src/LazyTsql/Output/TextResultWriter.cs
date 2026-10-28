@@ -12,14 +12,20 @@ public static class TextResultWriter
         foreach (var result in results)
         {
             foreach (var resultSet in result.ResultSets) WriteTable(output, resultSet);
-            foreach (var message in result.Messages)
-            {
-                var line = result.Batch.StartLine + Math.Max(message.LineNumber, 1) - 1;
-                output.WriteLine(message.IsError ? $"Msg {message.Number}, Level {message.Severity}, Line {line}: {message.Text}" : message.Text);
-            }
-
-            if (result.RecordsAffected >= 0) output.WriteLine($"({result.RecordsAffected} rows affected)");
+            WriteMessages(output, result);
         }
+    }
+
+    /// <summary>Server messages in sqlcmd format, with lines relative to the submitted script.</summary>
+    public static void WriteMessages(TextWriter output, BatchResult result)
+    {
+        foreach (var message in result.Messages)
+        {
+            var line = result.Batch.StartLine + Math.Max(message.LineNumber, 1) - 1;
+            output.WriteLine(message.IsError ? $"Msg {message.Number}, Level {message.Severity}, Line {line}: {message.Text}" : message.Text);
+        }
+
+        if (result.RecordsAffected >= 0) output.WriteLine($"({result.RecordsAffected} rows affected)");
     }
 
     public static void WriteTable(TextWriter output, ResultSet resultSet)

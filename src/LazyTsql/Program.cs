@@ -9,13 +9,14 @@ const string Usage = """
 
     Usage:
       lazytsql [-c <connection>]                 Open the TUI
-      lazytsql query  [-c <conn>] [-d <db>] (-q <sql> | -f <file> | stdin) [--json] [--max-rows N] [--timeout S]
+      lazytsql query  [-c <conn>] [-d <db>] (-q <sql> | -f <file> | stdin) [--json | --csv] [--max-rows N] [--timeout S]
       lazytsql schema [-c <conn>] [-d <db>] [<schema.object>] [--json]
       lazytsql databases [-c <conn>]
       lazytsql connections [list | add <name> <connection string> | remove <name>]
 
     <connection> is a saved name or a raw connection string; defaults to $LAZYTSQL_CONNECTION.
     Connection strings may reference environment variables as ${VAR}.
+    --csv writes rows only to stdout (one block per result set) and messages to stderr.
     Exit codes: 0 success, 1 SQL errors, 2 usage or connection errors.
     """;
 
@@ -44,7 +45,7 @@ try
 
     var store = FileConnectionStore.Default();
     var connector = new SqlServerConnector();
-    var commands = new HeadlessCommands(connector, store, Console.Out, Console.OpenStandardOutput(), Console.In, Environment.GetEnvironmentVariable);
+    var commands = new HeadlessCommands(connector, store, Console.Out, Console.OpenStandardOutput(), Console.Error, Console.In, Environment.GetEnvironmentVariable);
 
     return arguments.Command switch
     {
@@ -58,7 +59,12 @@ try
 }
 catch (Exception ex)
 {
-    if (json) JsonResultWriter.WriteError(Console.OpenStandardOutput(), ex.Message);
+    if (json)
+    {
+        using var stdout = Console.OpenStandardOutput();
+        JsonResultWriter.WriteError(stdout, ex.Message);
+        stdout.WriteByte((byte)'\n');
+    }
     else Console.Error.WriteLine($"lazytsql: {ex.Message}");
     return 2;
 }

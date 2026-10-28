@@ -13,11 +13,13 @@ public sealed class HeadlessCommands(
     FileConnectionStore store,
     TextWriter stdout,
     Stream stdoutStream,
+    TextWriter stderr,
     TextReader stdin,
     Func<string, string?> getEnvironmentVariable)
 {
     public async Task<int> QueryAsync(CliArguments args, CancellationToken cancellationToken)
     {
+        if (args.Has("--json") && args.Has("--csv")) throw new CliException("Use either --json or --csv, not both.");
         var script = ReadScript(args);
         var options = new QueryOptions(args.GetInt("-m", "--max-rows", 1000), args.GetInt("-t", "--timeout", 30));
         await using var session = await OpenAsync(args, cancellationToken);
@@ -29,6 +31,7 @@ public sealed class HeadlessCommands(
         }
 
         if (args.Has("--json")) WriteJson(stream => JsonResultWriter.WriteBatches(stream, results));
+        else if (args.Has("--csv")) WriteCsv(results);
         else TextResultWriter.WriteBatches(stdout, results);
 
         return results.Any(r => r.HasErrors) ? 1 : 0;
@@ -113,6 +116,23 @@ public sealed class HeadlessCommands(
                    o.Schema.Equals(schema, StringComparison.OrdinalIgnoreCase) &&
                    o.Name.Equals(objectName, StringComparison.OrdinalIgnoreCase))
                ?? throw new CliException($"Object '{name}' was not found in the current database.");
+    }
+
+    /// <summary>Only rows go to stdout so the output can be redirected to a file; messages go to stderr.</summary>
+    private void WriteCsv(IReadOnlyList<BatchResult> results)
+    {
+        var first = true;
+        foreach (var result in results)
+        {
+            foreach (var resultSet in result.ResultSets)
+            {
+                if (!first) stdout.Write('\n');
+                CsvResultWriter.Write(stdout, resultSet);
+                first = false;
+            }
+
+            TextResultWriter.WriteMessages(stderr, result);
+        }
     }
 
     private void WriteJson(Action<Stream> write)

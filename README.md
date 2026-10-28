@@ -26,6 +26,9 @@ lazytsql connections remove dev
 Profiles live in `$XDG_CONFIG_HOME/lazytsql/connections.json` (`~/.config/...` by default), created with
 owner-only permissions. Reference secrets as `${VAR}` so they stay in the environment instead of the file.
 
+When the connection string names a database (`Database=` / `Initial Catalog=`), the schema tree shows only that
+database; otherwise it lists every database you can access.
+
 `-c` accepts a saved name or a raw connection string. Without `-c`, `$LAZYTSQL_CONNECTION` is used.
 
 ## TUI
@@ -46,6 +49,8 @@ lazytsql -c dev     # connect on start
 | `e` | Open the selected procedure or function definition in the editor |
 | `r` | Reload the schema |
 | `[` / `]` | Previous / next result set |
+| `x` | Export the current result set to CSV (UTF-8 with BOM so Excel keeps accents) |
+| `h` `j` `k` `l`, `g` / `G`, `Ctrl+D` / `Ctrl+U` | Vim motions outside the editor (`h`/`l` collapse/expand in the schema) |
 | `Esc` | Leave the editor |
 | `?` | Help |
 | `q` / `Ctrl+Q` | Quit (`q` only outside the editor) |
@@ -57,6 +62,7 @@ Result sets are capped at 1000 rows to keep memory bounded.
 ```bash
 lazytsql query -c dev -q "SELECT TOP 5 * FROM dbo.users" --json
 lazytsql query -c dev -f migration.sql            # GO batches, stops at the first failing batch
+lazytsql query -c dev -q "SELECT * FROM dbo.users" --csv > users.csv   # rows on stdout, messages on stderr
 echo "SELECT 1" | lazytsql query -c dev --json
 lazytsql schema -c dev -d app --json              # tables, views, procedures, functions
 lazytsql schema -c dev -d app dbo.users --json    # columns

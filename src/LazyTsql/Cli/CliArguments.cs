@@ -5,7 +5,7 @@ public sealed class CliException(string message) : Exception(message);
 /// <summary>Minimal parser: a command, positional values and <c>-x value</c> / <c>--flag</c> options.</summary>
 public sealed class CliArguments
 {
-    private static readonly HashSet<string> Flags = ["--json", "-h", "--help", "--version"];
+    private static readonly HashSet<string> Flags = ["--json", "--csv", "-h", "--help", "--version"];
 
     private readonly Dictionary<string, string> _options = new(StringComparer.Ordinal);
     private readonly HashSet<string> _flags = new(StringComparer.Ordinal);

@@ -25,11 +25,15 @@ public sealed class MainView : Runnable
         Global                         Schema [2]
           1-5 / Alt+1-5  focus panel     Enter  expand / collapse
           Tab            next panel      s      SELECT TOP 100 from table
+          h j k l        move (vim)      h / l  collapse / expand
+          g / G          top / bottom
+          Ctrl+D / Ctrl+U  page down / up
           F5 / Ctrl+E    run query       e      open definition in editor
           Ctrl+K         cancel query    r      reload schema  
           ?              help
           q / Ctrl+Q     quit          Results [4]
                                          [ ]    previous / next result set
+                                         x      export result set to CSV
         Connections [1]                Query [3]
           Enter          connect         Esc    leave editor
           a / e / d      add / edit / delete
@@ -137,6 +141,7 @@ public sealed class MainView : Runnable
         else if (key == Key.Q.WithCtrl) App?.RequestStop();
         else if (key == Key.Esc && inEditor) FocusPanel(3);
         else if (key.IsAlt && PanelIndex(key.NoAlt) is { } altPanel) FocusPanel(altPanel);
+        else if (!inEditor && VimMotion(key) is { } motion) _panels[CurrentPanel()].SubViews.First().NewKeyDownEvent(motion);
         else if (inEditor || _messages.HasFocus && key != Key.Tab) handled = false;
         else if (PanelIndex(key) is { } panel) FocusPanel(panel);
         else if (key == Key.Q) App?.RequestStop();
@@ -152,9 +157,28 @@ public sealed class MainView : Runnable
         else if (_schema.HasFocus && key == Key.Enter) ToggleSchemaNode();
         else if (_results.HasFocus && key.AsRune.Value == ']') ShowResultSet(_resultIndex + 1);
         else if (_results.HasFocus && key.AsRune.Value == '[') ShowResultSet(_resultIndex - 1);
+        else if (_results.HasFocus && key == Key.X) ExportResultSet();
         else handled = false;
 
         key.Handled = handled;
+    }
+
+    /// <summary>Vim motions translated to the arrow keys each view already binds, so behavior matches the arrows exactly.</summary>
+    private static Key? VimMotion(Key key)
+    {
+        if (key == Key.D.WithCtrl) return Key.PageDown;
+        if (key == Key.U.WithCtrl) return Key.PageUp;
+        if (key.IsCtrl || key.IsAlt) return null;
+        return key.AsRune.Value switch
+        {
+            'j' => Key.CursorDown,
+            'k' => Key.CursorUp,
+            'h' => Key.CursorLeft,
+            'l' => Key.CursorRight,
+            'g' => Key.Home,
+            'G' => Key.End,
+            _ => null,
+        };
     }
 
     private static int? PanelIndex(Key key) =>
@@ -439,6 +463,41 @@ public sealed class MainView : Runnable
         var position = _resultSets.Count > 1 ? $" {_resultIndex + 1}/{_resultSets.Count} [ ]" : string.Empty;
         _panels[3].Title = $"[4] Results{position} · {rows}";
     }
+
+    private void ExportResultSet()
+    {
+        if (_resultSets.Count == 0)
+        {
+            Log("Nothing to export. Run a query first.");
+            return;
+        }
+
+        var suggested = Path.Combine(Environment.CurrentDirectory, $"results-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
+        if (PromptDialog.Show(App!, "Export CSV", "File:", suggested) is not { } path) return;
+
+        try
+        {
+            path = ExpandHome(path);
+            var resultSet = _resultSets[_resultIndex];
+            // The BOM lets Excel detect UTF-8, so accents and ñ survive opening the file.
+            using (var writer = new StreamWriter(path, append: false, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true)))
+            {
+                Output.CsvResultWriter.Write(writer, resultSet);
+            }
+
+            var note = resultSet.IsTruncated ? $" (only the first {resultSet.Rows.Count} rows were fetched)" : string.Empty;
+            Log($"Exported {resultSet.Rows.Count} rows to {path}{note}.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            Log($"✗ Export failed: {ex.Message}");
+        }
+    }
+
+    private static string ExpandHome(string path) =>
+        path == "~" || path.StartsWith("~/", StringComparison.Ordinal)
+            ? Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), path[1..].TrimStart('/')))
+            : Path.GetFullPath(path);
 
     private void LogBatch(BatchResult result)
     {
