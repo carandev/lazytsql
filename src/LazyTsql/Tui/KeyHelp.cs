@@ -12,6 +12,7 @@ public enum KeyContext
     FilePicker,
     Confirm,
     ConnectionForm,
+    RowLimit,
     Help,
 }
 
@@ -45,7 +46,12 @@ public static class KeyHelp
             ("r", "reload"),
         ]),
         new(KeyContext.Query, "Query [3]", [("F5", "run selection or all"), ("Ctrl+K", "cancel"), ("Ctrl+S", "save"), ("Esc", "leave editor")]),
-        new(KeyContext.Results, "Results [4]", [("[/]", "prev/next set"), ("x", "export to CSV"), ("h j k l", "move")]),
+        new(KeyContext.Results, "Results [4]", [
+            ("[/]", "prev/next set"),
+            ("x", "export to CSV"),
+            ("m", "row limit"),
+            ("h j k l", "move"),
+        ]),
         new(KeyContext.Messages, "Messages [5]", [("j/k", "scroll")]),
         new(KeyContext.FilePicker, "File picker", [
             ("Tab", "complete"),
@@ -61,6 +67,7 @@ public static class KeyHelp
             ("Enter", "save"),
             ("Esc", "cancel"),
         ]),
+        new(KeyContext.RowLimit, "Row limit", [("Enter", "apply"), ("Esc", "cancel")]),
         new(KeyContext.Help, "Help", [("a", "context/all keys"), ("j/k", "scroll"), ("Esc", "close")]),
     ];
 
@@ -73,7 +80,7 @@ public static class KeyHelp
             KeyContext.Global or KeyContext.Connections or KeyContext.Schema or KeyContext.Results or KeyContext.Messages =>
                 "1-5 panels · ? help · q quit",
             KeyContext.Query => "Alt+1-5 panels · F1 help · Ctrl+Q quit",
-            KeyContext.FilePicker or KeyContext.ConnectionForm => "F1 help",
+            KeyContext.FilePicker or KeyContext.ConnectionForm or KeyContext.RowLimit => "F1 help",
             KeyContext.Confirm => "? help",
             _ => null,
         };

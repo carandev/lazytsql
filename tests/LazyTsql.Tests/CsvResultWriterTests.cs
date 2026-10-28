@@ -31,4 +31,17 @@ public class CsvResultWriterTests
 
         Assert.Equal("full name\n\" padded \"\n", output.ToString());
     }
+
+    [Fact]
+    public void Streamed_rows_match_the_in_memory_output()
+    {
+        var output = new StringWriter();
+        var sink = new CsvRowWriter(output);
+
+        sink.Begin([new ColumnInfo("id", "int"), new ColumnInfo("name", "nvarchar")]);
+        sink.Row([1, "a,b"]);
+        sink.Row([2, null]);
+
+        Assert.Equal("id,name\n1,\"a,b\"\n2,\n", output.ToString());
+    }
 }

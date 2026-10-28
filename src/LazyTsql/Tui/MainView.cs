@@ -37,7 +37,8 @@ public sealed class MainView : Runnable
     private IDatabaseSession? _session;
     private string? _sessionName;
     private CancellationTokenSource? _queryCancellation;
-    private List<ResultSet> _resultSets = [];
+    private List<ShownResult> _resultSets = [];
+    private int _maxRows = new QueryOptions().MaxRows;
     private int _resultIndex;
     private bool _quitConfirmed;
     private ScriptFile? _script;
@@ -187,6 +188,7 @@ public sealed class MainView : Runnable
         else if (_results.HasFocus && key.AsRune.Value == ']') ShowResultSet(_resultIndex + 1);
         else if (_results.HasFocus && key.AsRune.Value == '[') ShowResultSet(_resultIndex - 1);
         else if (_results.HasFocus && key == Key.X) ExportResultSet();
+        else if (_results.HasFocus && key == Key.M) ChangeRowLimit();
         else handled = false;
 
         key.Handled = handled;
@@ -456,11 +458,12 @@ public sealed class MainView : Runnable
 
         RunInBackground(async _ =>
         {
-            var resultSets = new List<ResultSet>();
+            var session = RequireSession();
+            var resultSets = new List<ShownResult>();
             var total = TimeSpan.Zero;
-            await foreach (var result in ScriptRunner.RunAsync(RequireSession(), script, new QueryOptions(), cancellation.Token))
+            await foreach (var result in ScriptRunner.RunAsync(session, script, new QueryOptions(_maxRows), cancellation.Token))
             {
-                resultSets.AddRange(result.ResultSets);
+                resultSets.AddRange(result.ResultSets.Select((set, i) => new ShownResult(set, session, result.Batch, i)));
                 total += result.Elapsed;
                 OnUi(() => LogBatch(result));
             }
@@ -494,7 +497,7 @@ public sealed class MainView : Runnable
         }
 
         _resultIndex = Math.Clamp(index, 0, _resultSets.Count - 1);
-        var resultSet = _resultSets[_resultIndex];
+        var resultSet = _resultSets[_resultIndex].Set;
         _results.Table = new ResultSetTableSource(resultSet);
         var count = resultSet.Rows.Count;
         var rows = resultSet.IsTruncated ? $"first {count} rows" : count == 1 ? "1 row" : $"{count} rows";
@@ -510,25 +513,77 @@ public sealed class MainView : Runnable
             return;
         }
 
+        var shown = _resultSets[_resultIndex];
+        if (shown.Set.IsTruncated && shown.Session != _session)
+        {
+            Log("✗ The connection changed since this result was fetched. Run the query again to export every row.");
+            return;
+        }
+
+        // The grid holds only the fetched rows: every row means running the batch again, which repeats its side effects.
+        if (shown.Set.IsTruncated && !ConfirmDialog.Show(
+                App!,
+                "Export every row",
+                $"The grid holds the first {shown.Set.Rows.Count} rows. Exporting every row\nruns the batch at line {shown.Batch.StartLine} again.",
+                "Run again",
+                confirmIsDefault: false))
+        {
+            return;
+        }
+
         var suggested = Path.Combine(Environment.CurrentDirectory, $"results-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
         if (FilePicker.Show(App!, "Export CSV", "Export", suggested, ".csv") is not { } path) return;
 
-        try
+        if (!shown.Set.IsTruncated)
         {
-            var resultSet = _resultSets[_resultIndex];
-            // The BOM lets Excel detect UTF-8, so accents and ñ survive opening the file.
-            using (var writer = new StreamWriter(path, append: false, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true)))
+            try
             {
-                Output.CsvResultWriter.Write(writer, resultSet);
+                using (var writer = CsvFile(path)) Output.CsvResultWriter.Write(writer, shown.Set);
+                Log($"Exported {shown.Set.Rows.Count} rows to {path}.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                Log($"✗ Export failed: {ex.Message}");
             }
 
-            var note = resultSet.IsTruncated ? $" (only the first {resultSet.Rows.Count} rows were fetched)" : string.Empty;
-            Log($"Exported {resultSet.Rows.Count} rows to {path}{note}.");
+            return;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+
+        _queryCancellation?.Dispose();
+        _queryCancellation = new CancellationTokenSource();
+        Log("Exporting every row… (Ctrl+K cancels)");
+        RunInBackground(async token =>
         {
-            Log($"✗ Export failed: {ex.Message}");
-        }
+            try
+            {
+                long count;
+                await using (var writer = CsvFile(path))
+                {
+                    count = await shown.Session.StreamResultSetAsync(shown.Batch, shown.Index, new Output.CsvRowWriter(writer), new QueryOptions(), token);
+                }
+
+                OnUi(() => Log($"Exported {count} rows to {path}."));
+            }
+            catch (Exception ex)
+            {
+                // A partial file would look like a complete export.
+                try { File.Delete(path); } catch (Exception ex2) when (ex2 is IOException or UnauthorizedAccessException) { }
+                // Cancelling stops the command on the server, which SqlClient may report as an error.
+                if (ex is OperationCanceledException || token.IsCancellationRequested) throw new OperationCanceledException(token);
+                OnUi(() => Log($"✗ Export failed: {ex.Message}"));
+            }
+        }, _queryCancellation.Token);
+    }
+
+    // The BOM lets Excel detect UTF-8, so accents and ñ survive opening the file.
+    private static StreamWriter CsvFile(string path) =>
+        new(path, append: false, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+
+    private void ChangeRowLimit()
+    {
+        if (RowLimitDialog.Show(App!, _maxRows) is not { } limit) return;
+        _maxRows = limit;
+        Log(limit == 0 ? "Row limit: every row. Applies to the next run." : $"Row limit: {limit} rows. Applies to the next run.");
     }
 
     private void LogBatch(BatchResult result)
@@ -645,4 +700,7 @@ public sealed class MainView : Runnable
             }
         }, CancellationToken.None);
     }
+
+    /// <summary>A result set with the session and batch that produced it, so an export can fetch every row again.</summary>
+    private sealed record ShownResult(ResultSet Set, IDatabaseSession Session, Core.Batches.SqlBatch Batch, int Index);
 }

@@ -70,4 +70,30 @@ public class TuiTests
             Assert.True(KeyHelp.Render(context).Count > 2, context.ToString());
         }
     }
+
+    [Theory]
+    [InlineData("all", 0)]
+    [InlineData(" ALL ", 0)]
+    [InlineData("", 0)]
+    [InlineData("0", 0)]
+    [InlineData("5000", 5000)]
+    public void Row_limit_accepts_a_count_or_all(string input, int expected)
+    {
+        Assert.Equal(expected, RowLimitDialog.Parse(input));
+    }
+
+    [Theory]
+    [InlineData("-3")]
+    [InlineData("ten")]
+    [InlineData("1.5")]
+    public void Row_limit_rejects_anything_else(string input)
+    {
+        Assert.Null(RowLimitDialog.Parse(input));
+    }
+
+    [Fact]
+    public void Results_footer_shows_the_row_limit_key()
+    {
+        Assert.Contains("m row limit", KeyHelp.Footer(KeyContext.Results), StringComparison.Ordinal);
+    }
 }

@@ -123,4 +123,68 @@ public class SqlServerSessionTests
             await RunAsync(session, $"ALTER DATABASE [{database}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{database}]");
         }
     }
+
+    [SqlServerFact]
+    public async Task Max_rows_zero_returns_every_row()
+    {
+        await using var session = await OpenAsync();
+
+        var result = await RunAsync(session, "SELECT TOP (1500) object_id FROM sys.all_objects", maxRows: 0);
+
+        Assert.Equal(1500, result.ResultSets[0].Rows.Count);
+        Assert.False(result.ResultSets[0].IsTruncated);
+    }
+
+    [SqlServerFact]
+    public async Task Streams_every_row_of_the_chosen_result_set()
+    {
+        await using var session = await OpenAsync();
+        var sink = new RecordingSink();
+        var batch = new SqlBatch("PRINT 'x'; SELECT 1 AS first; SELECT TOP (1500) object_id AS id FROM sys.all_objects;", 1);
+
+        var count = await session.StreamResultSetAsync(batch, 1, sink, new QueryOptions(), CancellationToken.None);
+
+        Assert.Equal(1500, count);
+        Assert.Equal(["id"], sink.Columns.Select(c => c.Name));
+        Assert.Equal(1500, sink.Rows.Count);
+    }
+
+    [SqlServerFact]
+    public async Task Streaming_a_missing_result_set_fails()
+    {
+        await using var session = await OpenAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            session.StreamResultSetAsync(new SqlBatch("SELECT 1", 1), 1, new RecordingSink(), new QueryOptions(), CancellationToken.None));
+    }
+
+    [SqlServerFact]
+    public async Task Cancelling_a_stream_stops_the_server_instead_of_reading_the_remaining_rows()
+    {
+        await using var session = await OpenAsync();
+        using var cancellation = new CancellationTokenSource();
+        var sink = new RecordingSink();
+        // Cancelled from another thread while rows are streaming, as Ctrl+K does in the TUI.
+        cancellation.CancelAfter(TimeSpan.FromSeconds(1));
+        var huge = new SqlBatch("SELECT a.object_id, b.name FROM sys.all_objects a CROSS JOIN sys.all_objects b CROSS JOIN sys.all_objects c", 1);
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+        var error = await Record.ExceptionAsync(() => session.StreamResultSetAsync(huge, 0, sink, new QueryOptions(), cancellation.Token));
+
+        Assert.NotNull(error);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10), $"took {stopwatch.Elapsed}");
+    }
+
+    private sealed class RecordingSink : IRowSink
+    {
+        public IReadOnlyList<ColumnInfo> Columns { get; private set; } = [];
+        public List<object?[]> Rows { get; } = [];
+        public void Begin(IReadOnlyList<ColumnInfo> columns) => Columns = columns;
+        public int Count { get; private set; }
+        public void Row(object?[] values)
+        {
+            // Only counts: a huge stream must not be held in memory.
+            if (Count++ < 2000) Rows.Add(values);
+        }
+    }
 }

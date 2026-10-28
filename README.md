@@ -53,13 +53,17 @@ lazytsql -c dev migration.sql   # edit a script (created on the first save if it
 | `e` | Open the selected procedure or function definition in the editor |
 | `r` | Reload the schema |
 | `[` / `]` | Previous / next result set |
-| `x` | Export the current result set to CSV (UTF-8 with BOM so Excel keeps accents) |
+| `x` | Export the current result set to CSV with every row (UTF-8 with BOM so Excel keeps accents) |
+| `m` | Row limit: how many rows each result set fetches, or `all` |
 | `h` `j` `k` `l`, `g` / `G`, `Ctrl+D` / `Ctrl+U` | Vim motions outside the editor (`h`/`l` collapse/expand in the schema) |
 | `Esc` | Leave the editor |
 | `?` / `F1` | Keys of the focused panel or open dialog; `a` switches to every key (`F1` also works where `?` is text) |
 | `q` / `Ctrl+Q` | Quit after confirming (`y`/`Enter` quits, `n`/`Esc` stays; `q` only outside the editor) |
 
-Result sets are capped at 1000 rows to keep memory bounded.
+Result sets show the first 1000 rows to keep memory bounded; press `m` in the results panel to fetch more, or `all`.
+The limit applies to the next run. Exporting a capped result set runs its batch again and streams every row to the
+file without holding them in memory; it asks first, because the batch's side effects run again too, and `Ctrl+K`
+cancels it (the partial file is removed).
 
 Every path (open, save, export CSV) goes through a file picker: `Tab` completes the typed path, the list below shows
 the folders and matching files of that directory and filters as you type. `↓` moves into the list, where `j`/`k` move,

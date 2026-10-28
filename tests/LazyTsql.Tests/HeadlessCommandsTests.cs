@@ -69,6 +69,7 @@ public sealed class HeadlessCommandsTests : IDisposable
             return Task.FromResult(new BatchResult(batch, [resultSet, resultSet], [new ServerMessage("hello", 0, 0, 1)], -1, TimeSpan.Zero));
         }
 
+        public Task<long> StreamResultSetAsync(SqlBatch batch, int resultSetIndex, IRowSink sink, QueryOptions options, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task ChangeDatabaseAsync(string database, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task<IReadOnlyList<string>> GetDatabasesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<DbObject>> GetObjectsAsync(CancellationToken cancellationToken) => throw new NotSupportedException();

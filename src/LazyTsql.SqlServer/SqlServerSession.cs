@@ -63,6 +63,37 @@ internal sealed class SqlServerSession : IDatabaseSession
         return new BatchResult(batch, resultSets, messages, recordsAffected, stopwatch.Elapsed);
     }
 
+    public async Task<long> StreamResultSetAsync(
+        SqlBatch batch,
+        int resultSetIndex,
+        IRowSink sink,
+        QueryOptions options,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new SqlCommand(batch.Text, _connection) { CommandTimeout = options.CommandTimeoutSeconds };
+        await using var reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+        // Closing the reader reads every remaining row; cancelling the command stops the server instead.
+        using var stopOnCancel = cancellationToken.Register(command.Cancel);
+        var index = 0;
+        do
+        {
+            if (reader.FieldCount == 0 || index++ < resultSetIndex) continue;
+
+            sink.Begin(ReadColumns(reader));
+            long count = 0;
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                sink.Row(await ReadRowAsync(reader, cancellationToken));
+                count++;
+            }
+
+            return count;
+        }
+        while (await reader.NextResultAsync(cancellationToken));
+
+        throw new InvalidOperationException($"The batch no longer returns result set {resultSetIndex + 1}.");
+    }
+
     public Task ChangeDatabaseAsync(string database, CancellationToken cancellationToken) =>
         _connection.ChangeDatabaseAsync(database, cancellationToken);
 
@@ -123,33 +154,44 @@ internal sealed class SqlServerSession : IDatabaseSession
 
     private static async Task<ResultSet> ReadResultSetAsync(SqlDataReader reader, int maxRows, CancellationToken cancellationToken)
     {
-        var columns = new ColumnInfo[reader.FieldCount];
-        for (var i = 0; i < columns.Length; i++)
-        {
-            columns[i] = new ColumnInfo(reader.GetName(i), reader.GetDataTypeName(i));
-        }
-
+        var columns = ReadColumns(reader);
         var rows = new List<object?[]>();
         var truncated = false;
         while (await reader.ReadAsync(cancellationToken))
         {
-            if (rows.Count == maxRows)
+            if (maxRows > 0 && rows.Count == maxRows)
             {
                 // Remaining rows are discarded by NextResultAsync; only the capped page is kept in memory.
                 truncated = true;
                 break;
             }
 
-            var row = new object?[columns.Length];
-            for (var i = 0; i < row.Length; i++)
-            {
-                row[i] = await reader.IsDBNullAsync(i, cancellationToken) ? null : reader.GetValue(i);
-            }
-
-            rows.Add(row);
+            rows.Add(await ReadRowAsync(reader, cancellationToken));
         }
 
         return new ResultSet(columns, rows, truncated);
+    }
+
+    private static ColumnInfo[] ReadColumns(SqlDataReader reader)
+    {
+        var columns = new ColumnInfo[reader.FieldCount];
+        for (var i = 0; i < columns.Length; i++)
+        {
+            columns[i] = new ColumnInfo(reader.GetName(i), reader.GetDataTypeName(i));
+        }
+
+        return columns;
+    }
+
+    private static async Task<object?[]> ReadRowAsync(SqlDataReader reader, CancellationToken cancellationToken)
+    {
+        var row = new object?[reader.FieldCount];
+        for (var i = 0; i < row.Length; i++)
+        {
+            row[i] = await reader.IsDBNullAsync(i, cancellationToken) ? null : reader.GetValue(i);
+        }
+
+        return row;
     }
 
     private async Task<IReadOnlyList<T>> QueryAsync<T>(

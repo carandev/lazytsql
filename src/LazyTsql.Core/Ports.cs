@@ -21,6 +21,12 @@ public interface IDatabaseSession : IAsyncDisposable
 
     Task<BatchResult> ExecuteAsync(SqlBatch batch, QueryOptions options, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Runs <paramref name="batch"/> again and streams every row of its result set number <paramref name="resultSetIndex"/>
+    /// (zero-based) to <paramref name="sink"/>, ignoring <see cref="QueryOptions.MaxRows"/>. Returns the row count.
+    /// </summary>
+    Task<long> StreamResultSetAsync(SqlBatch batch, int resultSetIndex, IRowSink sink, QueryOptions options, CancellationToken cancellationToken);
+
     Task ChangeDatabaseAsync(string database, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<string>> GetDatabasesAsync(CancellationToken cancellationToken);
