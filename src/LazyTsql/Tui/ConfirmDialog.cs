@@ -48,8 +48,9 @@ public static class ConfirmDialog
         };
 
         dialog.Add(new Label { Text = text, X = 1, Y = 1 });
-        dialog.AddButton(cancel);
-        dialog.AddButton(confirm);
+        // The dialog marks its last button as the default, so the default goes last.
+        dialog.AddButton(confirmIsDefault ? cancel : confirm);
+        dialog.AddButton(confirmIsDefault ? confirm : cancel);
         Theme.StyleDialog(dialog);
         // Focus the default button so Enter picks it.
         dialog.Initialized += (_, _) => (confirmIsDefault ? confirm : cancel).SetFocus();

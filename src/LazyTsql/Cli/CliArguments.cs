@@ -38,6 +38,11 @@ public sealed class CliArguments
         return parsed;
     }
 
+    /// <summary>Script to open in the TUI: <c>lazytsql query.sql</c> or <c>lazytsql -c dev query.sql</c>.</summary>
+    public string? ScriptPath => Command is { } command
+        ? command.EndsWith(".sql", StringComparison.OrdinalIgnoreCase) ? command : null
+        : Positionals.FirstOrDefault();
+
     public bool Has(string flag) => _flags.Contains(flag);
 
     public string? Get(string shortName, string longName) =>

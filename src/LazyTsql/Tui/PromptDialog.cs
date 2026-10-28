@@ -11,7 +11,7 @@ public static class PromptDialog
     public static string? Show(IApplication app, string title, string label, string initialValue)
     {
         string? result = null;
-        var dialog = new Dialog { Title = title, Width = Dim.Percent(70), Height = 7, BorderStyle = LineStyle.Rounded };
+        var dialog = new Dialog { Title = title, Width = Dim.Percent(70), Height = 8, BorderStyle = LineStyle.Rounded };
         var caption = new Label { Text = label, X = 1, Y = 1 };
         var input = new TextField { Text = initialValue, X = Pos.Right(caption) + 1, Y = 1, Width = Dim.Fill(2) };
         var ok = new Button { Text = "OK", IsDefault = true };

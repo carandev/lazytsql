@@ -31,7 +31,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T10 S10 Connection dialog: connection string or individual fields — inline — 5 unit tests + tmux e2e (create by fields, connect, toggle modes)
 - [x] T11 S7 Minimal theme: terminal background, focused border accent, no filled panels — inline — rendered screenshots reviewed; AOT TUI smoke test
 - [x] T12 S12 Themed confirmation before quitting (also reused for delete) — inline — tmux e2e: q→n stays, Esc→dialog→Esc stays, Ctrl+Q→Enter exits
-- [ ] T13 S13 Open and save `.sql` files (CLI positional, Ctrl+O, Ctrl+S) — inline
+- [x] T13 S13 Open and save `.sql` files (CLI positional, Ctrl+O, Ctrl+S) — inline — 3 tests (RED then GREEN) + tmux e2e: open CRLF file, dirty title, save keeps CRLF, discard/overwrite confirms, new file, save-as
 - [ ] T14 S13 T-SQL syntax highlighting via TextView.OnDrawNormalColor and a Core tokenizer (no new dependency) — inline
 
 ## Log

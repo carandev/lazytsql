@@ -38,6 +38,7 @@ database; otherwise it lists every database you can access.
 ```bash
 lazytsql            # pick or create a connection in panel [1]
 lazytsql -c dev     # connect on start
+lazytsql -c dev migration.sql   # edit a script (created on the first save if it does not exist)
 ```
 
 | Key | Action |
@@ -45,6 +46,7 @@ lazytsql -c dev     # connect on start
 | `1`-`5`, `Alt+1`-`Alt+5`, `Tab` | Focus panel: connections, schema, query, results, messages |
 | `F5` / `Ctrl+E` | Run the selection, or the whole script batch by batch (`GO`, `GO n`) |
 | `Ctrl+K` | Cancel the running query |
+| `Ctrl+O` / `Ctrl+S` | Open / save a `.sql` file; the title shows `*` while there are unsaved changes |
 | `Enter` | Connect (panel 1), expand or collapse (panel 2) |
 | `a` / `e` / `d` | Add, edit or delete a connection (panel 1) |
 | `s` | `SELECT TOP (100)` from the selected table or view |
@@ -58,6 +60,9 @@ lazytsql -c dev     # connect on start
 | `q` / `Ctrl+Q` | Quit after confirming (`y`/`Enter` quits, `n`/`Esc` stays; `q` only outside the editor) |
 
 Result sets are capped at 1000 rows to keep memory bounded.
+
+Saving keeps the file's encoding and line endings, so scripts from SSMS (UTF-16 or UTF-8 with BOM, CRLF) round-trip
+unchanged. Quitting or replacing the editor contents (`s`, `e`) asks first when the open file has unsaved changes.
 
 The UI keeps the terminal's own background and uses the 16 ANSI colors, so it follows your terminal theme:
 gray borders, green border on the focused panel and a context line with the keys for that panel.

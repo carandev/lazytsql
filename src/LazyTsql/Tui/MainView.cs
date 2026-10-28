@@ -29,7 +29,9 @@ public sealed class MainView : Runnable
           g / G          top / bottom
           Ctrl+D / Ctrl+U  page down / up
           F5 / Ctrl+E    run query       e      open definition in editor
-          Ctrl+K         cancel query    r      reload schema  
+          Ctrl+K         cancel query    r      reload schema
+          Ctrl+O         open .sql file
+          Ctrl+S         save .sql file
           ?              help
           q / Ctrl+Q     quit          Results [4]
                                          [ ]    previous / next result set
@@ -59,6 +61,8 @@ public sealed class MainView : Runnable
     private List<ResultSet> _resultSets = [];
     private int _resultIndex;
     private bool _quitConfirmed;
+    private ScriptFile? _script;
+    private string _savedText = string.Empty;
 
     public MainView(IDatabaseConnector connector, FileConnectionStore store)
     {
@@ -95,6 +99,7 @@ public sealed class MainView : Runnable
         _hints = new Label { X = 1, Y = Pos.AnchorEnd(1), Width = Dim.Fill(1), Height = 1 };
         _hints.SetScheme(Theme.Hints);
         foreach (var panel in _panels) panel.HasFocusChanged += (_, _) => UpdateHints();
+        _editor.ContentsChanged += (_, _) => UpdateEditorTitle();
 
         SetScheme(Theme.Content);
         Add(connectionsPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel, _hints);
@@ -104,6 +109,14 @@ public sealed class MainView : Runnable
             ReloadConnections();
             UpdateHints();
         };
+    }
+
+    public void OpenScript(ScriptFile script, string text)
+    {
+        _script = script;
+        _editor.Text = text;
+        _savedText = _editor.Text;
+        UpdateEditorTitle();
     }
 
     public void ConnectOnStart(string connectionString, string displayName) =>
@@ -132,7 +145,9 @@ public sealed class MainView : Runnable
 
     private void Quit()
     {
-        if (_quitConfirmed || !ConfirmDialog.Show(App!, "Quit", "Quit lazytsql?", "Quit", confirmIsDefault: true)) return;
+        var dirty = IsScriptDirty;
+        var question = dirty ? $"Quit lazytsql?\nUnsaved changes in {_script!.Name} will be lost." : "Quit lazytsql?";
+        if (_quitConfirmed || !ConfirmDialog.Show(App!, "Quit", question, "Quit", confirmIsDefault: !dirty)) return;
         _quitConfirmed = true;
         App?.RequestStop(this);
     }
@@ -155,6 +170,8 @@ public sealed class MainView : Runnable
 
         if (key == Key.F5 || key == Key.E.WithCtrl) RunQuery();
         else if (key == Key.K.WithCtrl) CancelQuery();
+        else if (key == Key.S.WithCtrl) SaveScript();
+        else if (key == Key.O.WithCtrl) PromptOpenScript();
         else if (key == Key.Q.WithCtrl) Quit();
         else if (key == Key.Esc && inEditor) FocusPanel(3);
         else if (key.IsAlt && PanelIndex(key.NoAlt) is { } altPanel) FocusPanel(altPanel);
@@ -205,7 +222,7 @@ public sealed class MainView : Runnable
         {
             0 => "enter connect · a add · e edit · d delete",
             1 => "enter/l expand · h collapse · s select top · e definition · r reload",
-            2 => "F5 run (selection or script) · ctrl+k cancel · esc leave editor",
+            2 => "F5 run (selection or script) · ctrl+k cancel · ctrl+s save · ctrl+o open · esc leave",
             3 => "[ ] result set · x export csv · hjkl move",
             _ => "j/k scroll",
         };
@@ -408,8 +425,7 @@ public sealed class MainView : Runnable
     private void SelectTopFromTable()
     {
         if (_schema.SelectedObject is not ObjectNode { HasColumns: true } table) return;
-        _editor.Text = $"SELECT TOP (100) * FROM [{table.Database}].{table.Value.QualifiedName};";
-        RunQuery();
+        if (ReplaceEditorText($"SELECT TOP (100) * FROM [{table.Database}].{table.Value.QualifiedName};")) RunQuery();
     }
 
     private void OpenDefinition()
@@ -422,9 +438,7 @@ public sealed class MainView : Runnable
             var definition = await session.GetDefinitionAsync(routine.Value, token);
             OnUi(() =>
             {
-                _editor.Text = definition.Trim();
-                UpdateEditorTitle();
-                FocusPanel(2);
+                if (ReplaceEditorText(definition.Trim())) FocusPanel(2);
             });
         });
     }
@@ -543,7 +557,7 @@ public sealed class MainView : Runnable
     private void ShowHelp()
     {
         var close = new Button { Text = "Close", IsDefault = true };
-        var dialog = new Dialog { Title = "Keys", Width = 72, Height = 18, BorderStyle = LineStyle.Rounded };
+        var dialog = new Dialog { Title = "Keys", Width = 72, Height = 20, BorderStyle = LineStyle.Rounded };
         dialog.Add(new Label { Text = HelpText, X = 1, Y = 1 });
         dialog.AddButton(close);
         Theme.StyleDialog(dialog);
@@ -556,8 +570,73 @@ public sealed class MainView : Runnable
         dialog.Dispose();
     }
 
-    private void UpdateEditorTitle() =>
-        _panels[2].Title = _session is null ? "[3] Query" : $"[3] Query · {_sessionName} › {_session.CurrentDatabase}";
+    private void UpdateEditorTitle()
+    {
+        var file = _script is null ? string.Empty : $" · {_script.Name}{(IsScriptDirty ? "*" : string.Empty)}";
+        var connection = _session is null ? string.Empty : $" · {_sessionName} › {_session.CurrentDatabase}";
+        _panels[2].Title = $"[3] Query{file}{connection}";
+    }
+
+    private bool IsScriptDirty => _script is not null && _editor.Text != _savedText;
+
+    private bool ConfirmDiscardScript() =>
+        !IsScriptDirty || ConfirmDialog.Show(App!, "Unsaved changes", $"Discard unsaved changes in {_script!.Name}?", "Discard", confirmIsDefault: false);
+
+    /// <summary>Generated SQL replaces the editor and detaches it from the open file, which stays as saved.</summary>
+    private bool ReplaceEditorText(string text)
+    {
+        if (!ConfirmDiscardScript()) return false;
+        _script = null;
+        _editor.Text = text;
+        UpdateEditorTitle();
+        return true;
+    }
+
+    private void PromptOpenScript()
+    {
+        if (!ConfirmDiscardScript()) return;
+        var directory = _script is null ? Environment.CurrentDirectory : Path.GetDirectoryName(_script.Path)!;
+        if (PromptDialog.Show(App!, "Open script", "File:", directory + Path.DirectorySeparatorChar) is not { } path) return;
+
+        try
+        {
+            var (script, text) = ScriptFile.Open(ExpandHome(path));
+            OpenScript(script, text);
+            Log(File.Exists(script.Path) ? $"Opened {script.Path}." : $"New file {script.Path}; Ctrl+S creates it.");
+            FocusPanel(2);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            Log($"✗ Could not open {path}: {ex.Message}");
+        }
+    }
+
+    /// <summary>Saves the open script, asking for a path the first time.</summary>
+    private void SaveScript()
+    {
+        var script = _script;
+        try
+        {
+            if (script is null)
+            {
+                var suggested = Path.Combine(Environment.CurrentDirectory, "query.sql");
+                if (PromptDialog.Show(App!, "Save script", "File:", suggested) is not { } path) return;
+                script = ScriptFile.Open(ExpandHome(path)).Script;
+                if (File.Exists(script.Path) && !ConfirmDialog.Show(App!, "Save script", $"Overwrite {script.Name}?", "Overwrite", confirmIsDefault: false)) return;
+            }
+
+            var text = _editor.Text;
+            script.Save(text);
+            _script = script;
+            _savedText = text;
+            UpdateEditorTitle();
+            Log($"Saved {script.Path}.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            Log($"✗ Could not save: {ex.Message}");
+        }
+    }
 
     private IDatabaseSession RequireSession() =>
         _session ?? throw new InvalidOperationException("Not connected.");
