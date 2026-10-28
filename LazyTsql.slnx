@@ -7,5 +7,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/LazyTsql.Core.Tests/LazyTsql.Core.Tests.csproj" />
     <Project Path="tests/LazyTsql.SqlServer.Tests/LazyTsql.SqlServer.Tests.csproj" />
+    <Project Path="tests/LazyTsql.Tests/LazyTsql.Tests.csproj" />
   </Folder>
 </Solution>
