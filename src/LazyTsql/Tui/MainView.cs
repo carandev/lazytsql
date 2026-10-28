@@ -21,27 +21,6 @@ namespace LazyTsql.Tui;
 /// </summary>
 public sealed class MainView : Runnable
 {
-    private const string HelpText = """
-        Global                         Schema [2]
-          1-5 / Alt+1-5  focus panel     Enter  expand / collapse
-          Tab            next panel      s      SELECT TOP 100 from table
-          h j k l        move (vim)      h / l  collapse / expand
-          g / G          top / bottom
-          Ctrl+D / Ctrl+U  page down / up
-          F5 / Ctrl+E    run query       e      open definition in editor
-          Ctrl+K         cancel query    r      reload schema
-          Ctrl+O         open .sql file
-          Ctrl+S         save .sql file
-          ?              help
-          q / Ctrl+Q     quit          Results [4]
-                                         [ ]    previous / next result set
-                                         x      export result set to CSV
-        Connections [1]                Query [3]
-          Enter          connect         Esc    leave editor
-          a / e / d      add / edit / delete
-        Selected text runs alone; otherwise the whole script runs, batch by batch (GO).
-        """;
-
     private readonly IDatabaseConnector _connector;
     private readonly FileConnectionStore _store;
     private readonly SemaphoreSlim _sessionGate = new(1, 1);
@@ -557,8 +536,15 @@ public sealed class MainView : Runnable
     private void ShowHelp()
     {
         var close = new Button { Text = "Close", IsDefault = true };
-        var dialog = new Dialog { Title = "Keys", Width = 72, Height = 20, BorderStyle = LineStyle.Rounded };
-        dialog.Add(new Label { Text = HelpText, X = 1, Y = 1 });
+        var lines = KeyHelp.Render();
+        var dialog = new Dialog
+        {
+            Title = "Keys",
+            Width = lines.Max(line => line.Length) + 6,
+            Height = lines.Count + 7,
+            BorderStyle = LineStyle.Rounded,
+        };
+        dialog.Add(new Label { Text = string.Join('\n', lines), X = 2, Y = 1 });
         dialog.AddButton(close);
         Theme.StyleDialog(dialog);
         close.Accepting += (_, e) =>

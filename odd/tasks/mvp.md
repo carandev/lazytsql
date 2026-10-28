@@ -16,6 +16,9 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - S11 "En el connection string yo especifiqué la bd pero tengo acceso a todas las bases de datos, que si se indica una bd entonces solo aparezca esa, ya si no se indica entonces que se carguen todas."
 - S12 "Que haya un mensaje de confirmación antes de cerrar"
 - S13 "sigue con la recomendación": the recommendation accepted was "resaltado + abrir/guardar archivos `.sql`" (T-SQL syntax highlighting in the editor; open a `.sql` file with `lazytsql archivo.sql` and from the TUI, and save it).
+- S14 "Ordena mejor el modal de keys" (screenshot: the Keys dialog clips its content; Connections, Query and `x` export are cut off).
+- S15 "autocomplete en los lugares donde se ingresan las rutas"
+- S16 "incluso si es posible que se haga un modal de selección de rutas y que se pueda usar si hace falta, como un \"explorador de archivos\", parecido a como funcionan las guis"
 - Backlog (not in scope yet): "que se pueda cargar un directorio con archivos sql o abrir un archivo sql directamente y también poder importar o exportar archivos .bacpac con sqlpackage"; "agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta"
 
 ## Tasks
@@ -33,6 +36,8 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T12 S12 Themed confirmation before quitting (also reused for delete) — inline — tmux e2e: q→n stays, Esc→dialog→Esc stays, Ctrl+Q→Enter exits
 - [x] T13 S13 Open and save `.sql` files (CLI positional, Ctrl+O, Ctrl+S) — inline — 3 tests (RED then GREEN) + tmux e2e: open CRLF file, dirty title, save keeps CRLF, discard/overwrite confirms, new file, save-as
 - [x] T14 S13 T-SQL syntax highlighting via TextView.OnDrawNormalColor and a Core tokenizer (no new dependency) — inline — 7 tokenizer tests + tmux ANSI capture (vertical/horizontal scroll, reload on open, definitions) + AOT smoke
+- [x] T15 S14 Keys dialog grouped by section, sized to its content — inline — 1 test (RED then GREEN) + tmux render at 120x38
+- [ ] T16 S15,S16 File picker for every path input (open, save, export CSV): Tab completion plus a browsable directory list — inline
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"
@@ -52,3 +57,5 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - L15 Evidence: 51 tests green, 6 SQL Server integration tests skipped (no LAZYTSQL_TEST_CONNECTION in this run); TUI e2e against a SQL Server 2022 container. AOT binary 21 MB. Dialog heights were clipping content: PromptDialog (export CSV too) and the new ConfirmDialog. Terminal.Gui marks the last dialog button as default, so the default button goes last.
 - L16 Finding (pre-existing): `-c` with a raw connection string uses it as the display name, so the editor title and the messages panel show the password.
 - L17 2026-10-28 "Si" (fix the password shown on screen). Fixed with `ConnectionResolver.DisplayName`: profile name, or `server/database` for raw strings. 1 test (RED then GREEN) + tmux check: "Connecting to localhost,1/shop…", no password on screen.
+- L18 2026-10-28 "Ordena mejor el modal de keys, autocomplete en los lugares donde se ingresan las rutas, incluso si es posible que se haga un modal de selección de rutas y que se pueda usar si hace falta, como un "explorador de archivos", parecido a como funcionan las guis"
+- L19 Decision: an in-house picker instead of Terminal.Gui's FileDialog, to keep the minimal theme and vim keys; it replaces PromptDialog, whose only uses were paths.
