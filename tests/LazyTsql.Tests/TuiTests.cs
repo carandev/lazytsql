@@ -30,13 +30,44 @@ public class TuiTests
     }
 
     [Fact]
-    public void Key_help_shows_every_section_within_an_80_column_terminal()
+    public void Footer_shows_the_context_keys_then_the_global_keys_that_work_there()
     {
-        var lines = KeyHelp.Render();
+        var schema = KeyHelp.Footer(KeyContext.Schema);
+        Assert.StartsWith("Enter expand", schema, StringComparison.Ordinal);
+        Assert.Contains("s SELECT TOP 100", schema, StringComparison.Ordinal);
+        Assert.EndsWith("? help · q quit", schema, StringComparison.Ordinal);
 
-        foreach (var title in new[] { "Navigation", "Connections [1]", "Schema [2]", "Query [3]", "Results [4]", "Files" })
-            Assert.Contains(lines, line => line.Contains(title, StringComparison.Ordinal));
-        Assert.Contains(lines, line => line.Contains("export to CSV", StringComparison.Ordinal));
-        Assert.All(lines, line => Assert.True(line.Length <= 74, $"too wide: '{line}'"));
+        // In the editor letters and digits are text, so its footer points to keys that still work.
+        Assert.EndsWith("F1 help · Ctrl+Q quit", KeyHelp.Footer(KeyContext.Query), StringComparison.Ordinal);
+
+        var picker = KeyHelp.Footer(KeyContext.FilePicker);
+        Assert.Contains("Tab complete", picker, StringComparison.Ordinal);
+        Assert.DoesNotContain("1-5", picker, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Help_shows_only_the_current_context_and_expands_to_every_key()
+    {
+        var schema = KeyHelp.Render(KeyContext.Schema);
+        Assert.Contains("Schema [2]", schema);
+        Assert.DoesNotContain(schema, line => line.Contains("Connections [1]", StringComparison.Ordinal));
+        Assert.Contains(schema, line => line.Contains("show every key", StringComparison.Ordinal));
+
+        var all = KeyHelp.Render(context: null);
+        foreach (var title in new[] { "Global", "Connections [1]", "Schema [2]", "Query [3]", "Results [4]", "Messages [5]", "File picker", "Confirmation", "Connection form" })
+            Assert.Contains(all, line => line.Contains(title, StringComparison.Ordinal));
+        Assert.Contains(all, line => line.Contains("export to CSV", StringComparison.Ordinal));
+        Assert.Contains(all, line => line.Contains("show only", StringComparison.Ordinal));
+        Assert.All(all, line => Assert.True(line.Length <= 74, $"too wide: '{line}'"));
+    }
+
+    [Fact]
+    public void Every_context_has_registered_keys()
+    {
+        foreach (var context in Enum.GetValues<KeyContext>())
+        {
+            Assert.NotEmpty(KeyHelp.Footer(context));
+            Assert.True(KeyHelp.Render(context).Count > 2, context.ToString());
+        }
     }
 }

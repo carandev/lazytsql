@@ -19,6 +19,7 @@ public static class ConfirmDialog
             Width = Math.Max(40, lines.Max(line => line.Length) + 6),
             Height = lines.Length + 7,
             BorderStyle = LineStyle.Rounded,
+            Data = KeyContext.Confirm,
         };
         var confirm = new Button { Text = confirmLabel, IsDefault = confirmIsDefault };
         var cancel = new Button { Text = "Cancel", IsDefault = !confirmIsDefault };

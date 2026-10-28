@@ -85,6 +85,9 @@ public sealed class MainView : Runnable
         Initialized += (_, _) =>
         {
             App!.Keyboard.KeyDown += OnGlobalKeyDown;
+            // The footer follows dialogs too; update after the session stack has changed.
+            App.SessionBegun += (_, _) => OnUi(UpdateHints);
+            App.SessionEnded += (_, _) => OnUi(UpdateHints);
             ReloadConnections();
             UpdateHints();
         };
@@ -141,7 +144,19 @@ public sealed class MainView : Runnable
 
     private void OnGlobalKeyDown(object? sender, Key key)
     {
-        // Dialogs own the keyboard while they are open.
+        // Dialogs own the keyboard while they are open; only help is answered for them here.
+        if (App?.TopRunnableView is View { Data: KeyContext dialog } top && top != this)
+        {
+            var typing = top.MostFocused is TextField or TextView;
+            if (dialog != KeyContext.Help && (key == Key.F1 || (key.AsRune.Value == '?' && !typing)))
+            {
+                key.Handled = true;
+                HelpDialog.Show(App, dialog);
+            }
+
+            return;
+        }
+
         if (App?.TopRunnableView != this) return;
 
         var inEditor = _editor.HasFocus;
@@ -149,6 +164,7 @@ public sealed class MainView : Runnable
 
         if (key == Key.F5 || key == Key.E.WithCtrl) RunQuery();
         else if (key == Key.K.WithCtrl) CancelQuery();
+        else if (key == Key.F1) HelpDialog.Show(App!, PanelContext());
         else if (key == Key.S.WithCtrl) SaveScript();
         else if (key == Key.O.WithCtrl) PromptOpenScript();
         else if (key == Key.Q.WithCtrl) Quit();
@@ -159,7 +175,7 @@ public sealed class MainView : Runnable
         else if (PanelIndex(key) is { } panel) FocusPanel(panel);
         else if (key == Key.Q) Quit();
         else if (key == Key.Tab) FocusPanel((CurrentPanel() + 1) % _panels.Length);
-        else if (key.AsRune.Value == '?') ShowHelp();
+        else if (key.AsRune.Value == '?') HelpDialog.Show(App!, PanelContext());
         else if (_connections.HasFocus && key == Key.Enter) ConnectSelected();
         else if (_connections.HasFocus && key == Key.A) EditConnection(null);
         else if (_connections.HasFocus && key == Key.E) EditConnection(SelectedProfile());
@@ -194,19 +210,18 @@ public sealed class MainView : Runnable
         };
     }
 
-    /// <summary>Context key hints for the focused panel, like lazygit's bottom line.</summary>
-    private void UpdateHints()
+    /// <summary>Keys for the focused panel, or for the open dialog, like lazygit's bottom line.</summary>
+    private void UpdateHints() =>
+        _hints.Text = KeyHelp.Footer(App?.TopRunnableView is View { Data: KeyContext dialog } top && top != this ? dialog : PanelContext());
+
+    private KeyContext PanelContext() => CurrentPanel() switch
     {
-        var context = CurrentPanel() switch
-        {
-            0 => "enter connect · a add · e edit · d delete",
-            1 => "enter/l expand · h collapse · s select top · e definition · r reload",
-            2 => "F5 run (selection or script) · ctrl+k cancel · ctrl+s save · ctrl+o open · esc leave",
-            3 => "[ ] result set · x export csv · hjkl move",
-            _ => "j/k scroll",
-        };
-        _hints.Text = $"{context} │ 1-5 panels · tab next · ? help · q quit";
-    }
+        0 => KeyContext.Connections,
+        1 => KeyContext.Schema,
+        2 => KeyContext.Query,
+        3 => KeyContext.Results,
+        _ => KeyContext.Messages,
+    };
 
     private static int? PanelIndex(Key key) =>
         key.AsRune.Value is >= '1' and <= '5' and var digit ? digit - '1' : null;
@@ -525,29 +540,6 @@ public sealed class MainView : Runnable
         }
 
         if (result.RecordsAffected >= 0) Log($"({result.RecordsAffected} rows affected)");
-    }
-
-    private void ShowHelp()
-    {
-        var close = new Button { Text = "Close", IsDefault = true };
-        var lines = KeyHelp.Render();
-        var dialog = new Dialog
-        {
-            Title = "Keys",
-            Width = lines.Max(line => line.Length) + 6,
-            Height = lines.Count + 7,
-            BorderStyle = LineStyle.Rounded,
-        };
-        dialog.Add(new Label { Text = string.Join('\n', lines), X = 2, Y = 1 });
-        dialog.AddButton(close);
-        Theme.StyleDialog(dialog);
-        close.Accepting += (_, e) =>
-        {
-            e.Handled = true;
-            App?.RequestStop(dialog);
-        };
-        App!.Run(dialog);
-        dialog.Dispose();
     }
 
     private void UpdateEditorTitle()

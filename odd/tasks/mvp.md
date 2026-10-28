@@ -19,6 +19,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - S14 "Ordena mejor el modal de keys" (screenshot: the Keys dialog clips its content; Connections, Query and `x` export are cut off).
 - S15 "autocomplete en los lugares donde se ingresan las rutas"
 - S16 "incluso si es posible que se haga un modal de selección de rutas y que se pueda usar si hace falta, como un \"explorador de archivos\", parecido a como funcionan las guis"
+- S17 "en el footer del tui se vaya mostrando según el panel o modal las teclas que puede usar y un breve resumen de para qué, incluso si son muchas que al darle en "?" por defecto solo muestre las de ese panel o modal y que pueda expandir a ver las de todo el sistema"
 - Backlog (not in scope yet): "que se pueda cargar un directorio con archivos sql o abrir un archivo sql directamente y también poder importar o exportar archivos .bacpac con sqlpackage"; "agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta"
 
 ## Tasks
@@ -38,6 +39,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T14 S13 T-SQL syntax highlighting via TextView.OnDrawNormalColor and a Core tokenizer (no new dependency) — inline — 7 tokenizer tests + tmux ANSI capture (vertical/horizontal scroll, reload on open, definitions) + AOT smoke
 - [x] T15 S14 Keys dialog grouped by section, sized to its content — inline — 1 test (RED then GREEN) + tmux render at 120x38
 - [x] T16 S15,S16 File picker for every path input (open, save, export CSV): Tab completion plus a browsable directory list — inline — 4 tests (RED then GREEN) + tmux e2e: filter, Tab, j/k/l/h, open, save adds .sql, CSV export against SQL Server 2022
+- [x] T17 S17 One key registry per context feeding the footer (panels and modals) and a contextual `?`/F1 help that expands to every key — inline — 3 tests (RED then GREEN) + tmux e2e: footer per panel, picker, confirm; ?/F1 per context, `a` expand/back, scroll at 25 rows
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"
@@ -60,3 +62,5 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - L18 2026-10-28 "Ordena mejor el modal de keys, autocomplete en los lugares donde se ingresan las rutas, incluso si es posible que se haga un modal de selección de rutas y que se pueda usar si hace falta, como un "explorador de archivos", parecido a como funcionan las guis"
 - L19 Decision: an in-house picker instead of Terminal.Gui's FileDialog, to keep the minimal theme and vim keys; it replaces PromptDialog, whose only uses were paths.
 - L20 ListView overrides OnKeyDown for search-as-you-type, so its KeyDown event never sees letters; the picker sets `KeystrokeNavigator = null`. Focusing a TextField selects its text, so the picker moves the cursor to the end after focusing.
+- L21 2026-10-28 "Ya que cada vez que crezca el sistema van a existir más atajos de teclado sería bueno que en el footer del tui se vaya mostrando según el panel o modal las teclase que puede usar y un breve resumen de para qué, incluso si son muchas que al darle en "?" por defecto solo muestre las de ese panel o modal y que pueda expandir a ver las de todo el sistema"
+- L22 Decision: dialogs tag themselves with `View.Data = KeyContext`; MainView follows SessionBegun/SessionEnded to switch the footer. F1 opens help where `?` is text (editor, inputs); `a` toggles the help between the current context and the whole system.

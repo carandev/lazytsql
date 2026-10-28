@@ -28,6 +28,7 @@ public static class ConnectionDialog
             Width = Dim.Percent(80),
             Height = 20,
             BorderStyle = LineStyle.Rounded,
+            Data = KeyContext.ConnectionForm,
         };
 
         var name = Field(dialog, "Name", 1, existing?.Name);

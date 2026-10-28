@@ -56,7 +56,7 @@ lazytsql -c dev migration.sql   # edit a script (created on the first save if it
 | `x` | Export the current result set to CSV (UTF-8 with BOM so Excel keeps accents) |
 | `h` `j` `k` `l`, `g` / `G`, `Ctrl+D` / `Ctrl+U` | Vim motions outside the editor (`h`/`l` collapse/expand in the schema) |
 | `Esc` | Leave the editor |
-| `?` | Help |
+| `?` / `F1` | Keys of the focused panel or open dialog; `a` switches to every key (`F1` also works where `?` is text) |
 | `q` / `Ctrl+Q` | Quit after confirming (`y`/`Enter` quits, `n`/`Esc` stays; `q` only outside the editor) |
 
 Result sets are capped at 1000 rows to keep memory bounded.
@@ -70,7 +70,7 @@ Saving keeps the file's encoding and line endings, so scripts from SSMS (UTF-16 
 unchanged. Quitting or replacing the editor contents (`s`, `e`) asks first when the open file has unsaved changes.
 
 The UI keeps the terminal's own background and uses the 16 ANSI colors, so it follows your terminal theme:
-gray borders, green border on the focused panel and a context line with the keys for that panel.
+gray borders, green border on the focused panel and a footer with the keys of the focused panel or open dialog.
 The editor highlights T-SQL keywords and types, strings, comments, numbers and `@variables`.
 
 ## Headless mode (scripts and agents)

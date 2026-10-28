@@ -14,21 +14,20 @@ namespace LazyTsql.Tui;
 /// </summary>
 public static class FilePicker
 {
-    private const string Hints = "tab complete · ↓ browse · enter open · backspace/h up · esc cancel";
-
     /// <summary>Returns the chosen absolute path, or null when cancelled. A name without extension gets <paramref name="extension"/>.</summary>
     public static string? Show(IApplication app, string title, string acceptLabel, string initialPath, string extension)
     {
         string? result = null;
         var separator = Path.DirectorySeparatorChar;
-        var dialog = new Dialog { Title = title, Width = Dim.Percent(70), Height = Dim.Percent(70), BorderStyle = LineStyle.Rounded };
+        var dialog = new Dialog { Title = title, Width = Dim.Percent(70), Height = Dim.Percent(70), BorderStyle = LineStyle.Rounded, Data = KeyContext.FilePicker };
         var field = new TextField { Text = Display(initialPath), X = 7, Y = 1, Width = Dim.Fill(2) };
         var names = new ObservableCollection<string>();
         var entries = new List<PathEntry?>();
         // Typing in the path field filters; letters in the list are vim keys, not ListView's search-as-you-type.
         var list = new ListView { X = 1, Y = 3, Width = Dim.Fill(2), Height = Dim.Fill(2), KeystrokeNavigator = null };
         list.SetSource(names);
-        var status = new Label { Text = Hints, X = 1, Y = Pos.AnchorEnd(1), Width = Dim.Fill(2) };
+        // Keys are in the app footer; this line only reports errors.
+        var status = new Label { Text = string.Empty, X = 1, Y = Pos.AnchorEnd(1), Width = Dim.Fill(2) };
 
         void Refresh()
         {
@@ -119,7 +118,7 @@ public static class FilePicker
 
         field.TextChanged += (_, _) =>
         {
-            status.Text = Hints;
+            status.Text = string.Empty;
             Refresh();
         };
         field.KeyDown += (_, key) =>
