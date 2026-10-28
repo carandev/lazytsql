@@ -1,0 +1,94 @@
+# lazytsql
+
+A lazygit-style terminal client for SQL Server, plus a headless JSON mode for scripts and coding agents.
+Ships as a single Native AOT binary you can copy to the server that hosts the database.
+
+## Build
+
+```bash
+dotnet publish src/LazyTsql -c Release -r linux-x64 -o dist   # or win-x64, osx-arm64, linux-arm64
+```
+
+The result is `dist/lazytsql` (~21 MB). Runtime requirements on Linux: ICU (`libicu`) and OpenSSL,
+present on virtually every distribution.
+
+## Connections
+
+```bash
+lazytsql connections add dev 'Server=localhost,1433;Database=app;User Id=sa;Password=${DEV_DB_PASSWORD};TrustServerCertificate=true'
+lazytsql connections list
+lazytsql connections remove dev
+```
+
+Profiles live in `$XDG_CONFIG_HOME/lazytsql/connections.json` (`~/.config/...` by default), created with
+owner-only permissions. Reference secrets as `${VAR}` so they stay in the environment instead of the file.
+
+`-c` accepts a saved name or a raw connection string. Without `-c`, `$LAZYTSQL_CONNECTION` is used.
+
+## TUI
+
+```bash
+lazytsql            # pick a connection in panel [1]
+lazytsql -c dev     # connect on start
+```
+
+| Key | Action |
+| --- | --- |
+| `1`-`5`, `Alt+1`-`Alt+5`, `Tab` | Focus panel: connections, schema, query, results, messages |
+| `F5` / `Ctrl+E` | Run the selection, or the whole script batch by batch (`GO`, `GO n`) |
+| `Ctrl+K` | Cancel the running query |
+| `Enter` | Connect (panel 1), expand or collapse (panel 2) |
+| `s` | `SELECT TOP (100)` from the selected table or view |
+| `e` | Open the selected procedure or function definition in the editor |
+| `r` | Reload the schema |
+| `[` / `]` | Previous / next result set |
+| `Esc` | Leave the editor |
+| `?` | Help |
+| `q` / `Ctrl+Q` | Quit (`q` only outside the editor) |
+
+Result sets are capped at 1000 rows to keep memory bounded.
+
+## Headless mode (scripts and agents)
+
+```bash
+lazytsql query -c dev -q "SELECT TOP 5 * FROM dbo.users" --json
+lazytsql query -c dev -f migration.sql            # GO batches, stops at the first failing batch
+echo "SELECT 1" | lazytsql query -c dev --json
+lazytsql schema -c dev -d app --json              # tables, views, procedures, functions
+lazytsql schema -c dev -d app dbo.users --json    # columns
+lazytsql schema -c dev -d app dbo.get_users       # routine definition
+lazytsql databases -c dev
+```
+
+Options: `-d/--database`, `-m/--max-rows` (default 1000), `-t/--timeout` seconds (default 30).
+
+Exit codes: `0` success, `1` SQL errors, `2` usage or connection errors.
+
+`query --json` output:
+
+```json
+{"success":false,"batches":[{"startLine":3,"elapsedMs":5.9,"recordsAffected":-1,
+  "messages":[{"level":"error","number":208,"severity":16,"line":3,"text":"Invalid object name 'nope'."}],
+  "resultSets":[{"columns":[{"name":"id","type":"int"}],"rows":[[1]],"truncated":false}]}]}
+```
+
+`line` is the line in the submitted script, not in the batch. Numbers and decimals stay JSON numbers;
+binary values are `0x...` strings.
+
+## Development
+
+```bash
+dotnet test
+```
+
+SQL Server integration tests run when `LAZYTSQL_TEST_CONNECTION` points at a disposable server:
+
+```bash
+docker run -d --name lazytsql-dev-test -e ACCEPT_EULA=Y -e 'MSSQL_SA_PASSWORD=LazyTsql_Dev_2026!' \
+  -p 14339:1433 mcr.microsoft.com/mssql/server:2022-latest
+export LAZYTSQL_TEST_CONNECTION='Server=localhost,14339;User Id=sa;Password=LazyTsql_Dev_2026!;TrustServerCertificate=true'
+dotnet test
+```
+
+Layout: `LazyTsql.Core` (domain and ports, no dependencies), `LazyTsql.SqlServer` (SqlClient adapter),
+`LazyTsql` (CLI, JSON/text output, Terminal.Gui TUI).

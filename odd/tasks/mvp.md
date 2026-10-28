@@ -14,10 +14,14 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T2 S1 SQL Server adapter: execute batches, multiple result sets, PRINT messages, schema introspection — inline — 12 tests green against SQL Server 2022 container
 - [x] T3 S4,S5 Headless CLI: `query`, `schema`, `connections` with `--json`; connection config — inline — 7 tests green + e2e smoke against container
 - [x] T4 S2 TUI: numbered panels (connections, schema, editor, results), keybindings, status bar — inline — 2 tests + tmux e2e (connect, schema tree, SELECT TOP, definitions, multi result sets, PRINT, quit)
-- T5 S3 Native AOT publish, measure binary size and memory — inline
+- [x] T5 S3 Native AOT publish, measure binary size and memory — inline — verified at runtime
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"
 - L2 2026-10-28 "Soporte para sql server, mi desarrollo es en .net entonces es lo primordial"
 - L3 2026-10-28 "Si, quiero que la UI sea limpia y cómoda como lazygit o lazydocker, y que sea lo más óptimo posible y que gaste muy pocos recursos"
 - L4 Stack decision: C# / .NET 10, Microsoft.Data.SqlClient 7.1.1, Terminal.Gui 2.5.0, Native AOT. Working name `lazytsql`.
+- L5 Evidence: 35 tests green (14 core, 9 app, 12 SQL Server 2022 integration). TUI verified end to end in tmux.
+- L6 AOT: 21 MB linux-x64 binary. SqlClient throws "Globalization Invariant Mode is not supported", so ICU stays required. SqlClient trim warnings (IL2104/IL3053) are kept visible; all common types verified in the AOT binary.
+- L7 Memory: headless query ~46 MB RSS (~15 MB private). TUI ~85 MB RSS (~50 MB private, peak ~100 MB with 1000 rows); idle CPU ~1.8% from the Terminal.Gui main loop. GC gen0/conserve settings had no meaningful effect.
+- L8 Follow-ups: Terminal.Gui.Editor for SQL highlighting (TextView is obsolete), ScriptDom-based autocomplete, server-side paging instead of draining capped rows, Entra ID/Windows auth checks under AOT, profiling TUI private memory.

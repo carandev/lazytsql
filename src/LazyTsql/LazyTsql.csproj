@@ -14,6 +14,24 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AssemblyName>lazytsql</AssemblyName>
+    <RootNamespace>LazyTsql</RootNamespace>
+    <Version>0.1.0</Version>
+    <!-- Single native binary: fast startup and low memory, copyable to the database server. -->
+    <PublishAot>true</PublishAot>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <StripSymbols>true</StripSymbols>
+    <!-- SqlClient throws "Globalization Invariant Mode is not supported", so ICU is required at runtime. -->
+    <EventSourceSupport>false</EventSourceSupport>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <!-- SqlClient is not fully trim-annotated; its AOT warnings stay visible and the binary is verified at runtime. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);IL2104;IL3053</WarningsNotAsErrors>
   </PropertyGroup>
+
+  <!-- Oniguruma ships with Terminal.Gui for TextMate highlighting, which lazytsql does not use yet. -->
+  <Target Name="RemoveUnusedNativeLibraries" AfterTargets="Publish">
+    <Delete Files="$(PublishDir)libonigwrap.so;$(PublishDir)libonigwrap.dylib;$(PublishDir)onigwrap.dll" />
+  </Target>
 
 </Project>

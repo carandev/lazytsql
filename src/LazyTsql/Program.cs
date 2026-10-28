@@ -3,7 +3,6 @@ using LazyTsql.Infrastructure;
 using LazyTsql.Output;
 using LazyTsql.SqlServer;
 using LazyTsql.Tui;
-using Microsoft.Data.SqlClient;
 
 const string Usage = """
     lazytsql - a lazygit-style SQL Server client
@@ -57,7 +56,7 @@ try
         _ => throw new CliException($"Unknown command '{arguments.Command}'. Run 'lazytsql --help'."),
     };
 }
-catch (Exception ex) when (ex is CliException or SqlException or InvalidOperationException or IOException or OperationCanceledException)
+catch (Exception ex)
 {
     if (json) JsonResultWriter.WriteError(Console.OpenStandardOutput(), ex.Message);
     else Console.Error.WriteLine($"lazytsql: {ex.Message}");
