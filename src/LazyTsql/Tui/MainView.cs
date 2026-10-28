@@ -496,11 +496,10 @@ public sealed class MainView : Runnable
         }
 
         var suggested = Path.Combine(Environment.CurrentDirectory, $"results-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
-        if (PromptDialog.Show(App!, "Export CSV", "File:", suggested) is not { } path) return;
+        if (FilePicker.Show(App!, "Export CSV", "Export", suggested, ".csv") is not { } path) return;
 
         try
         {
-            path = ExpandHome(path);
             var resultSet = _resultSets[_resultIndex];
             // The BOM lets Excel detect UTF-8, so accents and ñ survive opening the file.
             using (var writer = new StreamWriter(path, append: false, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true)))
@@ -516,11 +515,6 @@ public sealed class MainView : Runnable
             Log($"✗ Export failed: {ex.Message}");
         }
     }
-
-    private static string ExpandHome(string path) =>
-        path == "~" || path.StartsWith("~/", StringComparison.Ordinal)
-            ? Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), path[1..].TrimStart('/')))
-            : Path.GetFullPath(path);
 
     private void LogBatch(BatchResult result)
     {
@@ -582,11 +576,11 @@ public sealed class MainView : Runnable
     {
         if (!ConfirmDiscardScript()) return;
         var directory = _script is null ? Environment.CurrentDirectory : Path.GetDirectoryName(_script.Path)!;
-        if (PromptDialog.Show(App!, "Open script", "File:", directory + Path.DirectorySeparatorChar) is not { } path) return;
+        if (FilePicker.Show(App!, "Open script", "Open", directory + Path.DirectorySeparatorChar, ".sql") is not { } path) return;
 
         try
         {
-            var (script, text) = ScriptFile.Open(ExpandHome(path));
+            var (script, text) = ScriptFile.Open(path);
             OpenScript(script, text);
             Log(File.Exists(script.Path) ? $"Opened {script.Path}." : $"New file {script.Path}; Ctrl+S creates it.");
             FocusPanel(2);
@@ -606,8 +600,8 @@ public sealed class MainView : Runnable
             if (script is null)
             {
                 var suggested = Path.Combine(Environment.CurrentDirectory, "query.sql");
-                if (PromptDialog.Show(App!, "Save script", "File:", suggested) is not { } path) return;
-                script = ScriptFile.Open(ExpandHome(path)).Script;
+                if (FilePicker.Show(App!, "Save script", "Save", suggested, ".sql") is not { } path) return;
+                script = ScriptFile.Open(path).Script;
                 if (File.Exists(script.Path) && !ConfirmDialog.Show(App!, "Save script", $"Overwrite {script.Name}?", "Overwrite", confirmIsDefault: false)) return;
             }
 

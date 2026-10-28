@@ -61,6 +61,11 @@ lazytsql -c dev migration.sql   # edit a script (created on the first save if it
 
 Result sets are capped at 1000 rows to keep memory bounded.
 
+Every path (open, save, export CSV) goes through a file picker: `Tab` completes the typed path, the list below shows
+the folders and matching files of that directory and filters as you type. `↓` moves into the list, where `j`/`k` move,
+`Enter`/`l` opens a folder or picks a file, `h`/`Backspace` goes up and `k` on the first row returns to the path.
+A name without extension gets `.sql` or `.csv`.
+
 Saving keeps the file's encoding and line endings, so scripts from SSMS (UTF-16 or UTF-8 with BOM, CRLF) round-trip
 unchanged. Quitting or replacing the editor contents (`s`, `e`) asks first when the open file has unsaved changes.
 

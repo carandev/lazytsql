@@ -37,7 +37,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T13 S13 Open and save `.sql` files (CLI positional, Ctrl+O, Ctrl+S) — inline — 3 tests (RED then GREEN) + tmux e2e: open CRLF file, dirty title, save keeps CRLF, discard/overwrite confirms, new file, save-as
 - [x] T14 S13 T-SQL syntax highlighting via TextView.OnDrawNormalColor and a Core tokenizer (no new dependency) — inline — 7 tokenizer tests + tmux ANSI capture (vertical/horizontal scroll, reload on open, definitions) + AOT smoke
 - [x] T15 S14 Keys dialog grouped by section, sized to its content — inline — 1 test (RED then GREEN) + tmux render at 120x38
-- [ ] T16 S15,S16 File picker for every path input (open, save, export CSV): Tab completion plus a browsable directory list — inline
+- [x] T16 S15,S16 File picker for every path input (open, save, export CSV): Tab completion plus a browsable directory list — inline — 4 tests (RED then GREEN) + tmux e2e: filter, Tab, j/k/l/h, open, save adds .sql, CSV export against SQL Server 2022
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"
@@ -59,3 +59,4 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - L17 2026-10-28 "Si" (fix the password shown on screen). Fixed with `ConnectionResolver.DisplayName`: profile name, or `server/database` for raw strings. 1 test (RED then GREEN) + tmux check: "Connecting to localhost,1/shop…", no password on screen.
 - L18 2026-10-28 "Ordena mejor el modal de keys, autocomplete en los lugares donde se ingresan las rutas, incluso si es posible que se haga un modal de selección de rutas y que se pueda usar si hace falta, como un "explorador de archivos", parecido a como funcionan las guis"
 - L19 Decision: an in-house picker instead of Terminal.Gui's FileDialog, to keep the minimal theme and vim keys; it replaces PromptDialog, whose only uses were paths.
+- L20 ListView overrides OnKeyDown for search-as-you-type, so its KeyDown event never sees letters; the picker sets `KeystrokeNavigator = null`. Focusing a TextField selects its text, so the picker moves the cursor to the end after focusing.
