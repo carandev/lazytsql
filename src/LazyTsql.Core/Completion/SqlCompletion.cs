@@ -5,6 +5,7 @@ namespace LazyTsql.Core.Completion;
 
 public enum CompletionKind
 {
+    Join,
     Column,
     Alias,
     Table,
@@ -59,11 +60,21 @@ public static class SqlCompletion
             k -= 2;
         }
 
-        if (prefix.Length == 0 && qualifier.Count == 0) return CompletionResult.None;
-
         var context = k >= 0 && tokens[k].Type == TokenType.Word ? tokens[k].Text : null;
+        // Right after JOIN or ON the related tables and their conditions are suggested before anything is typed.
+        var joining = qualifier.Count == 0 && context is not null && (Same(context, "JOIN") || Same(context, "ON"));
+        if (prefix.Length == 0 && qualifier.Count == 0 && !joining) return CompletionResult.None;
+
         var candidates = new Candidates(prefix);
         var references = References(tokens, insertAt);
+        if (joining)
+        {
+            var before = references.Where(r => r.Position < insertAt).ToList();
+            if (Same(context!, "JOIN")) AddJoins(candidates, before, catalog, database);
+            else AddConditions(candidates, before, catalog, database);
+            if (prefix.Length == 0) return new CompletionResult(remove, candidates.Ordered());
+        }
+
         if (qualifier.Count == 0) SuggestUnqualified(candidates, context, references, catalog, database);
         else SuggestQualified(candidates, qualifier, context, references, catalog, database);
         return new CompletionResult(remove, candidates.Ordered());
@@ -160,6 +171,74 @@ public static class SqlCompletion
         }
     }
 
+    /// <summary>Tables related by a foreign key to a table already in the statement: "orders o ON o.customer_id = c.id".</summary>
+    private static void AddJoins(Candidates candidates, List<Reference> before, SchemaCatalog catalog, string database)
+    {
+        var used = before.Select(r => r.Alias ?? r.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var reference in before)
+        {
+            if (Resolve(reference.Parts, catalog, database) is not var (owner, table)) continue;
+            var objects = catalog.Objects(owner) ?? [];
+            foreach (var (schema, name, pairs) in Links(table, catalog.ForeignKeys(owner) ?? []))
+            {
+                var alias = Alias(name, used);
+                var target = objects.FirstOrDefault(item => Same(item.Schema, schema) && Same(item.Name, name)) ?? new DbObject(schema, name, DbObjectKind.Table);
+                var display = Same(owner, database) ? Qualified(target, objects) : $"{Quote(owner)}.{Quote(schema)}.{Quote(name)}";
+                var condition = Condition(alias, pairs.Select(p => (p.Theirs, p.Mine)), Quote(reference.Alias ?? reference.Name));
+                candidates.Add(new($"{display} {alias} ON {condition}", CompletionKind.Join), name, $"{schema}.{name}");
+            }
+        }
+    }
+
+    /// <summary>After ON: the foreign key conditions between the table just joined and the ones before it.</summary>
+    private static void AddConditions(Candidates candidates, List<Reference> before, SchemaCatalog catalog, string database)
+    {
+        if (before.Count < 2 || Resolve(before[^1].Parts, catalog, database) is not var (owner, table)) return;
+        var keys = catalog.ForeignKeys(owner) ?? [];
+        var joined = Quote(before[^1].Alias ?? before[^1].Name);
+        foreach (var earlier in before.SkipLast(1))
+        {
+            if (Resolve(earlier.Parts, catalog, database) is not var (otherOwner, other) || !Same(otherOwner, owner)) continue;
+            foreach (var (schema, name, pairs) in Links(table, keys))
+            {
+                if (!Same(schema, other.Schema) || !Same(name, other.Name)) continue;
+                var condition = Condition(joined, pairs, Quote(earlier.Alias ?? earlier.Name));
+                candidates.Add(new(condition, CompletionKind.Join), condition);
+            }
+        }
+    }
+
+    /// <summary>The tables a foreign key links to <paramref name="table"/>, either way, pairing its columns with theirs.</summary>
+    private static IEnumerable<(string Schema, string Name, List<(string Mine, string Theirs)> Pairs)> Links(DbObject table, IReadOnlyList<ForeignKey> keys)
+    {
+        foreach (var key in keys)
+        {
+            if (Same(key.FromSchema, table.Schema) && Same(key.FromTable, table.Name))
+            {
+                yield return (key.ToSchema, key.ToTable, [.. key.Columns.Select(c => (c.From, c.To))]);
+            }
+
+            if (Same(key.ToSchema, table.Schema) && Same(key.ToTable, table.Name))
+            {
+                yield return (key.FromSchema, key.FromTable, [.. key.Columns.Select(c => (c.To, c.From))]);
+            }
+        }
+    }
+
+    private static string Condition(string left, IEnumerable<(string Left, string Right)> pairs, string right) =>
+        string.Join(" AND ", pairs.Select(p => $"{left}.{Quote(p.Left)} = {right}.{Quote(p.Right)}"));
+
+    /// <summary>The initials of a table name ("order_lines" → "ol"), numbered when that alias or name is in use.</summary>
+    private static string Alias(string name, IReadOnlySet<string> used)
+    {
+        var initials = new string([.. name.Where((c, i) => char.IsLetter(c)
+            && (i == 0 || name[i - 1] is '_' or ' ' || (char.IsUpper(c) && char.IsLower(name[i - 1]))))]).ToLowerInvariant();
+        if (initials.Length == 0) initials = "t";
+        var alias = initials;
+        for (var n = 2; used.Contains(alias) || Quote(alias) != alias; n++) alias = $"{initials}{n}";
+        return alias;
+    }
+
     private static void AddObjects(Candidates candidates, IReadOnlyList<DbObject> objects, string schema, bool routines)
     {
         foreach (var item in objects)
@@ -208,6 +287,7 @@ public static class SqlCompletion
             var j = i + 1;
             while (true)
             {
+                var start = j;
                 var parts = new List<string>();
                 while (j < to && tokens[j].Type == TokenType.Word && !IsKeyword(tokens[j]))
                 {
@@ -221,7 +301,7 @@ public static class SqlCompletion
                 if (j < to && tokens[j] is { Type: TokenType.Word, Bracketed: false } asWord && Same(asWord.Text, "AS")) j++;
                 string? alias = null;
                 if (j < to && tokens[j].Type == TokenType.Word && !IsKeyword(tokens[j])) alias = tokens[j++].Text;
-                references.Add(new Reference(parts, alias));
+                references.Add(new Reference(parts, alias, start));
 
                 if (!Same(tokens[i].Text, "FROM") || j >= to || tokens[j].Type != TokenType.Comma) break;
                 j++;
@@ -233,7 +313,8 @@ public static class SqlCompletion
 
     private static bool IsKeyword(Token token) => !token.Bracketed && SqlTokenizer.IsKeyword(token.Text);
 
-    private sealed record Reference(IReadOnlyList<string> Parts, string? Alias)
+    /// <summary>A table of the statement; <paramref name="Position"/> is the token index of its name.</summary>
+    private sealed record Reference(IReadOnlyList<string> Parts, string? Alias, int Position)
     {
         public string Name => Parts[^1];
     }

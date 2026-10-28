@@ -151,6 +151,34 @@ public class SqlServerSessionTests
     }
 
     [SqlServerFact]
+    public async Task Reads_foreign_keys_of_another_database_with_their_columns_in_key_order()
+    {
+        await using var session = await OpenAsync();
+        var database = $"lazytsql_{Guid.NewGuid():N}]'x";
+        var quoted = $"[{database.Replace("]", "]]")}]";
+        await RunAsync(session, $"CREATE DATABASE {quoted}");
+        try
+        {
+            await RunAsync(session, $"""
+                EXEC {quoted}.sys.sp_executesql N'
+                CREATE TABLE dbo.lines (order_id int NOT NULL, line int NOT NULL, PRIMARY KEY (order_id, line));
+                CREATE TABLE dbo.shipments (id int NOT NULL, line int NOT NULL, order_id int NOT NULL,
+                    FOREIGN KEY (order_id, line) REFERENCES dbo.lines (order_id, line));'
+                """);
+
+            var key = Assert.Single(await session.GetForeignKeysAsync(database, CancellationToken.None));
+
+            Assert.Equal(("dbo", "shipments", "dbo", "lines"), (key.FromSchema, key.FromTable, key.ToSchema, key.ToTable));
+            Assert.Equal([new KeyColumn("order_id", "order_id"), new KeyColumn("line", "line")], key.Columns);
+            Assert.Equal("master", session.CurrentDatabase);
+        }
+        finally
+        {
+            await RunAsync(session, $"ALTER DATABASE {quoted} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE {quoted}");
+        }
+    }
+
+    [SqlServerFact]
     public async Task Max_rows_zero_returns_every_row()
     {
         await using var session = await OpenAsync();

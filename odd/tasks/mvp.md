@@ -48,7 +48,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T20 S19 Columns: alias and table resolution in the current statement, lazy column loading — inline — 5 engine tests (RED then GREEN) + tmux e2e: `c.na`→`c.name` and `o.t`→`o.total` mid-line with text after the cursor, `WHERE em`→`email`
 - [x] T21 S19 Other databases: db. → schemas, db.schema. → objects, db.schema.object. → columns — inline — 4 engine tests (3 RED then GREEN; the alias case already passed through T20) + tmux e2e from master: `sh`→`shop`, `shop.`→`dbo`, `shop.dbo.c`→`customers`, `x.`→columns, title stays `› master`
 - [x] T22 S20 Insert dbo names without the schema when no other schema has the same name — inline — 3 engine tests RED then GREEN + 1 ambiguity test
-- [ ] T23 S20 Relationships from foreign keys: after JOIN suggest `table alias ON ...`, after ON the condition — inline
+- [x] T23 S20 Relationships from foreign keys: after JOIN suggest `table alias ON ...`, after ON the condition — inline — 5 engine tests RED then GREEN + 1 SQL Server test (composite key in another database, current database unchanged) + tmux e2e: `JOIN ` → `orders o ON o.customer_id = c.id` accepted mid-line, `ON ` → `customers.id = orders.customer_id`, `cus` → `customers`
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"
@@ -82,3 +82,4 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - L29 T19-T21 done. Not rebuilt as AOT since T14.
 - L30 2026-10-28 "Puede sugerir relaciones y que no sugiera el dbo. para la tabla? Si no es necesario? No sé si hay manera de tener eso en cuenta"
 - L31 Decision: an unqualified name resolves in the user's default schema and then in dbo, so the schema is dropped only for dbo objects whose name no other schema in that database uses (safe whatever the default schema is); other schemas keep it because the default schema is not loaded.
+- L32 Decision: foreign keys load once per database (`GetForeignKeysAsync`, through sp_executesql like the rest of the catalog). Right after JOIN or ON the popup opens without a prefix, showing only relationships; with a prefix they come first, then the usual names. The alias is the table's initials, numbered when taken or a keyword.

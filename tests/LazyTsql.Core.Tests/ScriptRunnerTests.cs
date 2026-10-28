@@ -69,6 +69,7 @@ public class ScriptRunnerTests
         public Task<IReadOnlyList<string>> GetDatabasesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<DbObject>> GetObjectsAsync(string database, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<ColumnDefinition>> GetColumnsAsync(string database, DbObject table, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(string database, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<string> GetDefinitionAsync(DbObject routine, CancellationToken cancellationToken) => throw new NotSupportedException();
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

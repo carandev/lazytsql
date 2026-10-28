@@ -202,4 +202,69 @@ public class SqlCompletionTests
 
         Assert.Equal(["archive"], requests);
     }
+
+    private static SchemaCatalog WithKeys()
+    {
+        var catalog = Catalog();
+        catalog.SetObjects("shop",
+        [
+            new DbObject("dbo", "customers", DbObjectKind.Table),
+            new DbObject("dbo", "orders", DbObjectKind.Table),
+            new DbObject("dbo", "order_lines", DbObjectKind.Table),
+            new DbObject("dbo", "shipments", DbObjectKind.Table),
+        ]);
+        catalog.SetForeignKeys("shop",
+        [
+            new ForeignKey("dbo", "orders", "dbo", "customers", [new KeyColumn("customer_id", "id")]),
+            new ForeignKey("dbo", "shipments", "dbo", "order_lines", [new KeyColumn("order_id", "order_id"), new KeyColumn("line", "line")]),
+        ]);
+        return catalog;
+    }
+
+    [Fact]
+    public void After_JOIN_suggests_the_tables_related_by_a_foreign_key_with_an_alias_and_the_condition()
+    {
+        var result = Suggest("SELECT * FROM customers c JOIN |", WithKeys());
+
+        Assert.Equal(["orders o ON o.customer_id = c.id"], Texts(result));
+        Assert.Equal(CompletionKind.Join, result.Items[0].Kind);
+        Assert.Equal(["customers c ON c.id = o.customer_id"], Texts(Suggest("SELECT * FROM dbo.orders o\nJOIN |", WithKeys())));
+    }
+
+    [Fact]
+    public void Typing_after_JOIN_puts_related_tables_before_the_rest()
+    {
+        Assert.Equal(["orders o ON o.customer_id = c.id", "orders", "order_lines"], Texts(Suggest("SELECT * FROM customers c JOIN or|", WithKeys())));
+    }
+
+    [Fact]
+    public void A_join_alias_avoids_names_in_use_and_a_composite_key_joins_every_column()
+    {
+        Assert.Equal(
+            ["customers c2 ON c2.id = o.customer_id", "orders o2 ON o2.customer_id = c.id"],
+            Texts(Suggest("SELECT * FROM orders o JOIN customers c ON c.id = o.customer_id JOIN |", WithKeys())));
+        Assert.Equal(
+            ["shipments s ON s.order_id = l.order_id AND s.line = l.line"],
+            Texts(Suggest("SELECT * FROM order_lines l JOIN |", WithKeys())));
+    }
+
+    [Fact]
+    public void After_ON_suggests_the_condition_with_the_tables_joined_before()
+    {
+        Assert.Equal(["o.customer_id = c.id"], Texts(Suggest("SELECT * FROM customers c JOIN orders o ON |", WithKeys())));
+        Assert.Equal(["orders.customer_id = c.id"], Texts(Suggest("SELECT * FROM customers c JOIN orders ON |", WithKeys())));
+    }
+
+    [Fact]
+    public void Unloaded_foreign_keys_are_requested_once()
+    {
+        var catalog = Catalog();
+        var requests = new List<string>();
+        catalog.ForeignKeysNeeded += requests.Add;
+
+        Assert.Empty(Suggest("SELECT * FROM customers c JOIN |", catalog).Items);
+        Assert.Empty(Suggest("SELECT * FROM customers c JOIN orders o ON |", catalog).Items);
+
+        Assert.Equal(["shop"], requests);
+    }
 }

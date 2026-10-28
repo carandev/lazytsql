@@ -36,5 +36,8 @@ public interface IDatabaseSession : IAsyncDisposable
 
     Task<IReadOnlyList<ColumnDefinition>> GetColumnsAsync(string database, DbObject table, CancellationToken cancellationToken);
 
+    /// <summary>Every foreign key of <paramref name="database"/>, for join completion.</summary>
+    Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(string database, CancellationToken cancellationToken);
+
     Task<string> GetDefinitionAsync(DbObject routine, CancellationToken cancellationToken);
 }

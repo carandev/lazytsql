@@ -140,6 +140,31 @@ internal sealed class SqlServerSession : IDatabaseSession
             cancellationToken,
             new SqlParameter("@name", SqlDbType.NVarChar, 512) { Value = table.QualifiedName });
 
+    public async Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(string database, CancellationToken cancellationToken)
+    {
+        var rows = await QueryAsync(
+            InDatabase(database, """
+            SELECT fk.object_id, fs.name, ft.name, ts.name, tt.name, fc.name, tc.name
+            FROM sys.foreign_keys fk
+            JOIN sys.tables ft ON ft.object_id = fk.parent_object_id
+            JOIN sys.schemas fs ON fs.schema_id = ft.schema_id
+            JOIN sys.tables tt ON tt.object_id = fk.referenced_object_id
+            JOIN sys.schemas ts ON ts.schema_id = tt.schema_id
+            JOIN sys.foreign_key_columns kc ON kc.constraint_object_id = fk.object_id
+            JOIN sys.columns fc ON fc.object_id = kc.parent_object_id AND fc.column_id = kc.parent_column_id
+            JOIN sys.columns tc ON tc.object_id = kc.referenced_object_id AND tc.column_id = kc.referenced_column_id
+            ORDER BY fk.object_id, kc.constraint_column_id
+            """),
+            r => (Key: r.GetInt32(0), FromSchema: r.GetString(1), FromTable: r.GetString(2), ToSchema: r.GetString(3), ToTable: r.GetString(4),
+                  Column: new KeyColumn(r.GetString(5), r.GetString(6))),
+            cancellationToken);
+        return [.. rows.GroupBy(row => row.Key).Select(key =>
+        {
+            var first = key.First();
+            return new ForeignKey(first.FromSchema, first.FromTable, first.ToSchema, first.ToTable, [.. key.Select(row => row.Column)]);
+        })];
+    }
+
     public async Task<string> GetDefinitionAsync(DbObject routine, CancellationToken cancellationToken)
     {
         var rows = await QueryAsync(

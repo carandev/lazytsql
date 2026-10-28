@@ -86,6 +86,7 @@ public sealed class MainView : Runnable
         _editor.Autocomplete.Scheme = Theme.Popup;
         _catalog.ObjectsNeeded += LoadCatalogObjects;
         _catalog.ColumnsNeeded += LoadCatalogColumns;
+        _catalog.ForeignKeysNeeded += LoadCatalogForeignKeys;
 
         SetScheme(Theme.Content);
         Add(connectionsPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel, _hints);
@@ -442,6 +443,22 @@ public sealed class MainView : Runnable
                 _editor.RefreshCompletion();
             });
         }, onError: () => _catalog.SetColumns(database, table, []));
+    }
+
+    private void LoadCatalogForeignKeys(string database)
+    {
+        var session = _session;
+        if (session is null) return;
+        RunInBackground(async token =>
+        {
+            var foreignKeys = await session.GetForeignKeysAsync(database, token);
+            OnUi(() =>
+            {
+                if (_session != session) return;
+                _catalog.SetForeignKeys(database, foreignKeys);
+                _editor.RefreshCompletion();
+            });
+        }, onError: () => _catalog.SetForeignKeys(database, []));
     }
 
     private void ToggleSchemaNode()

@@ -10,6 +10,7 @@ public sealed class SchemaCatalog
 {
     private readonly Dictionary<string, IReadOnlyList<DbObject>> _objects = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IReadOnlyList<ColumnDefinition>> _columns = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, IReadOnlyList<ForeignKey>> _foreignKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _requested = new(StringComparer.OrdinalIgnoreCase);
 
     public IReadOnlyList<string> Databases { get; set; } = [];
@@ -18,10 +19,14 @@ public sealed class SchemaCatalog
 
     public event Action<string, DbObject>? ColumnsNeeded;
 
+    public event Action<string>? ForeignKeysNeeded;
+
     public void SetObjects(string database, IReadOnlyList<DbObject> objects) => _objects[database] = objects;
 
     public void SetColumns(string database, DbObject table, IReadOnlyList<ColumnDefinition> columns) =>
         _columns[ColumnsKey(database, table)] = columns;
+
+    public void SetForeignKeys(string database, IReadOnlyList<ForeignKey> foreignKeys) => _foreignKeys[database] = foreignKeys;
 
     public IReadOnlyList<DbObject>? Objects(string database)
     {
@@ -38,9 +43,17 @@ public sealed class SchemaCatalog
         return null;
     }
 
+    public IReadOnlyList<ForeignKey>? ForeignKeys(string database)
+    {
+        if (_foreignKeys.TryGetValue(database, out var foreignKeys)) return foreignKeys;
+        if (_requested.Add($"{database}\u0001fk")) ForeignKeysNeeded?.Invoke(database);
+        return null;
+    }
+
     public void Clear()
     {
         _objects.Clear();
+        _foreignKeys.Clear();
         _columns.Clear();
         _requested.Clear();
         Databases = [];

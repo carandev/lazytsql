@@ -81,7 +81,9 @@ from the connected database while you type: tables, views and functions after `F
 `EXEC`, the objects of a schema after `schema.`, the columns of an alias or table after `alias.`, and elsewhere the
 columns of the statement's tables, their aliases and keywords. Other databases complete too: `db.` lists its
 schemas and `db.schema.` its objects (when the connection is not scoped to one database). A `dbo` name is inserted
-without its schema unless another schema has an object with the same name. Names load in the background the first time
+without its schema unless another schema has an object with the same name. Right after `JOIN` it suggests the
+tables related by a foreign key with an alias and the condition (`orders o ON o.customer_id = c.id`), and after `ON`
+the condition. Names load in the background the first time
 they are needed, without changing the current database; `r` in the schema panel reloads them.
 
 ## Headless mode (scripts and agents)
