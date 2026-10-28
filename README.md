@@ -79,7 +79,8 @@ gray borders, green border on the focused panel and a footer with the keys of th
 The editor highlights T-SQL keywords and types, strings, comments, numbers and `@variables`, and completes names
 from the connected database while you type: tables, views and functions after `FROM`/`JOIN`, procedures after
 `EXEC`, the objects of a schema after `schema.`, the columns of an alias or table after `alias.`, and elsewhere the
-columns of the statement's tables, their aliases and keywords. Names load in the background the first time
+columns of the statement's tables, their aliases and keywords. Other databases complete too: `db.` lists its
+schemas and `db.schema.` its objects (when the connection is not scoped to one database). Names load in the background the first time
 they are needed, without changing the current database; `r` in the schema panel reloads them.
 
 ## Headless mode (scripts and agents)

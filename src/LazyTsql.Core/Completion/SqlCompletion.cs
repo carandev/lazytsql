@@ -77,6 +77,8 @@ public static class SqlCompletion
             {
                 if (item.Kind != DbObjectKind.Procedure) candidates.Add(new(Qualified(item), KindOf(item)), item.Name, $"{item.Schema}.{item.Name}");
             }
+
+            foreach (var name in catalog.Databases) candidates.Add(new(Quote(name), CompletionKind.Database), name);
         }
         else if (context is not null && RoutineKeywords.Contains(context))
         {
@@ -124,26 +126,43 @@ public static class SqlCompletion
             }
         }
 
-        if (catalog.Objects(database) is not { } objects) return;
-        if (qualifier.Count == 1 && !objects.Any(item => Same(item.Schema, qualifier[0])))
-        {
-            AddColumns(candidates, Resolve(qualifier, catalog, database), catalog);
-            return;
-        }
-
-        if (qualifier.Count == 2)
-        {
-            AddColumns(candidates, Resolve(qualifier, catalog, database), catalog);
-            return;
-        }
-
-        if (qualifier.Count != 1) return;
-        var schema = qualifier[0];
         var routines = context is not null && RoutineKeywords.Contains(context);
+        switch (qualifier.Count)
+        {
+            // schema. → its objects; database. → its schemas; table. → its columns.
+            case 1 when catalog.Objects(database) is { } objects && objects.Any(item => Same(item.Schema, qualifier[0])):
+                AddObjects(candidates, objects, qualifier[0], routines);
+                break;
+            case 1 when catalog.Databases.FirstOrDefault(name => Same(name, qualifier[0])) is { } other:
+                foreach (var schema in (catalog.Objects(other) ?? []).Select(item => item.Schema).Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    candidates.Add(new(Quote(schema), CompletionKind.Schema), schema);
+                }
+
+                break;
+            case 1:
+                AddColumns(candidates, Resolve(qualifier, catalog, database), catalog);
+                break;
+
+            // schema.table. → its columns; database.schema. → that schema's objects.
+            case 2 when Resolve(qualifier, catalog, database) is { } table:
+                AddColumns(candidates, table, catalog);
+                break;
+            case 2 when catalog.Databases.FirstOrDefault(name => Same(name, qualifier[0])) is { } other:
+                AddObjects(candidates, catalog.Objects(other) ?? [], qualifier[1], routines);
+                break;
+
+            case 3:
+                AddColumns(candidates, Resolve(qualifier, catalog, database), catalog);
+                break;
+        }
+    }
+
+    private static void AddObjects(Candidates candidates, IReadOnlyList<DbObject> objects, string schema, bool routines)
+    {
         foreach (var item in objects)
         {
-            if (!Same(item.Schema, schema) || (item.Kind == DbObjectKind.Procedure) != routines) continue;
-            candidates.Add(new(Quote(item.Name), KindOf(item)), item.Name);
+            if (Same(item.Schema, schema) && (item.Kind == DbObjectKind.Procedure) == routines) candidates.Add(new(Quote(item.Name), KindOf(item)), item.Name);
         }
     }
 

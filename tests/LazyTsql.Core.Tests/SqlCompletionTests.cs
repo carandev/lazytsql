@@ -148,4 +148,49 @@ public class SqlCompletionTests
 
         Assert.Equal(["shop.dbo.order details"], requests);
     }
+
+    private static SchemaCatalog WithArchive()
+    {
+        var catalog = Catalog();
+        var oldOrders = new DbObject("dbo", "old_orders", DbObjectKind.Table);
+        catalog.SetObjects("archive", [oldOrders, new DbObject("history", "events", DbObjectKind.Table), new DbObject("dbo", "purge", DbObjectKind.Procedure)]);
+        catalog.SetColumns("archive", oldOrders, [Column("id", "int"), Column("closed_at", "datetime2")]);
+        return catalog;
+    }
+
+    [Fact]
+    public void After_FROM_database_names_are_suggested_too()
+    {
+        var result = Suggest("SELECT * FROM arc|", WithArchive());
+
+        Assert.Equal(["archive"], Texts(result));
+        Assert.Equal(CompletionKind.Database, result.Items[0].Kind);
+    }
+
+    [Fact]
+    public void A_database_then_its_schemas_then_their_objects_then_their_columns()
+    {
+        Assert.Equal(["dbo", "history"], Texts(Suggest("SELECT * FROM archive.|", WithArchive())));
+        Assert.Equal(["old_orders"], Texts(Suggest("SELECT * FROM archive.dbo.|", WithArchive())));
+        Assert.Equal(["purge"], Texts(Suggest("EXEC archive.dbo.|", WithArchive())));
+        Assert.Equal(["closed_at", "id"], Texts(Suggest("SELECT archive.dbo.old_orders.| FROM archive.dbo.old_orders", WithArchive())));
+    }
+
+    [Fact]
+    public void An_alias_of_a_table_in_another_database_resolves_its_columns()
+    {
+        Assert.Equal(["closed_at", "id"], Texts(Suggest("SELECT a.| FROM archive.dbo.old_orders a", WithArchive())));
+    }
+
+    [Fact]
+    public void Another_database_is_requested_when_first_named()
+    {
+        var catalog = Catalog();
+        var requests = new List<string>();
+        catalog.ObjectsNeeded += requests.Add;
+
+        Assert.Empty(Suggest("SELECT * FROM archive.|", catalog).Items);
+
+        Assert.Equal(["archive"], requests);
+    }
 }
