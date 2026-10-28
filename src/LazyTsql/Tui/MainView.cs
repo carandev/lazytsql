@@ -85,6 +85,7 @@ public sealed class MainView : Runnable
         _editor.EnableCompletion(() => _session is { } session ? (_catalog, session.CurrentDatabase) : null);
         _editor.Autocomplete.Scheme = Theme.Popup;
         _catalog.ObjectsNeeded += LoadCatalogObjects;
+        _catalog.ColumnsNeeded += LoadCatalogColumns;
 
         SetScheme(Theme.Content);
         Add(connectionsPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel, _hints);
@@ -425,6 +426,22 @@ public sealed class MainView : Runnable
                 _editor.RefreshCompletion();
             });
         }, onError: () => _catalog.SetObjects(database, []));
+    }
+
+    private void LoadCatalogColumns(string database, DbObject table)
+    {
+        var session = _session;
+        if (session is null) return;
+        RunInBackground(async token =>
+        {
+            var columns = await session.GetColumnsAsync(database, table, token);
+            OnUi(() =>
+            {
+                if (_session != session) return;
+                _catalog.SetColumns(database, table, columns);
+                _editor.RefreshCompletion();
+            });
+        }, onError: () => _catalog.SetColumns(database, table, []));
     }
 
     private void ToggleSchemaNode()

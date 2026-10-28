@@ -78,7 +78,8 @@ The UI keeps the terminal's own background and uses the 16 ANSI colors, so it fo
 gray borders, green border on the focused panel and a footer with the keys of the focused panel or open dialog.
 The editor highlights T-SQL keywords and types, strings, comments, numbers and `@variables`, and completes names
 from the connected database while you type: tables, views and functions after `FROM`/`JOIN`, procedures after
-`EXEC`, the objects of a schema after `schema.`, and keywords elsewhere. Names load in the background the first time
+`EXEC`, the objects of a schema after `schema.`, the columns of an alias or table after `alias.`, and elsewhere the
+columns of the statement's tables, their aliases and keywords. Names load in the background the first time
 they are needed, without changing the current database; `r` in the schema panel reloads them.
 
 ## Headless mode (scripts and agents)

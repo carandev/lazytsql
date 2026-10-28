@@ -16,7 +16,12 @@ public sealed class SqlEditor : TextView
 {
     private SqlTokenKind[][]? _kinds;
 
-    public SqlEditor() => ContentsChanged += (_, _) => _kinds = null;
+    public SqlEditor()
+    {
+        ContentsChanged += (_, _) => _kinds = null;
+        // TextView attaches it to itself in EndInit, once the view is in the tree.
+        Autocomplete = new PrefixAutocomplete();
+    }
 
     /// <summary>Turns on completion from <paramref name="source"/>: the catalog and current database, or null when offline.</summary>
     public void EnableCompletion(Func<(SchemaCatalog Catalog, string Database)?> source)
@@ -50,5 +55,20 @@ public sealed class SqlEditor : TextView
         var kinds = idxRow < _kinds.Length ? _kinds[idxRow] : [];
         if (idxCol < kinds.Length && Theme.Syntax(kinds[idxCol]) is { } attribute) SetAttribute(attribute);
         else base.OnDrawNormalColor(line, idxCol, idxRow);
+    }
+
+    /// <summary>
+    /// TextView's popup moves the cursor forward by <see cref="Suggestion.Remove"/> before deleting backwards, which
+    /// eats the text after the cursor when completing mid-line. This one deletes only the typed prefix.
+    /// </summary>
+    private sealed class PrefixAutocomplete : TextViewAutocomplete
+    {
+        protected override bool InsertSelection(Suggestion accepted)
+        {
+            var editor = (TextView)HostControl!;
+            for (var i = 0; i < accepted.Remove; i++) editor.DeleteCharLeft();
+            editor.InsertText(accepted.Replacement);
+            return true;
+        }
     }
 }

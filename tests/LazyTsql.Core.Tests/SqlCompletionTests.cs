@@ -17,8 +17,14 @@ public class SqlCompletionTests
             new DbObject("dbo", "get_customers", DbObjectKind.Procedure),
             new DbObject("dbo", "customer_rank", DbObjectKind.Function),
         ]);
+        catalog.SetColumns("shop", new DbObject("dbo", "customers", DbObjectKind.Table),
+            [Column("id", "int"), Column("name", "nvarchar(100)"), Column("email", "nvarchar(200)")]);
+        catalog.SetColumns("shop", new DbObject("dbo", "orders", DbObjectKind.Table),
+            [Column("id", "int"), Column("customer_id", "int"), Column("total", "decimal(10,2)")]);
         return catalog;
     }
+
+    private static ColumnDefinition Column(string name, string type) => new(name, type, true, false, false);
 
     // '|' marks the cursor.
     private static CompletionResult Suggest(string script, SchemaCatalog? catalog = null)
@@ -93,5 +99,53 @@ public class SqlCompletionTests
         Assert.Contains("SELECT", Texts(Suggest("SEL|", catalog)));
 
         Assert.Equal(["shop"], requests);
+    }
+
+    [Fact]
+    public void After_an_alias_and_a_dot_suggests_its_columns_with_their_type()
+    {
+        var result = Suggest("SELECT c.| FROM dbo.customers c");
+
+        Assert.Equal(["email", "id", "name"], Texts(result));
+        Assert.Equal("nvarchar(200)", result.Items[0].Detail);
+        Assert.Equal(["name"], Texts(Suggest("SELECT c.na| FROM dbo.customers AS c")));
+    }
+
+    [Fact]
+    public void A_table_name_schema_and_table_or_a_later_item_of_the_FROM_list_resolve_too()
+    {
+        Assert.Equal(["email", "id", "name"], Texts(Suggest("SELECT customers.| FROM customers")));
+        Assert.Equal(["email", "id", "name"], Texts(Suggest("SELECT dbo.customers.| FROM dbo.customers")));
+        Assert.Equal(["customer_id", "id", "total"], Texts(Suggest("SELECT o.| FROM dbo.customers c, dbo.orders o")));
+        Assert.Equal(["customer_id"], Texts(Suggest("SELECT * FROM dbo.customers c\nJOIN dbo.orders o ON o.cu|")));
+    }
+
+    [Fact]
+    public void Aliases_resolve_within_the_current_statement()
+    {
+        Assert.Equal(["email", "id", "name"], Texts(Suggest("SELECT * FROM dbo.orders c;\nSELECT c.| FROM dbo.customers c")));
+    }
+
+    [Fact]
+    public void Without_a_qualifier_columns_of_the_statement_tables_come_before_aliases_and_keywords()
+    {
+        var result = Suggest("SELECT c| FROM dbo.customers cust JOIN dbo.orders o ON 1 = 1");
+
+        Assert.Equal(["customer_id", "cust"], Texts(result)[..2]);
+        Assert.Equal([CompletionKind.Column, CompletionKind.Alias], result.Items.Take(2).Select(item => item.Kind));
+        Assert.Contains("case", Texts(result));
+    }
+
+    [Fact]
+    public void Unloaded_columns_are_requested_once()
+    {
+        var catalog = Catalog();
+        var requests = new List<string>();
+        catalog.ColumnsNeeded += (database, table) => requests.Add($"{database}.{table.Schema}.{table.Name}");
+
+        Assert.Empty(Suggest("SELECT d.| FROM dbo.[order details] d", catalog).Items);
+        Assert.Empty(Suggest("SELECT d.s| FROM dbo.[order details] d", catalog).Items);
+
+        Assert.Equal(["shop.dbo.order details"], requests);
     }
 }

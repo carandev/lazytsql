@@ -63,12 +63,13 @@ public static class SqlCompletion
 
         var context = k >= 0 && tokens[k].Type == TokenType.Word ? tokens[k].Text : null;
         var candidates = new Candidates(prefix);
-        if (qualifier.Count == 0) SuggestUnqualified(candidates, context, catalog, database);
-        else SuggestQualified(candidates, qualifier, context, catalog, database);
+        var references = References(tokens, insertAt);
+        if (qualifier.Count == 0) SuggestUnqualified(candidates, context, references, catalog, database);
+        else SuggestQualified(candidates, qualifier, context, references, catalog, database);
         return new CompletionResult(remove, candidates.Ordered());
     }
 
-    private static void SuggestUnqualified(Candidates candidates, string? context, SchemaCatalog catalog, string database)
+    private static void SuggestUnqualified(Candidates candidates, string? context, List<Reference> references, SchemaCatalog catalog, string database)
     {
         if (context is not null && ObjectKeywords.Contains(context))
         {
@@ -86,6 +87,12 @@ public static class SqlCompletion
         }
         else
         {
+            foreach (var reference in references)
+            {
+                AddColumns(candidates, Resolve(reference.Parts, catalog, database), catalog);
+                if (reference.Alias is { } alias) candidates.Add(new(Quote(alias), CompletionKind.Alias, reference.Name), alias);
+            }
+
             var lower = candidates.Prefix.All(c => !char.IsLetter(c) || char.IsLower(c));
             foreach (var keyword in SqlTokenizer.KeywordNames)
             {
@@ -94,10 +101,43 @@ public static class SqlCompletion
         }
     }
 
-    private static void SuggestQualified(Candidates candidates, List<string> qualifier, string? context, SchemaCatalog catalog, string database)
+    private static void SuggestQualified(
+        Candidates candidates,
+        List<string> qualifier,
+        string? context,
+        List<Reference> references,
+        SchemaCatalog catalog,
+        string database)
     {
-        if (qualifier.Count != 1 || catalog.Objects(database) is not { } objects) return;
+        if (qualifier.Count == 1)
+        {
+            // An alias, or a table of the statement, wins over a schema or table of the same name. A name being typed
+            // after FROM (FROM sales.) is not a table yet, so an unaliased name counts only when it resolves.
+            var aliased = references.FirstOrDefault(r => r.Alias is { } alias && Same(alias, qualifier[0]));
+            var target = aliased is not null
+                ? Resolve(aliased.Parts, catalog, database)
+                : references.Where(r => r.Alias is null && Same(r.Name, qualifier[0])).Select(r => Resolve(r.Parts, catalog, database)).FirstOrDefault(t => t is not null);
+            if (aliased is not null || target is not null)
+            {
+                AddColumns(candidates, target, catalog);
+                return;
+            }
+        }
 
+        if (catalog.Objects(database) is not { } objects) return;
+        if (qualifier.Count == 1 && !objects.Any(item => Same(item.Schema, qualifier[0])))
+        {
+            AddColumns(candidates, Resolve(qualifier, catalog, database), catalog);
+            return;
+        }
+
+        if (qualifier.Count == 2)
+        {
+            AddColumns(candidates, Resolve(qualifier, catalog, database), catalog);
+            return;
+        }
+
+        if (qualifier.Count != 1) return;
         var schema = qualifier[0];
         var routines = context is not null && RoutineKeywords.Contains(context);
         foreach (var item in objects)
@@ -105,6 +145,76 @@ public static class SqlCompletion
             if (!Same(item.Schema, schema) || (item.Kind == DbObjectKind.Procedure) != routines) continue;
             candidates.Add(new(Quote(item.Name), KindOf(item)), item.Name);
         }
+    }
+
+    private static void AddColumns(Candidates candidates, (string Database, DbObject Table)? target, SchemaCatalog catalog)
+    {
+        if (target is not var (database, table)) return;
+        foreach (var column in catalog.Columns(database, table) ?? [])
+        {
+            candidates.Add(new(Quote(column.Name), CompletionKind.Column, column.DataType), column.Name);
+        }
+    }
+
+    /// <summary>The table or view a name refers to: [[database.]schema.]name, preferring dbo when the schema is omitted.</summary>
+    private static (string Database, DbObject Table)? Resolve(IReadOnlyList<string> parts, SchemaCatalog catalog, string database)
+    {
+        var name = parts[^1];
+        var schema = parts.Count >= 2 ? parts[^2] : null;
+        var owner = parts.Count >= 3 ? parts[^3] : database;
+        if (catalog.Objects(owner) is not { } objects) return null;
+        var matches = objects
+            .Where(item => item.Kind is DbObjectKind.Table or DbObjectKind.View && Same(item.Name, name) && (schema is null || Same(item.Schema, schema)))
+            .ToList();
+        var match = matches.FirstOrDefault(item => Same(item.Schema, "dbo")) ?? matches.FirstOrDefault();
+        return match is null ? null : (owner, match);
+    }
+
+    /// <summary>
+    /// Tables named after FROM, JOIN, UPDATE, INTO or APPLY in the statement around <paramref name="position"/>, with their
+    /// alias; a FROM list continues after each comma. Statements end at a semicolon or GO.
+    /// </summary>
+    private static List<Reference> References(List<Token> tokens, int position)
+    {
+        var from = position == 0 ? -1 : tokens.FindLastIndex(position - 1, t => t.Type == TokenType.Separator);
+        var to = position >= tokens.Count ? tokens.Count : tokens.FindIndex(position, t => t.Type == TokenType.Separator);
+        if (to < 0) to = tokens.Count;
+
+        var references = new List<Reference>();
+        for (var i = from + 1; i < to; i++)
+        {
+            if (tokens[i].Type != TokenType.Word || tokens[i].Bracketed || !ObjectKeywords.Contains(tokens[i].Text)) continue;
+            var j = i + 1;
+            while (true)
+            {
+                var parts = new List<string>();
+                while (j < to && tokens[j].Type == TokenType.Word && !IsKeyword(tokens[j]))
+                {
+                    parts.Add(tokens[j++].Text);
+                    if (j < to && tokens[j].Type == TokenType.Dot) j++;
+                    else break;
+                }
+
+                // Nothing named, or a table-valued function call.
+                if (parts.Count == 0 || (j < to && tokens[j].Type == TokenType.OpenParen)) break;
+                if (j < to && tokens[j] is { Type: TokenType.Word, Bracketed: false } asWord && Same(asWord.Text, "AS")) j++;
+                string? alias = null;
+                if (j < to && tokens[j].Type == TokenType.Word && !IsKeyword(tokens[j])) alias = tokens[j++].Text;
+                references.Add(new Reference(parts, alias));
+
+                if (!Same(tokens[i].Text, "FROM") || j >= to || tokens[j].Type != TokenType.Comma) break;
+                j++;
+            }
+        }
+
+        return references;
+    }
+
+    private static bool IsKeyword(Token token) => !token.Bracketed && SqlTokenizer.IsKeyword(token.Text);
+
+    private sealed record Reference(IReadOnlyList<string> Parts, string? Alias)
+    {
+        public string Name => Parts[^1];
     }
 
     /// <summary>The word being typed: its token, the part before the cursor, and how many characters to replace.</summary>
