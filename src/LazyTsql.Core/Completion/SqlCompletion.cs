@@ -20,6 +20,9 @@ public enum CompletionKind
 /// <summary><paramref name="Text"/> is inserted; <paramref name="Detail"/> is shown next to it (a column type).</summary>
 public sealed record CompletionItem(string Text, CompletionKind Kind, string? Detail = null);
 
+/// <summary>A name the catalog does not have, on <paramref name="Row"/> from Start to End (exclusive).</summary>
+public sealed record Diagnostic(int Row, int Start, int End, string Message);
+
 /// <summary>How many characters before the cursor the chosen item replaces, and the candidates, best first.</summary>
 public sealed record CompletionResult(int Remove, IReadOnlyList<CompletionItem> Items)
 {
@@ -239,6 +242,99 @@ public static class SqlCompletion
         return alias;
     }
 
+    /// <summary>
+    /// Tables and alias.column names the catalog does not have. Only what is certain is marked: names not loaded yet,
+    /// temporary tables, CTEs, tables the script creates, system schemas, other servers and unlisted databases are not,
+    /// nor the word touching <paramref name="cursor"/>, which is still being typed.
+    /// </summary>
+    public static IReadOnlyList<Diagnostic> Diagnose(IReadOnlyList<string> lines, SchemaCatalog catalog, string database, (int Row, int Column)? cursor)
+    {
+        var tokens = SqlLexer.Tokenize(lines, SqlTokenizer.Classify(lines));
+        var known = DefinedNames(tokens);
+        var diagnostics = new List<Diagnostic>();
+        bool Typing(Token token) => cursor is var (row, column) && token.Row == row && token.Start <= column && column <= token.End;
+
+        for (var start = 0; start < tokens.Count; start++)
+        {
+            if (tokens[start].Type == TokenType.Separator) continue;
+            var end = tokens.FindIndex(start, t => t.Type == TokenType.Separator) switch { -1 => tokens.Count, var i => i };
+            var references = References(tokens, start);
+            var names = new HashSet<int>();
+            foreach (var reference in references)
+            {
+                for (var part = 0; part < reference.Parts.Count; part++) names.Add(reference.Position + 2 * part);
+                var first = tokens[reference.Position];
+                var last = tokens[reference.Position + 2 * (reference.Parts.Count - 1)];
+                if (Typing(last) || !Checked(reference, references, tokens, known, catalog, database)) continue;
+                var (owner, schema) = (reference.Parts.Count == 3 ? reference.Parts[0] : database, reference.Parts.Count >= 2 ? reference.Parts[^2] : null);
+                if (catalog.Objects(owner) is not { } objects) continue;
+                if (objects.Any(item => Same(item.Name, reference.Name) && (schema is null || Same(item.Schema, schema)))) continue;
+                var span = first.Row == last.Row ? first.Start : last.Start;
+                diagnostics.Add(new(last.Row, span, last.End, $"Unknown table or view: {string.Join('.', reference.Parts)}"));
+            }
+
+            // alias.column, where the alias (or an unaliased table name) resolves to a table whose columns are loaded.
+            for (var i = start; i + 2 < end; i++)
+            {
+                if (names.Contains(i) || tokens[i].Type != TokenType.Word || tokens[i + 1].Type != TokenType.Dot || tokens[i + 2].Type != TokenType.Word) continue;
+                if ((i > 0 && tokens[i - 1].Type == TokenType.Dot) || (i + 3 < end && tokens[i + 3].Type == TokenType.Dot)) continue;
+                var (qualifier, column) = (tokens[i], tokens[i + 2]);
+                if (qualifier.End != tokens[i + 1].Start || tokens[i + 1].End != column.Start || Typing(column)) continue;
+                var owner = references.FirstOrDefault(r => r.Alias is { } alias && Same(alias, qualifier.Text))
+                    ?? references.FirstOrDefault(r => r.Alias is null && Same(r.Name, qualifier.Text));
+                if (owner is null || Resolve(owner.Parts, catalog, database) is not var (db, table)) continue;
+                if (catalog.Columns(db, table) is not { } columns || columns.Any(c => Same(c.Name, column.Text))) continue;
+                diagnostics.Add(new(column.Row, column.Start, column.End, $"Unknown column: {table.Schema}.{table.Name}.{column.Text}"));
+            }
+
+            start = end;
+        }
+
+        return diagnostics;
+    }
+
+    /// <summary>Whether a table reference names something the catalog should have.</summary>
+    private static bool Checked(Reference reference, List<Reference> statement, List<Token> tokens, HashSet<string> known, SchemaCatalog catalog, string database)
+    {
+        var keyword = tokens[reference.Keyword].Text;
+        // CREATE/ALTER/DROP TABLE and SELECT ... INTO name tables that may not exist yet.
+        if (Same(keyword, "TABLE")) return false;
+        if (Same(keyword, "INTO") && !(reference.Keyword > 0 && tokens[reference.Keyword - 1] is { Type: TokenType.Word } before
+                                       && (Same(before.Text, "INSERT") || Same(before.Text, "MERGE")))) return false;
+        if (reference.Parts.Count > 3 || reference.Name.StartsWith('#') || known.Contains(reference.Name)) return false;
+        if (reference.Parts.Count >= 2 && (Same(reference.Parts[^2], "sys") || Same(reference.Parts[^2], "INFORMATION_SCHEMA"))) return false;
+        // UPDATE c ... FROM customers c names an alias.
+        if (reference.Parts.Count == 1 && statement.Any(r => r.Alias is { } alias && Same(alias, reference.Name))) return false;
+        return reference.Parts.Count < 3 || Same(reference.Parts[0], database) || catalog.Databases.Any(name => Same(name, reference.Parts[0]));
+    }
+
+    /// <summary>Names the script itself defines: CTEs and the tables, views and synonyms it creates.</summary>
+    private static HashSet<string> DefinedNames(List<Token> tokens)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 1; i < tokens.Count; i++)
+        {
+            if (tokens[i].Type != TokenType.Word) continue;
+            var before = tokens[i - 1];
+            var next = i + 1 < tokens.Count ? tokens[i + 1] : null;
+            // WITH name AS (, , name AS (, WITH name (columns) AS (
+            var cte = (before.Type == TokenType.Comma || before is { Type: TokenType.Word, Bracketed: false } && Same(before.Text, "WITH"))
+                && (next?.Type == TokenType.OpenParen
+                    || (next is { Type: TokenType.Word, Bracketed: false } && Same(next.Text, "AS") && i + 2 < tokens.Count && tokens[i + 2].Type == TokenType.OpenParen));
+            if (cte) names.Add(tokens[i].Text);
+
+            if (i >= 1 && before.Type == TokenType.Word && (Same(before.Text, "TABLE") || Same(before.Text, "VIEW") || Same(before.Text, "SYNONYM"))
+                && i >= 2 && tokens[i - 2] is { Type: TokenType.Word } create && Same(create.Text, "CREATE"))
+            {
+                var j = i;
+                while (j + 2 < tokens.Count && tokens[j + 1].Type == TokenType.Dot && tokens[j + 2].Type == TokenType.Word) j += 2;
+                names.Add(tokens[j].Text);
+            }
+        }
+
+        return names;
+    }
+
     private static void AddObjects(Candidates candidates, IReadOnlyList<DbObject> objects, string schema, bool routines)
     {
         foreach (var item in objects)
@@ -296,12 +392,12 @@ public static class SqlCompletion
                     else break;
                 }
 
-                // Nothing named, or a table-valued function call.
-                if (parts.Count == 0 || (j < to && tokens[j].Type == TokenType.OpenParen)) break;
+                // Nothing named, or a table-valued function call; after INTO the parenthesis lists columns.
+                if (parts.Count == 0 || (j < to && tokens[j].Type == TokenType.OpenParen && !Same(tokens[i].Text, "INTO"))) break;
                 if (j < to && tokens[j] is { Type: TokenType.Word, Bracketed: false } asWord && Same(asWord.Text, "AS")) j++;
                 string? alias = null;
                 if (j < to && tokens[j].Type == TokenType.Word && !IsKeyword(tokens[j])) alias = tokens[j++].Text;
-                references.Add(new Reference(parts, alias, start));
+                references.Add(new Reference(parts, alias, start, i));
 
                 if (!Same(tokens[i].Text, "FROM") || j >= to || tokens[j].Type != TokenType.Comma) break;
                 j++;
@@ -313,8 +409,11 @@ public static class SqlCompletion
 
     private static bool IsKeyword(Token token) => !token.Bracketed && SqlTokenizer.IsKeyword(token.Text);
 
-    /// <summary>A table of the statement; <paramref name="Position"/> is the token index of its name.</summary>
-    private sealed record Reference(IReadOnlyList<string> Parts, string? Alias, int Position)
+    /// <summary>
+    /// A table of the statement; <paramref name="Position"/> is the token index of its name (parts and dots alternate)
+    /// and <paramref name="Keyword"/> the one of the FROM, JOIN... before it.
+    /// </summary>
+    private sealed record Reference(IReadOnlyList<string> Parts, string? Alias, int Position, int Keyword)
     {
         public string Name => Parts[^1];
     }

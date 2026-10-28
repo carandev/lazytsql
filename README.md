@@ -83,7 +83,8 @@ columns of the statement's tables, their aliases and keywords. Other databases c
 schemas and `db.schema.` its objects (when the connection is not scoped to one database). A `dbo` name is inserted
 without its schema unless another schema has an object with the same name. Right after `JOIN` it suggests the
 tables related by a foreign key with an alias and the condition (`orders o ON o.customer_id = c.id`), and after `ON`
-the condition. Names load in the background the first time
+the condition. Tables and `alias.column` names the database does not have are underlined in red once you leave
+the word (temporary tables, CTEs, tables the script creates and system views are never marked). Names load in the background the first time
 they are needed, without changing the current database; `r` in the schema panel reloads them.
 
 ## Headless mode (scripts and agents)

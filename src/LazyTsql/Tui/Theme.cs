@@ -57,6 +57,9 @@ public static class Theme
     private static readonly Attribute NumberText = new(new Color(ColorName16.Magenta), Default);
     private static readonly Attribute VariableText = new(new Color(ColorName16.Cyan), Default);
 
+    /// <summary>A table or column the database does not have.</summary>
+    public static Attribute UnknownName { get; } = new(new Color(ColorName16.Red), Default, TextStyle.Underline);
+
     /// <summary>Editor color for a token; null keeps the normal text color.</summary>
     public static Attribute? Syntax(SqlTokenKind kind) => kind switch
     {

@@ -15,10 +15,13 @@ namespace LazyTsql.Tui;
 public sealed class SqlEditor : TextView
 {
     private SqlTokenKind[][]? _kinds;
+    private Func<(SchemaCatalog Catalog, string Database)?>? _source;
+    private IReadOnlyList<Diagnostic>? _diagnostics;
+    private (int Row, int Column) _diagnosedAt;
 
     public SqlEditor()
     {
-        ContentsChanged += (_, _) => _kinds = null;
+        ContentsChanged += (_, _) => (_kinds, _diagnostics) = (null, null);
         // TextView attaches it to itself in EndInit, once the view is in the tree.
         Autocomplete = new PrefixAutocomplete();
     }
@@ -26,6 +29,7 @@ public sealed class SqlEditor : TextView
     /// <summary>Turns on completion from <paramref name="source"/>: the catalog and current database, or null when offline.</summary>
     public void EnableCompletion(Func<(SchemaCatalog Catalog, string Database)?> source)
     {
+        _source = source;
         Autocomplete.SuggestionGenerator = new SqlSuggestionGenerator(this, source);
         Autocomplete.SelectionKey = Key.Tab;
         Autocomplete.CloseKey = Key.Esc;
@@ -34,9 +38,14 @@ public sealed class SqlEditor : TextView
         Autocomplete.MaxWidth = 60;
     }
 
-    /// <summary>Recomputes the open suggestions, for names that finished loading after the last keystroke.</summary>
+    /// <summary>
+    /// Recomputes the unknown-name marks and the open suggestions, for names that finished loading after the last
+    /// keystroke.
+    /// </summary>
     public void RefreshCompletion()
     {
+        _diagnostics = null;
+        SetNeedsDraw();
         if (!HasFocus || SelectedLength > 0) return;
 
         // Mirrors what TextView does after each edit, the only time it updates the popup.
@@ -53,8 +62,21 @@ public sealed class SqlEditor : TextView
     {
         _kinds ??= SqlTokenizer.Classify(Text.ReplaceLineEndings("\n").Split('\n'));
         var kinds = idxRow < _kinds.Length ? _kinds[idxRow] : [];
-        if (idxCol < kinds.Length && Theme.Syntax(kinds[idxCol]) is { } attribute) SetAttribute(attribute);
+        if (UnknownNames().Any(d => d.Row == idxRow && d.Start <= idxCol && idxCol < d.End)) SetAttribute(Theme.UnknownName);
+        else if (idxCol < kinds.Length && Theme.Syntax(kinds[idxCol]) is { } attribute) SetAttribute(attribute);
         else base.OnDrawNormalColor(line, idxCol, idxRow);
+    }
+
+    /// <summary>Names the catalog does not have; recomputed after an edit, a cursor move or a catalog load.</summary>
+    private IReadOnlyList<Diagnostic> UnknownNames()
+    {
+        var at = (CurrentRow, CurrentColumn);
+        if (_diagnostics is not null && _diagnosedAt == at) return _diagnostics;
+        _diagnosedAt = at;
+        _diagnostics = _source?.Invoke() is var (catalog, database)
+            ? SqlCompletion.Diagnose(Text.ReplaceLineEndings("\n").Split('\n'), catalog, database, HasFocus ? at : null)
+            : [];
+        return _diagnostics;
     }
 
     /// <summary>
