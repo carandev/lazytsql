@@ -166,14 +166,21 @@ public class SqlServerSessionTests
                     FOREIGN KEY (order_id, line) REFERENCES dbo.lines (order_id, line));'
                 """);
 
-            await RunAsync(session, $"EXEC {quoted}.sys.sp_executesql N'CREATE SYNONYM dbo.deliveries FOR dbo.shipments'");
+            await RunAsync(session, $"EXEC {quoted}.sys.sp_executesql N'CREATE SYNONYM dbo.deliveries FOR dbo.shipments; CREATE SYNONYM dbo.objs FOR master.sys.objects; CREATE SYNONYM dbo.remote FOR srv.db.dbo.t; CREATE SYNONYM dbo.bare FOR shipments'");
 
             var key = Assert.Single(await session.GetForeignKeysAsync(database, CancellationToken.None));
-            var synonym = Assert.Single(await session.GetSynonymsAsync(database, CancellationToken.None));
+            var synonyms = await session.GetSynonymsAsync(database, CancellationToken.None);
 
             Assert.Equal(("dbo", "shipments", "dbo", "lines"), (key.FromSchema, key.FromTable, key.ToSchema, key.ToTable));
             Assert.Equal([new KeyColumn("order_id", "order_id"), new KeyColumn("line", "line")], key.Columns);
-            Assert.Equal(new DbObject("dbo", "deliveries", DbObjectKind.Synonym), synonym);
+            Assert.Equal(
+            [
+                new DbObject("dbo", "bare", DbObjectKind.Synonym, new SynonymTarget(null, null, "shipments")),
+                new DbObject("dbo", "deliveries", DbObjectKind.Synonym, new SynonymTarget(null, "dbo", "shipments")),
+                new DbObject("dbo", "objs", DbObjectKind.Synonym, new SynonymTarget("master", "sys", "objects")),
+                // A synonym for an object on a linked server has no target lazytsql can read.
+                new DbObject("dbo", "remote", DbObjectKind.Synonym),
+            ], synonyms);
             Assert.Equal("master", session.CurrentDatabase);
         }
         finally

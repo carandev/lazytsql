@@ -76,6 +76,15 @@ public class SqlDiagnosticsTests
     }
 
     [Fact]
+    public void An_unknown_column_of_a_synonym_is_checked_against_the_table_it_points_to()
+    {
+        var catalog = Catalog();
+        catalog.SetObjects("shop", [.. catalog.Objects("shop")!, new DbObject("dbo", "clients", DbObjectKind.Synonym, new SynonymTarget(null, "dbo", "customers"))]);
+
+        Assert.Equal([new Diagnostic(0, 15, 19, "Unknown column: dbo.customers.nmae")], Diagnose("SELECT c.id, c.nmae FROM clients c", catalog));
+    }
+
+    [Fact]
     public void Unloaded_names_are_requested_and_not_marked()
     {
         var catalog = Catalog();

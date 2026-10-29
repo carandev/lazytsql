@@ -22,7 +22,7 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       sqlserver:
         image: mcr.microsoft.com/mssql/server:2022-latest
@@ -35,8 +35,8 @@ jobs:
     env:
       LAZYTSQL_TEST_CONNECTION: Server=localhost,1433;User Id=sa;Password=LazyTsql_Ci_2026!;TrustServerCertificate=true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
       - name: Install sqlpackage
@@ -60,7 +60,7 @@ jobs:
       matrix:
         include:
           - rid: linux-x64
-            os: ubuntu-latest
+            os: ubuntu-24.04
           - rid: linux-arm64
             os: ubuntu-24.04-arm
           - rid: win-x64
@@ -69,8 +69,8 @@ jobs:
             os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
       - name: Publish binary
@@ -86,7 +86,7 @@ jobs:
           else
             tar -czf "../lazytsql-${{ matrix.rid }}.tar.gz" lazytsql
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: build-${{ matrix.rid }}
           path: |
@@ -96,19 +96,19 @@ jobs:
 
   publish:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
       - name: Pack tool pointer and framework-dependent fallback
         run: |
           dotnet pack src/LazyTsql -c Release -p:Version="$VERSION" -o pointer
           dotnet pack src/LazyTsql -c Release -r any -p:PublishAot=false -p:Version="$VERSION" -o pointer
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: build-*
           merge-multiple: true

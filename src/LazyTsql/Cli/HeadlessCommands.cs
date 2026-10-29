@@ -16,26 +16,37 @@ public sealed class HeadlessCommands(
     Stream stdoutStream,
     TextWriter stderr,
     TextReader stdin,
-    Func<string, string?> getEnvironmentVariable)
+    Func<string, string?> getEnvironmentVariable,
+    ActivityLog activity)
 {
+    private const string Source = "cli";
+
     public async Task<int> QueryAsync(CliArguments args, CancellationToken cancellationToken)
     {
         if (args.Has("--json") && args.Has("--csv")) throw new CliException("Use either --json or --csv, not both.");
         var script = ReadScript(args);
         var options = new QueryOptions(args.GetInt("-m", "--max-rows", 1000), args.GetInt("-t", "--timeout", 30));
         await using var session = await OpenAsync(args, cancellationToken);
+        activity.Write(Source, $"query on {ConnectionName(args)}:\n{script}");
 
         var results = new List<BatchResult>();
         await foreach (var result in ScriptRunner.RunAsync(session, script, options, cancellationToken))
         {
             results.Add(result);
+            using var messages = new StringWriter();
+            TextResultWriter.WriteMessages(messages, result);
+            foreach (var line in messages.ToString().ReplaceLineEndings("\n").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                activity.Write(Source, line);
         }
+
+        var exitCode = results.Any(r => r.HasErrors) ? 1 : 0;
+        activity.Write(Source, $"query finished: {results.Count} batches, {results.Sum(r => r.ResultSets.Count)} result sets, exit code {exitCode}");
 
         if (args.Has("--json")) WriteJson(stream => JsonResultWriter.WriteBatches(stream, results));
         else if (args.Has("--csv")) WriteCsv(results);
         else TextResultWriter.WriteBatches(stdout, results);
 
-        return results.Any(r => r.HasErrors) ? 1 : 0;
+        return exitCode;
     }
 
     public async Task<int> SchemaAsync(CliArguments args, CancellationToken cancellationToken)
@@ -95,17 +106,21 @@ public sealed class HeadlessCommands(
         var connectionString = ConnectionResolver.Resolve(args.Get("-c", "--connection"), store, getEnvironmentVariable);
         var database = args.Get("-d", "--database") ?? ConnectionDatabase(connectionString)
             ?? throw new CliException("Name the database with -d <database>.");
+        activity.Write(Source, command == "export" ? $"export {database} on {ConnectionName(args)} to {file}" : $"import {file} as {database} on {ConnectionName(args)}");
         try
         {
             await run(connectionString, database, file);
         }
         catch (BacpacException ex)
         {
+            activity.Write(Source, $"✗ {ex.Message}");
             stderr.WriteLine($"lazytsql: {ex.Message}");
             return 1;
         }
 
-        stdout.WriteLine(string.Format(System.Globalization.CultureInfo.InvariantCulture, done, database, file));
+        var message = string.Format(System.Globalization.CultureInfo.InvariantCulture, done, database, file);
+        activity.Write(Source, message);
+        stdout.WriteLine(message);
         return 0;
     }
 
@@ -126,16 +141,21 @@ public sealed class HeadlessCommands(
                 return 0;
             case "add" when args.Positionals.Count == 3:
                 store.Upsert(new ConnectionProfile(args.Positionals[1], args.Positionals[2]));
+                activity.Write(Source, $"Saved connection '{args.Positionals[1]}'");
                 stdout.WriteLine($"Saved '{args.Positionals[1]}' to {store.Path}");
                 return 0;
             case "remove" when args.Positionals.Count == 2:
                 if (!store.Remove(args.Positionals[1])) throw new CliException($"Unknown connection '{args.Positionals[1]}'.");
+                activity.Write(Source, $"Removed connection '{args.Positionals[1]}'");
                 stdout.WriteLine($"Removed '{args.Positionals[1]}'");
                 return 0;
             default:
                 throw new CliException("Usage: lazytsql connections [list | add <name> <connection string> | remove <name>]");
         }
     }
+
+    /// <summary>The saved name or server, never the connection string: it may hold a password.</summary>
+    private string ConnectionName(CliArguments args) => ConnectionResolver.DisplayName(args.Get("-c", "--connection"), store);
 
     public async Task<IDatabaseSession> OpenAsync(CliArguments args, CancellationToken cancellationToken)
     {

@@ -42,19 +42,29 @@ public class TuiTests
 
         var picker = KeyHelp.Footer(KeyContext.FilePicker);
         Assert.Contains("Tab complete", picker, StringComparison.Ordinal);
-        Assert.DoesNotContain("1-5", picker, StringComparison.Ordinal);
+        Assert.DoesNotContain("1-6", picker, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Files_footer_shows_how_to_open_a_script()
+    {
+        var files = KeyHelp.Footer(KeyContext.Files);
+
+        Assert.StartsWith("Enter open/expand", files, StringComparison.Ordinal);
+        Assert.Contains("r refresh", files, StringComparison.Ordinal);
+        Assert.EndsWith("1-6 panels · ? help · q quit", files, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Help_shows_only_the_current_context_and_expands_to_every_key()
     {
         var schema = KeyHelp.Render(KeyContext.Schema);
-        Assert.Contains("Schema [2]", schema);
+        Assert.Contains("Schema [3]", schema);
         Assert.DoesNotContain(schema, line => line.Contains("Connections [1]", StringComparison.Ordinal));
         Assert.Contains(schema, line => line.Contains("show every key", StringComparison.Ordinal));
 
         var all = KeyHelp.Render(context: null);
-        foreach (var title in new[] { "Global", "Connections [1]", "Schema [2]", "Query [3]", "Results [4]", "Messages [5]", "File picker", "Confirmation", "Connection form" })
+        foreach (var title in new[] { "Global", "Connections [1]", "Files [2]", "Schema [3]", "Query [4]", "Results [5]", "Messages [6]", "File picker", "Confirmation", "Connection form" })
             Assert.Contains(all, line => line.Contains(title, StringComparison.Ordinal));
         Assert.Contains(all, line => line.Contains("export to CSV", StringComparison.Ordinal));
         Assert.Contains(all, line => line.Contains("show only", StringComparison.Ordinal));

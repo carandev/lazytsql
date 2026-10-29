@@ -152,12 +152,14 @@ internal sealed class SqlServerSession : IDatabaseSession
     public Task<IReadOnlyList<DbObject>> GetSynonymsAsync(string database, CancellationToken cancellationToken) =>
         QueryAsync(
             InDatabase(database, """
-            SELECT s.name, o.name
+            SELECT s.name, o.name, PARSENAME(o.base_object_name, 4), PARSENAME(o.base_object_name, 3),
+                   PARSENAME(o.base_object_name, 2), PARSENAME(o.base_object_name, 1)
             FROM sys.synonyms o
             JOIN sys.schemas s ON s.schema_id = o.schema_id
             ORDER BY s.name, o.name
             """),
-            r => new DbObject(r.GetString(0), r.GetString(1), DbObjectKind.Synonym),
+            r => new DbObject(r.GetString(0), r.GetString(1), DbObjectKind.Synonym,
+                r.IsDBNull(2) && !r.IsDBNull(5) ? new SynonymTarget(r.IsDBNull(3) ? null : r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), r.GetString(5)) : null),
             cancellationToken);
 
     public async Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(string database, CancellationToken cancellationToken)

@@ -39,6 +39,10 @@ The tool is the native binary of your platform (linux-x64, linux-arm64, win-x64,
 build that runs on the .NET 10 runtime. If `lazytsql` is not found, add `~/.dotnet/tools` (Windows:
 `%USERPROFILE%\.dotnet\tools`) to your `PATH`. Update with `dotnet tool update -g lazytsql`.
 
+When a newer release exists, the TUI says so in the messages panel, with the update command for a dotnet tool or the
+release page for a downloaded binary. It asks NuGet.org at most once a day, shows nothing when offline, and
+`LAZYTSQL_NO_UPDATE_CHECK=1` turns it off.
+
 ### Option 2: download the binary (no .NET needed)
 
 Linux (use `lazytsql-linux-arm64.tar.gz` on ARM):
@@ -99,8 +103,8 @@ The result is a single file of about 21 MB. Native AOT only compiles for the OS 
    lazytsql -c dev
    ```
 
-3. Write a query in the editor (panel `3`) and press `F5`. The results appear in panel `4` and the server
-   messages in panel `5`.
+3. Write a query in the editor (panel `4`) and press `F5`. The results appear in panel `5` and the server
+   messages in panel `6`.
 
 4. Press `?` at any time to see the keys of the panel you are in. `q` quits.
 
@@ -110,16 +114,20 @@ The result is a single file of about 21 MB. Native AOT only compiles for the OS 
 lazytsql                        # pick or create a connection in panel [1]
 lazytsql -c dev                 # connect on start
 lazytsql -c dev migration.sql   # edit a script (created on the first save if it does not exist)
+lazytsql -c dev ./scripts       # browse a folder of scripts in panel [2]
 ```
 
-The screen has five panels: connections `[1]`, schema `[2]`, query `[3]`, results `[4]` and messages `[5]`. The footer
-always shows the keys of the focused panel or dialog.
+The screen has six panels: connections `[1]`, files `[2]`, schema `[3]`, query `[4]`, results `[5]` and messages `[6]`.
+The footer always shows the keys of the focused panel or dialog.
+
+The files panel shows the folder given on the command line, else the folder of the script being edited, else the
+working directory: its subfolders and `.sql` files, without hidden folders such as `.git`.
 
 ### Keys
 
 | Key | Where | Action |
 | --- | --- | --- |
-| `1`-`5`, `Alt+1`-`Alt+5`, `Tab` | Anywhere | Focus a panel (`Alt+` also works inside the editor) |
+| `1`-`6`, `Alt+1`-`Alt+6`, `Tab` | Anywhere | Focus a panel (`Alt+` also works inside the editor) |
 | `F5` / `Ctrl+E` | Anywhere | Run the selection, or the whole script batch by batch (`GO`, `GO n`) |
 | `Ctrl+K` | Anywhere | Cancel the running query, export or import |
 | `Ctrl+O` / `Ctrl+S` | Anywhere | Open / save a `.sql` file; the title shows `*` while there are unsaved changes |
@@ -128,6 +136,9 @@ always shows the keys of the focused panel or dialog.
 | `h` `j` `k` `l`, `g` / `G`, `Ctrl+D` / `Ctrl+U` | Outside the editor | Vim motions |
 | `Enter` | Connections | Connect |
 | `a` / `e` / `d` | Connections | Add, edit or delete a connection |
+| `Enter` | Files | Open the selected script in the editor (asks first if there are unsaved changes), or expand a folder |
+| `h` / `l` | Files | Collapse / expand a folder |
+| `r` | Files | Refresh after files change on disk; saving a new script refreshes it too |
 | `Enter`, `h` / `l` | Schema | Expand or collapse |
 | `s` | Schema | `SELECT TOP (100)` from the selected table or view |
 | `e` | Schema | Open the selected procedure or function definition in the editor |
@@ -164,6 +175,10 @@ The editor highlights T-SQL and completes names from the connected database whil
 Tables and `alias.column` names the database does not have are underlined in red once you leave the word. Temporary
 tables, CTEs, tables the script creates and system views are never marked. Names load in the background the first
 time they are needed, without changing the current database; `r` in the schema panel reloads them.
+
+A synonym behaves like the table or view it points to, in this database or another one on the same server: `c.`
+completes that table's columns, `JOIN ` suggests its foreign keys, and its unknown columns are underlined. A synonym
+for an object on a linked server is completed by name only.
 
 Saving keeps the file's encoding and line endings, so scripts from SSMS (UTF-16 or UTF-8 with BOM, CRLF) round-trip
 unchanged. Quitting or replacing the editor contents asks first when the open file has unsaved changes.
@@ -246,6 +261,27 @@ progress shows in the messages panel and `Ctrl+K` cancels.
   sqlpackage cannot read a double quote (`"`) there, so a password containing one is refused.
 - sqlpackage is found on the `PATH`, in `~/.dotnet/tools`, or at `$LAZYTSQL_SQLPACKAGE`.
 
+## Activity log
+
+Everything lazytsql does is kept on disk so you can look back at it: each SQL script run (TUI and `query`), the
+server messages and errors, connections, exports, imports and saved scripts. One file per day:
+
+```bash
+cat ~/.local/state/lazytsql/logs/2026-10-28.log
+```
+
+```text
+2026-10-28 23:01:17.287 -05:00 [tui] Running on dev › shop:
+    SELECT name FROM sys.databases
+2026-10-28 23:01:17.380 -05:00 [tui] Done in 32 ms.
+2026-10-28 23:01:10.807 -05:00 [cli] ✗ Login failed for user 'sa'.
+```
+
+- Files are readable only by you and are deleted after 30 days.
+- Connection strings are never written; entries name the saved connection or the server. The SQL itself is logged as
+  run, so avoid literal secrets in scripts you run.
+- On Windows the logs live in `%LOCALAPPDATA%\lazytsql\logs`.
+
 ## Configuration reference
 
 | Setting | Purpose |
@@ -254,6 +290,9 @@ progress shows in the messages panel and `Ctrl+K` cancels.
 | `${VAR}` inside a connection string | Replaced by that environment variable when connecting, so secrets stay out of the file |
 | `LAZYTSQL_CONNECTION` | Connection used when `-c` is not given |
 | `LAZYTSQL_SQLPACKAGE` | Path to sqlpackage when it is not on the `PATH` or in `~/.dotnet/tools` |
+| `$XDG_STATE_HOME/lazytsql/logs` (default `~/.local/state/lazytsql/logs`) | Activity log, one file per day, kept 30 days |
+| `LAZYTSQL_LOG_DIR` | Write the activity log to another directory |
+| `LAZYTSQL_NO_UPDATE_CHECK` | Set to `1` to stop the TUI from checking NuGet.org for a newer release |
 
 The UI keeps the terminal's background and uses its 16 ANSI colors, so it follows your terminal theme.
 

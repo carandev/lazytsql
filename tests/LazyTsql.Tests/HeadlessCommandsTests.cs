@@ -24,7 +24,35 @@ public sealed class HeadlessCommandsTests : IDisposable
         Stream.Null,
         _stderr,
         TextReader.Null,
-        _ => null);
+        _ => null,
+        new ActivityLog(Path.Combine(_directory, "logs"), TimeProvider.System));
+
+    private string ActivityText() => File.ReadAllText(Directory.GetFiles(Path.Combine(_directory, "logs")).Single());
+
+    [Fact]
+    public async Task A_query_is_logged_with_its_sql_messages_and_exit_code_but_not_the_connection_string()
+    {
+        await Commands().QueryAsync(CliArguments.Parse(["query", "-c", "Server=db1;User Id=sa;Password=S3cret", "-q", "SELECT 1\nGO\nSELECT 2"]), CancellationToken.None);
+
+        var log = ActivityText();
+        Assert.Matches(@"\[cli\] query on db1:\n    SELECT 1\n    GO\n    SELECT 2\n", log);
+        Assert.Contains("[cli] hello\n", log);
+        Assert.Contains("[cli] query finished: 2 batches, 4 result sets, exit code 0", log);
+        Assert.DoesNotContain("S3cret", log);
+    }
+
+    [Fact]
+    public async Task A_bacpac_export_and_its_failure_are_logged()
+    {
+        _bacpac.Failure = "sqlpackage export failed (exit code 1): boom";
+
+        await Commands().ExportAsync(CliArguments.Parse(["export", "-c", "Server=db1;Password=S3cret", "-d", "shop", "shop.bacpac"]), CancellationToken.None);
+
+        var log = ActivityText();
+        Assert.Contains($"[cli] export shop on db1 to {Path.GetFullPath("shop.bacpac")}", log);
+        Assert.Contains("[cli] ✗ sqlpackage export failed (exit code 1): boom", log);
+        Assert.DoesNotContain("S3cret", log);
+    }
 
     [Fact]
     public async Task Csv_writes_rows_to_stdout_and_messages_to_stderr()

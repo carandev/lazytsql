@@ -5,6 +5,7 @@ public enum KeyContext
 {
     Global,
     Connections,
+    Files,
     Schema,
     Query,
     Results,
@@ -28,7 +29,7 @@ public static class KeyHelp
     private static readonly Section[] Sections =
     [
         new(KeyContext.Global, "Global", [
-            ("1-5/Alt+1-5", "focus panel"),
+            ("1-6/Alt+1-6", "focus panel"),
             ("Tab", "next panel"),
             ("h j k l", "move"),
             ("g/G", "top/bottom"),
@@ -39,7 +40,8 @@ public static class KeyHelp
             ("q/Ctrl+Q", "quit"),
         ]),
         new(KeyContext.Connections, "Connections [1]", [("Enter", "connect"), ("a", "add"), ("e", "edit"), ("d", "delete")]),
-        new(KeyContext.Schema, "Schema [2]", [
+        new(KeyContext.Files, "Files [2]", [("Enter", "open/expand"), ("h", "collapse"), ("r", "refresh")]),
+        new(KeyContext.Schema, "Schema [3]", [
             ("Enter", "expand"),
             ("h", "collapse"),
             ("s", "SELECT TOP 100"),
@@ -48,20 +50,20 @@ public static class KeyHelp
             ("x", "export bacpac"),
             ("i", "import bacpac"),
         ]),
-        new(KeyContext.Query, "Query [3]", [
+        new(KeyContext.Query, "Query [4]", [
             ("F5", "run selection or all"),
             ("Ctrl+K", "cancel"),
             ("Ctrl+S", "save"),
             ("Tab/Ctrl+Space", "complete"),
             ("Esc", "leave editor"),
         ]),
-        new(KeyContext.Results, "Results [4]", [
+        new(KeyContext.Results, "Results [5]", [
             ("[/]", "prev/next set"),
             ("x", "export to CSV"),
             ("m", "row limit"),
             ("h j k l", "move"),
         ]),
-        new(KeyContext.Messages, "Messages [5]", [("j/k", "scroll")]),
+        new(KeyContext.Messages, "Messages [6]", [("j/k", "scroll")]),
         new(KeyContext.FilePicker, "File picker", [
             ("Tab", "complete"),
             ("↓", "browse"),
@@ -87,9 +89,9 @@ public static class KeyHelp
         var keys = string.Join(" · ", SectionFor(context).Keys.Select(key => $"{key.Keys} {key.Action}"));
         var global = context switch
         {
-            KeyContext.Global or KeyContext.Connections or KeyContext.Schema or KeyContext.Results or KeyContext.Messages =>
-                "1-5 panels · ? help · q quit",
-            KeyContext.Query => "Alt+1-5 panels · F1 help · Ctrl+Q quit",
+            KeyContext.Global or KeyContext.Connections or KeyContext.Files or KeyContext.Schema or KeyContext.Results or KeyContext.Messages =>
+                "1-6 panels · ? help · q quit",
+            KeyContext.Query => "Alt+1-6 panels · F1 help · Ctrl+Q quit",
             KeyContext.FilePicker or KeyContext.ConnectionForm or KeyContext.RowLimit or KeyContext.Name => "F1 help",
             KeyContext.Confirm => "? help",
             _ => null,
