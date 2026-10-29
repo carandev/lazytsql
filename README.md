@@ -3,6 +3,15 @@
 A lazygit-style terminal client for SQL Server, plus a headless JSON mode for scripts and coding agents.
 Ships as a single Native AOT binary you can copy to the server that hosts the database.
 
+## Install
+
+```bash
+dotnet tool install -g lazytsql    # native AOT binary for linux-x64, linux-arm64, win-x64 and osx-arm64
+```
+
+Other platforms get a build that runs on the installed .NET 10 runtime. Without .NET, download the binary of your
+platform from the GitHub releases.
+
 ## Build
 
 ```bash
@@ -11,6 +20,13 @@ dotnet publish src/LazyTsql -c Release -r linux-x64 -o dist   # or win-x64, osx-
 
 The result is `dist/lazytsql` (~21 MB). Runtime requirements on Linux: ICU (`libicu`) and OpenSSL,
 present on virtually every distribution.
+
+## Releases
+
+Every push to `main` runs `.github/workflows/release.yml`: the test suite against a SQL Server container, then a
+native AOT build on Linux (x64 and arm64), Windows and macOS (Native AOT compiles only on the target OS), and finally
+version `0.1.<run number>` is published as a GitHub release with the binaries and as the `lazytsql` tool on NuGet.org.
+Publishing to NuGet.org needs a repository secret `NUGET_API_KEY` with push rights for the `lazytsql` package.
 
 ## Connections
 

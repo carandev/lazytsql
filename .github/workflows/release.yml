@@ -1,0 +1,129 @@
+# Every push to main publishes version 0.1.<run number>: native AOT binaries on a GitHub release and the
+# `lazytsql` .NET tool on NuGet.org (needs the NUGET_API_KEY secret). Native AOT compiles only on the target OS,
+# so each platform builds on its own runner.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  VERSION: 0.1.${{ github.run_number }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          # Throwaway container that only lives for this job.
+          MSSQL_SA_PASSWORD: LazyTsql_Ci_2026!
+        ports:
+          - 1433:1433
+    env:
+      LAZYTSQL_TEST_CONNECTION: Server=localhost,1433;User Id=sa;Password=LazyTsql_Ci_2026!;TrustServerCertificate=true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Install sqlpackage
+        run: dotnet tool install -g microsoft.sqlpackage
+      - name: Build
+        run: dotnet build
+      - name: Wait for SQL Server
+        run: |
+          for _ in $(seq 1 60); do
+            dotnet run --no-build --project src/LazyTsql -- query -c "$LAZYTSQL_TEST_CONNECTION" -q "SELECT 1" > /dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          echo "SQL Server did not start" >&2
+          exit 1
+      - name: Test
+        run: dotnet test --no-build
+
+  build:
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - rid: linux-x64
+            os: ubuntu-latest
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+          - rid: win-x64
+            os: windows-latest
+          - rid: osx-arm64
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish binary
+        run: dotnet publish src/LazyTsql -c Release -r ${{ matrix.rid }} -p:Version=${{ env.VERSION }} -o publish
+      - name: Pack tool
+        run: dotnet pack src/LazyTsql -c Release -r ${{ matrix.rid }} -p:Version=${{ env.VERSION }} -o nupkg
+      - name: Archive binary
+        shell: bash
+        run: |
+          cd publish
+          if [ "${{ matrix.rid }}" = win-x64 ]; then
+            7z a "../lazytsql-$VERSION-${{ matrix.rid }}.zip" lazytsql.exe
+          else
+            tar -czf "../lazytsql-$VERSION-${{ matrix.rid }}.tar.gz" lazytsql
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.rid }}
+          path: |
+            lazytsql-*
+            nupkg/*.nupkg
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Pack tool pointer and framework-dependent fallback
+        run: |
+          dotnet pack src/LazyTsql -c Release -p:Version="$VERSION" -o pointer
+          dotnet pack src/LazyTsql -c Release -r any -p:PublishAot=false -p:Version="$VERSION" -o pointer
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: build-*
+          merge-multiple: true
+          path: dist
+      - name: Push to NuGet.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          push() { dotnet nuget push "$1" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate; }
+          # The pointer package goes last: installing it needs every platform package to exist already.
+          for package in dist/nupkg/*.nupkg "pointer/lazytsql.any.$VERSION.nupkg"; do push "$package"; done
+          push "pointer/lazytsql.$VERSION.nupkg"
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION" dist/lazytsql-* --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes \
+            || gh release upload "v$VERSION" dist/lazytsql-* --clobber
