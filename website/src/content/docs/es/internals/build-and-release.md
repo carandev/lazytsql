@@ -51,7 +51,9 @@ test ──► build (linux-x64 · linux-arm64 · win-x64 · osx-arm64) ──�
    - empaqueta el paquete puntero y el respaldo `any`;
    - hace push a NuGet.org con `--skip-duplicate`: primero los paquetes de plataforma y al final el puntero, porque instalar el
      puntero requiere que exista cada paquete de plataforma;
-   - crea la release de GitHub `v<version>` con los archivos comprimidos y notas generadas, o los sube a ella si ya existe.
+   - escribe `SHA256SUMS` con los hashes de los archivos comprimidos, que `install.sh` e `install.ps1` verifican;
+   - crea la release de GitHub `v<version>` con los archivos comprimidos, `SHA256SUMS` y notas generadas, o los sube a ella
+     si ya existe.
 
 Una publicación fallida se puede volver a ejecutar sin riesgo: NuGet omite los paquetes que ya tiene y la release se actualiza, no se
 duplica.

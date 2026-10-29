@@ -127,5 +127,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v$VERSION" dist/lazytsql-* --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes \
-            || gh release upload "v$VERSION" dist/lazytsql-* --clobber
+          # install.sh and install.ps1 verify the archive they download against this file.
+          (cd dist && sha256sum lazytsql-* > SHA256SUMS && cat SHA256SUMS)
+          gh release create "v$VERSION" dist/lazytsql-* dist/SHA256SUMS --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes \
+            || gh release upload "v$VERSION" dist/lazytsql-* dist/SHA256SUMS --clobber

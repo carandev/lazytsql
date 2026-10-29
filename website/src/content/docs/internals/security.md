@@ -57,7 +57,7 @@ These are tracked to be improved:
 | --- | --- | --- |
 | *Trust server certificate* is pre-checked in the form | A new connection over an untrusted network could be intercepted | Uncheck it, or use a connection string without `TrustServerCertificate=true` |
 | Passwords typed directly into a connection are stored in plain text | Anyone with your user account can read them | Use `${VAR}`; the file is 0600 |
-| Release binaries have no published checksums, signatures or provenance attestations | A tampered download would not be detected | Install with `dotnet tool` (NuGet.org signs every package it serves) or build from source |
+| Release binaries have SHA-256 checksums but no signatures or provenance attestations | Someone who could change both a release's files and its `SHA256SUMS` would not be detected | The install scripts and `sha256sum -c` catch a corrupted or swapped download; `dotnet tool` installs packages NuGet.org signs |
 | No confirmation before destructive statements | A `DELETE` without `WHERE` runs immediately | Review before `F5`; use a login with only the permissions you need |
 | SQL is logged as written | Secrets typed in scripts land in the log | Avoid literal secrets; set `LAZYTSQL_LOG_DIR` to a location you manage |
 

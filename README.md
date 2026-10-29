@@ -45,35 +45,28 @@ When a newer release exists, the TUI says so in the messages panel, with the upd
 release page for a downloaded binary. It asks NuGet.org at most once a day, shows nothing when offline, and
 `LAZYTSQL_NO_UPDATE_CHECK=1` turns it off.
 
-### Option 2: download the binary (no .NET needed)
+### Option 2: install script (no .NET needed)
 
-Linux (use `lazytsql-linux-arm64.tar.gz` on ARM):
+One command downloads the native binary of the latest release, checks its SHA-256 and puts it on your `PATH`.
 
-```bash
-curl -fsSL https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-linux-x64.tar.gz | tar -xz
-sudo mv lazytsql /usr/local/bin/
-lazytsql --version
-```
-
-macOS (Apple Silicon):
+Linux and macOS (installs to `~/.local/bin`):
 
 ```bash
-curl -fsSL https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-osx-arm64.tar.gz | tar -xz
-sudo mv lazytsql /usr/local/bin/
-lazytsql --version
+curl -fsSL https://raw.githubusercontent.com/carandev/lazytsql/main/install.sh | sh
 ```
 
-The binary is not signed. If you download it with a browser instead of `curl`, macOS blocks it; allow it with
-`xattr -d com.apple.quarantine /usr/local/bin/lazytsql`.
-
-Windows (PowerShell):
+Windows, in PowerShell (installs to `%LOCALAPPDATA%\lazytsql\bin` and adds it to your user `PATH`):
 
 ```powershell
-Invoke-WebRequest https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-win-x64.zip -OutFile lazytsql.zip
-Expand-Archive lazytsql.zip -DestinationPath "$env:LOCALAPPDATA\lazytsql"
-# Add %LOCALAPPDATA%\lazytsql to your PATH, open a new terminal, then:
-lazytsql --version
+irm https://raw.githubusercontent.com/carandev/lazytsql/main/install.ps1 | iex
 ```
+
+Run the same command again to update. `LAZYTSQL_INSTALL_DIR` changes where it installs and `LAZYTSQL_VERSION=0.1.3`
+installs a given version. Builds exist for linux-x64, linux-arm64, osx-arm64 (Apple Silicon) and win-x64; on an
+Intel Mac use the .NET tool.
+
+To do it by hand instead, download `lazytsql-<platform>.tar.gz` (`.zip` on Windows) from the releases page, check it
+against `SHA256SUMS`, extract it and put `lazytsql` on your `PATH`.
 
 Every release is listed at <https://github.com/carandev/lazytsql/releases>.
 
@@ -122,8 +115,9 @@ lazytsql -c dev ./scripts       # browse a folder of scripts in panel [2]
 The screen has six panels: connections `[1]`, files `[2]`, schema `[3]`, query `[4]`, results `[5]` and messages `[6]`.
 The footer always shows the keys of the focused panel or dialog.
 
-The files panel shows the folder given on the command line, else the folder of the script being edited, else the
-working directory: its subfolders and `.sql` files, without hidden folders such as `.git`.
+The files panel shows the folder given on the command line, or the folder of the script given there; otherwise it
+stays empty until you press `o` in it and pick a folder. It lists subfolders and `.sql` files, without hidden folders
+such as `.git`.
 
 ### Keys
 
@@ -140,6 +134,7 @@ working directory: its subfolders and `.sql` files, without hidden folders such 
 | `a` / `e` / `d` | Connections | Add, edit or delete a connection |
 | `Enter` | Files | Open the selected script in the editor (asks first if there are unsaved changes), or expand a folder |
 | `h` / `l` | Files | Collapse / expand a folder |
+| `o` | Files | Open another folder in the panel (a folder picker; `Enter` on the path opens it) |
 | `/`, then `n` / `N` | Files | Search folders and scripts at any depth, like vim: type to jump, `Enter` keeps the match, `Esc` goes back; `n`/`N` move to the next/previous match |
 | `r` | Files | Refresh after files change on disk; saving a new script refreshes it too |
 | `Enter`, `h` / `l` | Schema | Expand or collapse |

@@ -51,7 +51,9 @@ test ──► build (linux-x64 · linux-arm64 · win-x64 · osx-arm64) ──�
    - packs the pointer package and the `any` fallback;
    - pushes to NuGet.org with `--skip-duplicate`: platform packages first, the pointer last, because installing the
      pointer needs every platform package to exist;
-   - creates the GitHub release `v<version>` with the archives and generated notes, or uploads to it if it exists.
+   - writes `SHA256SUMS` for the archives, which `install.sh` and `install.ps1` check;
+   - creates the GitHub release `v<version>` with the archives, `SHA256SUMS` and generated notes, or uploads to it if it
+     exists.
 
 A failed publish can be re-run safely: NuGet skips packages it already has and the release is updated, not
 duplicated.

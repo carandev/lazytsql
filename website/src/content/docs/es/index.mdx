@@ -54,29 +54,21 @@ import Screen from '../../../components/Screen.astro';
 ## Instalación
 
 <Tabs syncKey="install">
+  <TabItem label="Linux / macOS">
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/carandev/lazytsql/main/install.sh | sh
+    ```
+  </TabItem>
+  <TabItem label="Windows">
+    ```powershell
+    irm https://raw.githubusercontent.com/carandev/lazytsql/main/install.ps1 | iex
+    ```
+  </TabItem>
   <TabItem label="Herramienta de .NET">
     ```bash
     dotnet tool install -g lazytsql
     ```
     Instala el binario nativo para linux-x64, linux-arm64, win-x64 u osx-arm64. Necesita el SDK de .NET 10.
-  </TabItem>
-  <TabItem label="Linux">
-    ```bash
-    curl -fsSL https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-linux-x64.tar.gz | tar -xz
-    sudo mv lazytsql /usr/local/bin/
-    ```
-  </TabItem>
-  <TabItem label="macOS">
-    ```bash
-    curl -fsSL https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-osx-arm64.tar.gz | tar -xz
-    sudo mv lazytsql /usr/local/bin/
-    ```
-  </TabItem>
-  <TabItem label="Windows">
-    ```powershell
-    Invoke-WebRequest https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-win-x64.zip -OutFile lazytsql.zip
-    Expand-Archive lazytsql.zip -DestinationPath "$env:LOCALAPPDATA\lazytsql"
-    ```
   </TabItem>
 </Tabs>
 

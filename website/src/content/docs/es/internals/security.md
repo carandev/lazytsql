@@ -57,7 +57,7 @@ Están registradas para mejorarse:
 | --- | --- | --- |
 | *Trust server certificate* viene marcado en el formulario | Una conexión nueva por una red no confiable podría ser interceptada | Desmárcalo, o usa una cadena de conexión sin `TrustServerCertificate=true` |
 | Las contraseñas escritas directamente en una conexión se guardan en texto plano | Cualquiera con acceso a tu cuenta de usuario puede leerlas | Usa `${VAR}`; el archivo tiene permisos 0600 |
-| Los binarios de las versiones no tienen sumas de comprobación, firmas ni atestaciones de procedencia publicadas | Una descarga alterada no se detectaría | Instala con `dotnet tool` (NuGet.org firma cada paquete que sirve) o compila desde el código fuente |
+| Los binarios de las versiones tienen sumas SHA-256, pero no firmas ni atestaciones de procedencia | No se detectaría a alguien capaz de cambiar a la vez los archivos de una versión y su `SHA256SUMS` | Los scripts de instalación y `sha256sum -c` detectan una descarga dañada o reemplazada; `dotnet tool` instala paquetes que NuGet.org firma |
 | No hay confirmación antes de las sentencias destructivas | Un `DELETE` sin `WHERE` se ejecuta de inmediato | Revisa antes de `F5`; usa un inicio de sesión con solo los permisos que necesitas |
 | El SQL se registra tal como se escribió | Los secretos escritos en scripts terminan en el registro | Evita los secretos literales; configura `LAZYTSQL_LOG_DIR` en una ubicación que administres |
 
