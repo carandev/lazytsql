@@ -1,3 +1,4 @@
+using LazyTsql.Core.Editing;
 using LazyTsql.Core.Execution;
 using LazyTsql.Output;
 using Terminal.Gui.Views;
@@ -9,7 +10,10 @@ public sealed class ResultSetTableSource(ResultSet resultSet) : ITableSource
 {
     private readonly string[] _columnNames = resultSet.Columns.Select(c => c.Name).ToArray();
 
-    public object this[int row, int col] => ValueFormatter.FormatSingleLine(resultSet.Rows[row][col]);
+    /// <summary>Changes not saved yet; their cells show the new value.</summary>
+    public ResultEdits? Edits { get; set; }
+
+    public object this[int row, int col] => ValueFormatter.FormatSingleLine(Edits is { } edits ? edits.Value(row, col) : resultSet.Rows[row][col]);
 
     public string[] ColumnNames => _columnNames;
 

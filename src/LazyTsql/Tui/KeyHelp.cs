@@ -13,6 +13,7 @@ public enum KeyContext
     Messages,
     FilePicker,
     Confirm,
+    CellEdit,
     ConnectionForm,
     RowLimit,
     Name,
@@ -76,6 +77,9 @@ public static class KeyHelp
             ("Esc", "leave editor"),
         ]),
         new(KeyContext.Results, "Results [5]", [
+            ("e/Enter", "edit cell"),
+            ("s", "save edits"),
+            ("u/U", "undo cell/all"),
             ("[/]", "prev/next set"),
             ("x", "export to CSV"),
             ("m", "row limit"),
@@ -95,6 +99,7 @@ public static class KeyHelp
             ("Enter", "press the chosen one"),
             ("Esc", "cancel"),
         ]),
+        new(KeyContext.CellEdit, "Edit cell", [("Enter", "set value"), ("Ctrl+N", "set NULL"), ("Esc", "cancel")]),
         new(KeyContext.ConnectionForm, "Connection form", [
             ("Tab", "next field"),
             ("← →", "choose option"),
@@ -116,7 +121,7 @@ public static class KeyHelp
                 "1-6 panels · ? help · q quit",
             KeyContext.Query => "Alt+1-6 panels · F1 help · Ctrl+Q quit",
             KeyContext.FileSearch => null,
-            KeyContext.FilePicker or KeyContext.ConnectionForm or KeyContext.RowLimit or KeyContext.Name => "F1 help",
+            KeyContext.FilePicker or KeyContext.ConnectionForm or KeyContext.RowLimit or KeyContext.Name or KeyContext.CellEdit => "F1 help",
             KeyContext.Confirm => "? help",
             _ => null,
         };

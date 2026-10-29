@@ -1,3 +1,4 @@
+using LazyTsql.Core.Editing;
 using LazyTsql.Core.Execution;
 using LazyTsql.Core.Schema;
 using LazyTsql.Tui;
@@ -18,6 +19,34 @@ public class TuiTests
         Assert.Equal((2, 2), (source.Rows, source.Columns));
         Assert.Equal("a⏎b c", source[0, 1]);
         Assert.Equal("NULL", source[1, 1]);
+    }
+
+    [Fact]
+    public void Table_source_shows_pending_edits_in_place_of_the_read_values()
+    {
+        var set = new ResultSet([new ColumnInfo("id", "int"), new ColumnInfo("note", "nvarchar")], [[1, "old"], [2, "keep"]], IsTruncated: false);
+        var edits = ResultEdits.Create(set, [
+            new SourceColumn("id", false, null, "dbo", "notes", "id", true, true, "int"),
+            new SourceColumn("note", false, null, "dbo", "notes", "note", false, true, "nvarchar(10)"),
+        ], "shop");
+        var source = new ResultSetTableSource(set) { Edits = edits };
+
+        edits.Set(0, 1, "new\nline");
+        edits.Set(1, 1, null);
+
+        Assert.Equal("new⏎line", source[0, 1]);
+        Assert.Equal("NULL", source[1, 1]);
+        Assert.Equal("old", set.Rows[0][1]);
+    }
+
+    [Fact]
+    public void Results_footer_shows_the_edit_keys_and_the_cell_editor_its_own()
+    {
+        var results = KeyHelp.Footer(KeyContext.Results);
+        Assert.Contains("e/Enter edit cell", results, StringComparison.Ordinal);
+        Assert.Contains("s save edits", results, StringComparison.Ordinal);
+        Assert.Contains("u/U undo cell/all", results, StringComparison.Ordinal);
+        Assert.StartsWith("Enter set value · Ctrl+N set NULL · Esc cancel", KeyHelp.Footer(KeyContext.CellEdit), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -94,7 +123,7 @@ public class TuiTests
         Assert.Contains(schema, line => line.Contains("show every key", StringComparison.Ordinal));
 
         var all = KeyHelp.Render(context: null);
-        foreach (var title in new[] { "Global", "Connections [1]", "Files [2]", "Schema [3]", "Query [4]", "Results [5]", "Messages [6]", "File picker", "Confirmation", "Connection form" })
+        foreach (var title in new[] { "Global", "Connections [1]", "Files [2]", "Schema [3]", "Query [4]", "Results [5]", "Messages [6]", "File picker", "Confirmation", "Connection form", "Edit cell" })
             Assert.Contains(all, line => line.Contains(title, StringComparison.Ordinal));
         Assert.Contains(all, line => line.Contains("export to CSV", StringComparison.Ordinal));
         Assert.Contains(all, line => line.Contains("show only", StringComparison.Ordinal));

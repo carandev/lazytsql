@@ -17,17 +17,35 @@ public static class ConfirmDialog
 
     public static bool Show(IApplication app, string title, string text, string confirmLabel, bool confirmIsDefault)
     {
-        var confirmed = false;
         var lines = text.Split('\n');
         var dialog = new Dialog
         {
             Title = title,
             Width = Math.Max(40, lines.Max(line => line.Length) + 6),
             Height = lines.Length + 7,
-            BorderStyle = LineStyle.Rounded,
-            Data = KeyContext.Confirm,
-            HotKeySpecifier = Theme.NoHotKey,
         };
+        return Run(app, dialog, [new Label { Text = text, X = 1, Y = 1, HotKeySpecifier = Theme.NoHotKey }], confirmLabel, confirmIsDefault);
+    }
+
+    /// <summary>
+    /// Asks before running <paramref name="script"/>, shown in full, highlighted and scrollable (Tab moves into it).
+    /// Cancel is the default, so Enter alone never runs it.
+    /// </summary>
+    public static bool ShowScript(IApplication app, string title, string text, string script, string confirmLabel)
+    {
+        var lines = text.Split('\n').Length;
+        var dialog = new Dialog { Title = title, Width = Dim.Percent(80), Height = Dim.Percent(80) };
+        var label = new Label { Text = text, X = 1, Y = 1, HotKeySpecifier = Theme.NoHotKey };
+        var code = new SqlEditor { Text = script, ReadOnly = true, X = 1, Y = lines + 2, Width = Dim.Fill(2), Height = Dim.Fill(2) };
+        return Run(app, dialog, [label, code], confirmLabel, confirmIsDefault: false);
+    }
+
+    private static bool Run(IApplication app, Dialog dialog, View[] content, string confirmLabel, bool confirmIsDefault)
+    {
+        var confirmed = false;
+        dialog.BorderStyle = LineStyle.Rounded;
+        dialog.Data = KeyContext.Confirm;
+        dialog.HotKeySpecifier = Theme.NoHotKey;
         var confirm = new Button { Text = ButtonText(confirmLabel, 'y'), IsDefault = confirmIsDefault, HotKeySpecifier = Theme.NoHotKey };
         var cancel = new Button { Text = ButtonText("Cancel", 'n'), IsDefault = !confirmIsDefault, HotKeySpecifier = Theme.NoHotKey };
 
@@ -56,7 +74,7 @@ public static class ConfirmDialog
             key.Handled = true;
         };
 
-        dialog.Add(new Label { Text = text, X = 1, Y = 1, HotKeySpecifier = Theme.NoHotKey });
+        dialog.Add(content);
         // The dialog marks its last button as the default, so the default goes last.
         dialog.AddButton(confirmIsDefault ? cancel : confirm);
         dialog.AddButton(confirmIsDefault ? confirm : cancel);

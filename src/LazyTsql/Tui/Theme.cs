@@ -57,6 +57,15 @@ public static class Theme
         Focus = new Attribute(new Color(ColorName16.White), Selection, TextStyle.Bold),
     };
 
+    /// <summary>A result cell changed but not saved yet.</summary>
+    public static Scheme PendingCell { get; } = new(Content)
+    {
+        Normal = new Attribute(new Color(ColorName16.Yellow), Default, TextStyle.Bold),
+        Focus = new Attribute(new Color(ColorName16.Yellow), Selection, TextStyle.Bold),
+        Active = new Attribute(new Color(ColorName16.Yellow), Muted, TextStyle.Bold),
+        Highlight = new Attribute(new Color(ColorName16.Yellow), Muted, TextStyle.Bold),
+    };
+
     private static readonly Attribute KeywordText = new(Selection, Default, TextStyle.Bold);
     private static readonly Attribute StringText = new(Accent, Default);
     private static readonly Attribute CommentText = new(Muted, Default, TextStyle.Italic);
