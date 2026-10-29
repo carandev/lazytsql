@@ -303,6 +303,7 @@ public sealed class MainView : Runnable
         else if (key == Key.F1) HelpDialog.Show(App!, PanelContext());
         else if (key == Key.S.WithCtrl) SaveScript();
         else if (key == Key.O.WithCtrl) PromptOpenScript();
+        else if (key == Key.W.WithCtrl) CloseScript();
         else if (key == Key.Q.WithCtrl) Quit();
         // Esc first closes the completion popup; the editor handles that.
         else if (key == Key.Esc && inEditor && !_editor.Autocomplete.Visible) FocusPanel(ResultsPanel);
@@ -910,6 +911,17 @@ public sealed class MainView : Runnable
         _editor.Text = text;
         UpdateEditorTitle();
         return true;
+    }
+
+    /// <summary>Ctrl+W closes the open script, asking first when it has unsaved changes, and leaves an empty editor.</summary>
+    private void CloseScript()
+    {
+        if (_script is not { } script || !ConfirmDiscardScript()) return;
+        _script = null;
+        _editor.Text = string.Empty;
+        _savedText = string.Empty;
+        UpdateEditorTitle();
+        Log($"Closed {script.Path}.");
     }
 
     private void PromptOpenScript()

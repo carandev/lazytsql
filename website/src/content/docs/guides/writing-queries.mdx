@@ -94,6 +94,6 @@ detach the editor from the file, which stays as it was saved.
 ## Files
 
 `Ctrl+V` pastes the system clipboard (on Linux through `wl-paste`, `xclip` or `xsel`; the terminal's own paste, usually
-`Ctrl+Shift+V`, works too). `Ctrl+O` opens a `.sql` file and `Ctrl+S` saves it, asking for a path the first time. The title shows the file name
+`Ctrl+Shift+V`, works too). `Ctrl+O` opens a `.sql` file, `Ctrl+W` closes it (asking first when it has unsaved changes) and `Ctrl+S` saves it, asking for a path the first time. The title shows the file name
 and `*` while there are unsaved changes. Saving keeps the file's encoding and line endings, so scripts from SSMS
 (UTF-16 or UTF-8 with BOM, CRLF) round-trip unchanged. To browse a whole folder, see [files](/lazytsql/guides/files/).

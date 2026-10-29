@@ -18,6 +18,7 @@ with `?` (or `F1`).
 | `F5` / `Ctrl+E` | Run the selection, or the whole script batch by batch |
 | `Ctrl+K` | Cancel the running query, export or import |
 | `Ctrl+O` / `Ctrl+S` | Open / save a `.sql` file |
+| `Ctrl+W` | Close the open `.sql` file (asks first if it has unsaved changes) |
 | `?` / `F1` | Help for the focused panel (`F1` inside the editor) |
 | `q` / `Esc` / `Ctrl+Q` | Quit after confirming (`q` and `Esc` only outside the editor) |
 

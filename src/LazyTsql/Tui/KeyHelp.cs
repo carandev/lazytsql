@@ -37,6 +37,7 @@ public static class KeyHelp
             ("Ctrl+D/Ctrl+U", "page down/up"),
             ("F5/Ctrl+E", "run query"),
             ("Ctrl+O/Ctrl+S", "open/save .sql"),
+            ("Ctrl+W", "close .sql"),
             ("?/F1", "help"),
             ("q/Esc/Ctrl+Q", "quit"),
         ]),
