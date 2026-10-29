@@ -16,6 +16,15 @@ public sealed class SqlServerFactAttribute : FactAttribute
     }
 }
 
+/// <summary>A theory that runs only when LAZYTSQL_TEST_CONNECTION points at a disposable SQL Server.</summary>
+public sealed class SqlServerTheoryAttribute : TheoryAttribute
+{
+    public SqlServerTheoryAttribute()
+    {
+        if (string.IsNullOrEmpty(SqlServerFactAttribute.ConnectionString)) Skip = "LAZYTSQL_TEST_CONNECTION is not set.";
+    }
+}
+
 public class SqlServerSessionTests
 {
     private static Task<IDatabaseSession> OpenAsync() =>
