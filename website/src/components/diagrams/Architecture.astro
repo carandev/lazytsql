@@ -1,0 +1,42 @@
+---
+// Layers of lazytsql: the app uses Core's ports and wires the SqlServer adapters that implement them.
+interface Props { lang?: 'en' | 'es' }
+const { lang = 'en' } = Astro.props;
+const t = lang === 'es'
+  ? { app: 'Ejecutable, CLI y TUI', core: 'Dominio y puertos, sin dependencias', sql: 'Adaptadores de SQL Server', uses: 'usa los puertos', wires: 'conecta los adaptadores', implements: 'implementa los puertos' }
+  : { app: 'Executable, CLI and TUI', core: 'Domain and ports, no dependencies', sql: 'SQL Server adapters', uses: 'uses ports', wires: 'wires adapters', implements: 'implements ports' };
+---
+<figure class="arch not-content" aria-label="lazytsql architecture">
+  <div class="layer app">
+    <header><strong>LazyTsql</strong><span>{t.app}</span></header>
+    <ul>
+      <li>Program.cs</li><li>CLI · HeadlessCommands</li><li>Output writers</li><li>TUI · MainView · SqlEditor</li><li>Infrastructure</li>
+    </ul>
+  </div>
+  <div class="links"><span>↓ {t.uses}</span><span>↓ {t.wires}</span></div>
+  <div class="layer core">
+    <header><strong>LazyTsql.Core</strong><span>{t.core}</span></header>
+    <ul>
+      <li class="port">IDatabaseConnector</li><li class="port">IDatabaseSession</li><li class="port">IBacpacTool</li><li class="port">IRowSink</li>
+      <li>Batches</li><li>ScriptRunner</li><li>Completion</li><li>Syntax</li>
+    </ul>
+  </div>
+  <div class="links"><span>↑ {t.implements}</span></div>
+  <div class="layer sql">
+    <header><strong>LazyTsql.SqlServer</strong><span>{t.sql}</span></header>
+    <ul><li>SqlServerConnector</li><li>SqlServerSession</li><li>SqlPackageTool</li></ul>
+  </div>
+</figure>
+
+<style>
+  .arch { display: flex; flex-direction: column; gap: 0.4rem; margin: 1.5rem 0; }
+  .layer { border: 1px solid var(--sl-color-gray-5); border-radius: 0.75rem; padding: 0.9rem 1rem; background: var(--sl-color-gray-7, var(--sl-color-black)); }
+  .layer header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; margin-bottom: 0.6rem; }
+  .layer header strong { font-family: var(--__sl-font-mono); color: var(--sl-color-white); }
+  .layer header span { color: var(--sl-color-gray-3); font-size: var(--sl-text-sm); }
+  .layer.core { border-color: var(--sl-color-accent); box-shadow: 0 0 0 1px var(--sl-color-accent-low) inset; }
+  ul { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; padding: 0; margin: 0; }
+  li { margin: 0; padding: 0.2rem 0.55rem; border-radius: 999px; font-family: var(--__sl-font-mono); font-size: var(--sl-text-xs); background: var(--sl-color-gray-6); color: var(--sl-color-gray-1); }
+  li.port { background: var(--sl-color-accent-low); color: var(--sl-color-accent-high); }
+  .links { display: flex; justify-content: space-around; color: var(--sl-color-gray-3); font-size: var(--sl-text-xs); }
+</style>

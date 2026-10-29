@@ -2,6 +2,7 @@ using LazyTsql.Core.Completion;
 using LazyTsql.Core.Syntax;
 using Terminal.Gui.Drawing;
 using Terminal.Gui.Input;
+using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 
 // TextView is marked obsolete in favor of tui-cs/Editor; its color hook is enough for T-SQL highlighting.
@@ -56,6 +57,86 @@ public sealed class SqlEditor : TextView
         // A closed popup only opens on the first call; the second one draws it.
         Autocomplete.RenderOverlay(at);
         Autocomplete.RenderOverlay(at);
+    }
+
+    /// <summary>
+    /// Terminal.Gui 2.5's TextView inserts a paste without asking to redraw unless it replaced a selection, so a paste
+    /// stayed invisible until something else redrew the editor.
+    /// </summary>
+    protected override bool OnPaste(string text)
+    {
+        if (!base.OnPaste(text)) return false;
+        SetNeedsDraw();
+        return true;
+    }
+
+    /// <summary>
+    /// Terminal.Gui 2.5's TextView keeps drawing past the bottom of the view, through every line to the end of the text,
+    /// so each keystroke or save in a long script took seconds. This draws only the visible rows, with the same colors
+    /// and the same handling of tabs, wide glyphs and horizontal scrolling.
+    /// </summary>
+    protected override bool OnDrawingContent(DrawContext? context)
+    {
+        SetAttributeForRole(Enabled ? VisualRole.Editable : VisualRole.Disabled);
+        var (right, bottom) = (Viewport.Width, Viewport.Height);
+        var row = 0;
+        for (var idxRow = Viewport.Y; idxRow < Lines && row < bottom; idxRow++, row++)
+        {
+            var line = GetLine(idxRow);
+            var end = 0;
+            Move(0, row);
+            foreach (var glyph in EditorLayout.Visible([.. line.Select(cell => cell.Grapheme)], Viewport.X, right, TabWidth))
+            {
+                var (idxCol, col) = (glyph.Index, glyph.Column);
+                if (IsSelecting && InSelection(idxCol, idxRow)) OnDrawSelectionColor(line, idxCol, idxRow);
+                else if (idxCol == CurrentColumn && idxRow == CurrentRow && !IsSelecting && !Used && HasFocus) OnDrawUsedColor(line, idxCol, idxRow);
+                else if (ReadOnly) OnDrawReadOnlyColor(line, idxCol, idxRow);
+                else OnDrawNormalColor(line, idxCol, idxRow);
+
+                // A tab is spaces; a wide glyph cut by the left edge shows as a space, like the base view.
+                var text = line[idxCol].Grapheme;
+                if (text == "\t" || col < 0)
+                {
+                    for (var i = Math.Max(col, 0); i < col + glyph.Width && i < right; i++) AddRune(i, row, (System.Text.Rune)' ');
+                }
+                else
+                {
+                    AddStr(col, row, text);
+                }
+
+                end = col + glyph.Width;
+            }
+
+            if (end < right)
+            {
+                SetAttributeForRole(ReadOnly ? VisualRole.ReadOnly : VisualRole.Editable);
+                Blank(Math.Max(end, 0), row, right, row + 1);
+            }
+        }
+
+        if (row < bottom)
+        {
+            SetAttributeForRole(ReadOnly ? VisualRole.ReadOnly : VisualRole.Editable);
+            Blank(0, row, right, bottom);
+        }
+
+        return false;
+    }
+
+    private void Blank(int left, int top, int right, int bottom)
+    {
+        for (var y = top; y < bottom; y++)
+        {
+            for (var x = left; x < right; x++) AddRune(x, y, (System.Text.Rune)' ');
+        }
+    }
+
+    /// <summary>Whether a cell is between the selection start and the cursor, in either order.</summary>
+    private bool InSelection(int column, int row)
+    {
+        var (start, cursor, point) = ((SelectionStartRow, SelectionStartColumn), (CurrentRow, CurrentColumn), (row, column));
+        var (from, to) = start.CompareTo(cursor) <= 0 ? (start, cursor) : (cursor, start);
+        return point.CompareTo(from) >= 0 && point.CompareTo(to) < 0;
     }
 
     protected override void OnDrawNormalColor(List<Cell> line, int idxCol, int idxRow)

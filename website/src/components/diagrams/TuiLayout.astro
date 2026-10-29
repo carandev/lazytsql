@@ -1,0 +1,32 @@
+---
+// The six numbered panels of the TUI and the footer.
+interface Props { lang?: 'en' | 'es' }
+const { lang = 'en' } = Astro.props;
+const t = lang === 'es'
+  ? { footer: 'teclas del panel enfocado │ teclas globales', conn: 'conexiones guardadas', files: 'tus carpetas de scripts', schema: 'bases, tablas, columnas', query: 'editor con autocompletado', results: 'un conjunto de resultados a la vez', messages: 'mensajes y errores' }
+  : { footer: 'keys of the focused panel │ global keys', conn: 'saved connections', files: 'your script folders', schema: 'databases, tables, columns', query: 'editor with completion', results: 'one result set at a time', messages: 'messages and errors' };
+---
+<figure class="tui not-content" aria-label="lazytsql panels">
+  <div class="grid">
+    <div class="p conn"><b>[1] Connections</b><span>{t.conn}</span></div>
+    <div class="p files"><b>[2] Files</b><span>{t.files}</span></div>
+    <div class="p schema"><b>[3] Schema</b><span>{t.schema}</span></div>
+    <div class="p query"><b>[4] Query</b><span>{t.query}</span></div>
+    <div class="p results"><b>[5] Results</b><span>{t.results}</span></div>
+    <div class="p messages"><b>[6] Messages</b><span>{t.messages}</span></div>
+  </div>
+  <div class="footer">{t.footer}</div>
+</figure>
+
+<style>
+  .tui { margin: 1.5rem 0; padding: 0.6rem; border-radius: 0.75rem; background: #111318; border: 1px solid var(--sl-color-gray-5); }
+  .grid { display: grid; grid-template-columns: 28% 1fr; grid-template-rows: 3fr 4fr 6fr 4fr 2fr; gap: 0.35rem; min-height: 18rem;
+    grid-template-areas: 'conn query' 'files query' 'schema results' 'schema results' 'schema messages'; }
+  .p { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.45rem 0.6rem; border: 1px solid #3a3f4b; border-radius: 0.5rem; font-family: var(--__sl-font-mono); font-size: var(--sl-text-xs); }
+  .p b { color: #3fb97a; font-weight: 600; }
+  .p span { color: #8b93a1; }
+  .conn { grid-area: conn; } .files { grid-area: files; } .schema { grid-area: schema; }
+  .query { grid-area: query; border-color: #3fb97a; } .results { grid-area: results; } .messages { grid-area: messages; }
+  .footer { margin-top: 0.4rem; padding: 0 0.3rem; font-family: var(--__sl-font-mono); font-size: var(--sl-text-xs); color: #8b93a1; }
+  @media (max-width: 40rem) { .grid { grid-template-columns: 1fr; grid-template-rows: none; grid-template-areas: 'conn' 'files' 'schema' 'query' 'results' 'messages'; min-height: 0; } }
+</style>

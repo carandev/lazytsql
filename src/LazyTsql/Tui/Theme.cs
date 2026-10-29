@@ -13,6 +13,12 @@ namespace LazyTsql.Tui;
 /// </summary>
 public static class Theme
 {
+    /// <summary>
+    /// Turns off hotkeys taken from '_' in a title or label, which would hide the underscore in names such as
+    /// top_customers.sql or app_copy.
+    /// </summary>
+    public static readonly System.Text.Rune NoHotKey = new(0xFFFF);
+
     private static readonly Color Default = Color.None;
     private static readonly Color Accent = new(ColorName16.Green);
     private static readonly Color Muted = new(ColorName16.DarkGray);
@@ -58,6 +64,8 @@ public static class Theme
     private static readonly Attribute VariableText = new(new Color(ColorName16.Cyan), Default);
 
     /// <summary>A table or column the database does not have.</summary>
+    public static Attribute LineNumber { get; } = new(Muted, Default);
+    public static Attribute CurrentLineNumber { get; } = new(Accent, Default, TextStyle.Bold);
     public static Attribute UnknownName { get; } = new(new Color(ColorName16.Red), Default, TextStyle.Underline);
 
     /// <summary>Editor color for a token; null keeps the normal text color.</summary>
@@ -105,6 +113,15 @@ public static class Theme
     {
         dialog.SetScheme(FocusedBorder);
         StyleDialogContent(dialog.SubViews);
+    }
+
+    /// <summary>
+    /// Dialog buttons live outside the dialog's subviews and inherit its border colors, which look the same focused or
+    /// not; the content scheme fills the focused one with the selection color, so it is clear which one Enter presses.
+    /// </summary>
+    public static void StyleButtons(params Button[] buttons)
+    {
+        foreach (var button in buttons) button.SetScheme(Content);
     }
 
     private static void StyleDialogContent(IEnumerable<View> views)

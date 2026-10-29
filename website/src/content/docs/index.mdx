@@ -1,0 +1,94 @@
+---
+title: lazytsql
+description: A lazygit-style terminal client for SQL Server. Browse the schema, write T-SQL with completion from your database, run it and export the results, all from the keyboard.
+template: splash
+hero:
+  tagline: A lazygit-style terminal client for SQL Server. Browse the schema, write T-SQL with completion from your own database, run it and export the results, all from the keyboard. One native binary, no runtime needed.
+  actions:
+    - text: Install
+      link: /lazytsql/getting-started/installation/
+      icon: right-arrow
+    - text: Quick start
+      link: /lazytsql/getting-started/quick-start/
+      variant: minimal
+    - text: View on GitHub
+      link: https://github.com/carandev/lazytsql
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+import Screen from '../../components/Screen.astro';
+
+<Screen />
+
+## Why lazytsql
+
+<CardGrid>
+  <Card title="Completion from your database" icon="pencil">
+    Tables, views, columns, procedures and synonyms come from the server you are connected to. After `JOIN`
+    it suggests the related tables with their foreign key condition already written.
+  </Card>
+  <Card title="Keyboard first" icon="seti:shell">
+    Six numbered panels like lazygit, vim motions, and a footer that always shows the keys of the panel you are
+    in. `?` lists them all.
+  </Card>
+  <Card title="Headless mode for scripts and agents" icon="setting">
+    `lazytsql query --json` returns batches, messages with script line numbers and result sets as JSON, with
+    exit codes that tell SQL errors from usage errors.
+  </Card>
+  <Card title="One native binary" icon="rocket">
+    Native AOT: about 21 MB, starts instantly, no .NET runtime needed. Copy it to the server that hosts the
+    database and run it there.
+  </Card>
+  <Card title="Safe with large results" icon="warning">
+    Each result set fetches 1000 rows by default; a lone `SELECT` stops on the server at the limit. Exporting
+    to CSV streams every row to disk instead of memory.
+  </Card>
+  <Card title="Backups and history" icon="document">
+    Export and import whole databases as `.bacpac`, browse a folder of scripts, and keep a private daily log of
+    every script you ran.
+  </Card>
+</CardGrid>
+
+## Install
+
+<Tabs syncKey="install">
+  <TabItem label="Linux / macOS">
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/carandev/lazytsql/main/install.sh | sh
+    ```
+  </TabItem>
+  <TabItem label="Windows">
+    ```powershell
+    irm https://raw.githubusercontent.com/carandev/lazytsql/main/install.ps1 | iex
+    ```
+  </TabItem>
+  <TabItem label=".NET tool">
+    ```bash
+    dotnet tool install -g lazytsql
+    ```
+    Installs the native binary for linux-x64, linux-arm64, win-x64 or osx-arm64. Needs the .NET 10 SDK.
+  </TabItem>
+</Tabs>
+
+Then connect:
+
+```bash
+lazytsql -c 'Server=localhost,1433;Database=app;User Id=sa;Password=${DB_PASSWORD};TrustServerCertificate=true'
+```
+
+Every option is in the [installation guide](/lazytsql/getting-started/installation/).
+
+## Learn more
+
+<CardGrid>
+  <Card title="Use it" icon="open-book">
+    [The TUI](/lazytsql/guides/tui/), [writing queries](/lazytsql/guides/writing-queries/),
+    [results and export](/lazytsql/guides/results/) and [headless mode](/lazytsql/guides/headless/).
+  </Card>
+  <Card title="Understand it" icon="information">
+    [Architecture](/lazytsql/internals/architecture/), [how scripts run](/lazytsql/internals/execution/),
+    [the completion engine](/lazytsql/internals/completion/) and [security](/lazytsql/internals/security/).
+  </Card>
+</CardGrid>

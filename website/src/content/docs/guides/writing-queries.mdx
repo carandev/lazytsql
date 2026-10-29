@@ -1,0 +1,100 @@
+---
+title: Writing queries
+description: Syntax highlighting, completion from the connected database, joins from foreign keys, unknown names, running scripts and opening files.
+---
+
+import CompletionScreen from '../../../components/CompletionScreen.astro';
+
+The editor (panel `4`) highlights T-SQL, numbers its lines (so an error's line in the messages panel is easy to find) and
+completes names from the database you are connected to.
+
+<CompletionScreen />
+
+## Completion
+
+The list opens while you type; `Tab` accepts, `Esc` closes it and `Ctrl+Space` opens it again.
+
+| You type | It suggests |
+| --- | --- |
+| `FROM cu`, `JOIN cu` | Tables, views, functions and synonyms, plus databases |
+| `JOIN ` | Tables related by a foreign key, with an alias and the condition: `orders o ON o.customer_id = c.id` |
+| `ON ` | The foreign key condition between the table just joined and the ones before it |
+| `EXEC get` | Procedures |
+| `sales.` | The objects of that schema |
+| `c.` (an alias or a table) | Its columns, with their type |
+| `em` elsewhere | Columns of the statement's tables, their aliases and keywords |
+| `archive.` / `archive.dbo.` | Schemas / objects of another database |
+
+Details that make it fit in:
+
+- **`dbo` is left out** when it is not needed: `customers`, not `dbo.customers`, unless another schema has an object
+  with the same name.
+- **A name typed in full is still offered**, first, so you can confirm it with `Tab`.
+- **Keywords follow your case**: typing `sel` suggests `select`, typing `SEL` suggests `SELECT`.
+- **Names are bracketed only when needed**: `[order details]`, `[select]`.
+- Nothing is suggested inside strings and comments.
+
+### Joins from foreign keys
+
+After `JOIN`, lazytsql looks at the tables already in the statement and suggests every table related to them by a
+foreign key, in either direction, with the full condition:
+
+```sql
+SELECT *
+FROM customers c
+JOIN |                     -- orders o ON o.customer_id = c.id
+```
+
+- The alias is the initials of the table name (`order_lines` → `ol`), numbered when it is taken (`c2`).
+- A composite key joins every column: `ON s.order_id = l.order_id AND s.line = l.line`.
+- After `ON` with an empty prefix, it suggests only the condition for the table you just joined.
+- A table in another database is written with its database: `archive.dbo.customers`.
+
+### Synonyms
+
+A synonym behaves like the table or view it points to, in this database or another one on the same server: `c.`
+completes that table's columns, `JOIN ` suggests its foreign keys, and its unknown columns are underlined. A synonym
+for an object on a linked server is completed by name only.
+
+### When names load
+
+Names load in the background the first time they are needed, without changing your current database: the objects
+of a database when you first reference it, the columns of a table when you first type its alias, and the foreign
+keys of a database on the first `JOIN`. `r` in the schema panel reloads everything.
+
+## Unknown names
+
+Tables and `alias.column` names the database does not have are underlined in red once you leave the word. To avoid
+false alarms, these are never marked:
+
+- temporary tables (`#t`, `##t`), CTEs, and tables, views and synonyms the script itself creates;
+- the target of `CREATE`/`ALTER`/`DROP TABLE` and of `SELECT ... INTO`;
+- `sys` and `INFORMATION_SCHEMA` views, and names on linked servers (four parts);
+- names in a database that is not loaded yet, or the word you are typing.
+
+## Running
+
+`F5` (or `Ctrl+E`) runs the selection if there is one, otherwise the whole script. The script is split into batches
+at `GO` lines, as SSMS and sqlcmd do:
+
+- `GO 5` runs the batch five times.
+- `GO` inside a string, a comment or a bracketed name does not split.
+- Execution stops at the first batch with an error (severity above 10), like `sqlcmd -b`.
+- Error messages show the line in your script, not in the batch.
+
+`Ctrl+K` cancels. Queries in the TUI have no timeout; cancel them instead.
+
+How this works inside is explained in [how scripts run](/lazytsql/internals/execution/).
+
+## Generated SQL
+
+In the schema panel, `s` replaces the editor with `SELECT TOP (100) * FROM [db].[schema].[table];` and runs it, and
+`e` opens a procedure or function definition. Both ask first when the open file has unsaved changes, and both
+detach the editor from the file, which stays as it was saved.
+
+## Files
+
+`Ctrl+V` pastes the system clipboard (on Linux through `wl-paste`, `xclip` or `xsel`; the terminal's own paste, usually
+`Ctrl+Shift+V`, works too). `Ctrl+O` opens a `.sql` file, `Ctrl+W` closes it (asking first when it has unsaved changes) and `Ctrl+S` saves it, asking for a path the first time. The title shows the file name
+and `*` while there are unsaved changes. Saving keeps the file's encoding and line endings, so scripts from SSMS
+(UTF-16 or UTF-8 with BOM, CRLF) round-trip unchanged. To browse a whole folder, see [files](/lazytsql/guides/files/).

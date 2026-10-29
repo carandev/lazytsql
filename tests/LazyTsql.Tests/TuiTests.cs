@@ -46,6 +46,36 @@ public class TuiTests
     }
 
     [Fact]
+    public void Files_can_be_searched_with_a_slash_like_in_vim()
+    {
+        Assert.Contains("/ search", KeyHelp.Footer(KeyContext.Files), StringComparison.Ordinal);
+        Assert.Contains("o add folder", KeyHelp.Footer(KeyContext.Files), StringComparison.Ordinal);
+        Assert.Contains("d remove folder", KeyHelp.Footer(KeyContext.Files), StringComparison.Ordinal);
+        Assert.Contains("n/N next/prev match", KeyHelp.Footer(KeyContext.Files), StringComparison.Ordinal);
+        Assert.StartsWith("type to search · Enter keep · Esc cancel", KeyHelp.Footer(KeyContext.FileSearch), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Confirmation_buttons_show_their_key_and_can_be_chosen_with_the_arrows()
+    {
+        Assert.Equal("Discard (y)", ConfirmDialog.ButtonText("Discard", 'y'));
+        Assert.Equal("Cancel (n)", ConfirmDialog.ButtonText("Cancel", 'n'));
+        Assert.Contains("←/→ choose", KeyHelp.Footer(KeyContext.Confirm), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Help_lists_how_to_resize_panels()
+    {
+        Assert.Contains(KeyHelp.Render(context: null), line => line.Contains("Alt+arrows", StringComparison.Ordinal) && line.Contains("resize", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Help_lists_how_to_close_a_script()
+    {
+        Assert.Contains(KeyHelp.Render(KeyContext.Query).Concat(KeyHelp.Render(context: null)), line => line.Contains("Ctrl+W", StringComparison.Ordinal) && line.Contains("close .sql", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Files_footer_shows_how_to_open_a_script()
     {
         var files = KeyHelp.Footer(KeyContext.Files);

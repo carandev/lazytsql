@@ -54,6 +54,7 @@ public static class RowLimitDialog
         dialog.AddButton(cancel);
         dialog.AddButton(apply);
         Theme.StyleDialog(dialog);
+        Theme.StyleButtons(cancel, apply);
         status.SetScheme(Theme.Hints);
         dialog.Initialized += (_, _) =>
         {

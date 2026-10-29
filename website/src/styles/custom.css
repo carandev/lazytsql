@@ -1,0 +1,46 @@
+/* Terminal green accent, the color of the prompt in the logo. */
+:root {
+  --sl-color-accent-low: #0f2e1f;
+  --sl-color-accent: #2f9e63;
+  --sl-color-accent-high: #b6ecd0;
+}
+
+:root[data-theme='light'] {
+  --sl-color-accent-low: #d3f3e2;
+  --sl-color-accent: #1f7a4a;
+  --sl-color-accent-high: #0e3b23;
+}
+
+/* A captured lazytsql screen on the landing page. */
+.terminal {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--sl-color-gray-5);
+  background: #111318;
+  color: #d7dae0;
+  font-family: var(--__sl-font-mono);
+  font-size: clamp(0.42rem, 1.15vw, 0.8rem);
+  line-height: 1.15;
+  overflow-x: auto;
+  white-space: pre;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.35);
+}
+
+/* Inside the docs column, a full-width screen has to be smaller to fit. */
+.terminal.compact {
+  font-size: clamp(0.4rem, 0.85vw, 0.6rem);
+}
+
+.terminal .bar {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.7rem;
+}
+
+.terminal .bar span {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: #3a3f4b;
+}

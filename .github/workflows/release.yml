@@ -6,6 +6,8 @@ name: Release
 on:
   push:
     branches: [main]
+    # The website deploys on its own (website.yml) and is not part of a release.
+    paths-ignore: ['website/**', '.github/workflows/website.yml']
   workflow_dispatch:
 
 permissions:
@@ -99,6 +101,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      pull-requests: read
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
@@ -125,5 +128,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v$VERSION" dist/lazytsql-* --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes \
-            || gh release upload "v$VERSION" dist/lazytsql-* --clobber
+          # install.sh and install.ps1 verify the archive they download against this file.
+          (cd dist && sha256sum lazytsql-* > SHA256SUMS && cat SHA256SUMS)
+          # The notes are the description of the pull request merged into this commit, written by hand for each one;
+          # a push without a pull request falls back to GitHub's generated list.
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '.[0] | select(.body != null and .body != "") | .number' || true)"
+          if [ -n "$pr" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/pulls/$pr" --jq '.body' > notes.md
+            printf '\n\n---\nFrom #%s.\n' "$pr" >> notes.md
+            notes=(--notes-file notes.md)
+          else
+            notes=(--generate-notes)
+          fi
+          gh release create "v$VERSION" dist/lazytsql-* dist/SHA256SUMS --target "$GITHUB_SHA" --title "v$VERSION" "${notes[@]}" \
+            || gh release upload "v$VERSION" dist/lazytsql-* dist/SHA256SUMS --clobber

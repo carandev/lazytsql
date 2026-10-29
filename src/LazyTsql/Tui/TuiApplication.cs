@@ -20,9 +20,12 @@ public static class TuiApplication
         app.Init();
         // ANSI palette indices instead of fixed RGB, so the UI follows the terminal's color scheme.
         if (app.Driver is { } driver) driver.Force16Colors = true;
-        using var view = new MainView(connector, bacpac, store, activity);
-        // The files panel shows the folder given, else the opened script's folder, else the working directory.
-        if ((directory ?? (script is { } inFolder ? Path.GetDirectoryName(inFolder.Script.Path) : null)) is { } folder) view.ShowFiles(folder);
+        using var view = new MainView(connector, bacpac, store, activity, FolderStore.Default());
+        // The files panel shows the saved folders; a folder given here is saved too, and a script's folder shows for
+        // this session only.
+        view.ShowSavedFolders();
+        if (directory is not null) view.AddFolder(directory, save: true);
+        else if (script is { } inFolder) view.AddFolder(Path.GetDirectoryName(inFolder.Script.Path)!, save: false);
         if (script is { } opened) view.OpenScript(opened.Script, opened.Text);
         view.CheckForUpdatesOnStart(token => UpdateCheck.Default(Environment.GetEnvironmentVariable)
             .MessageAsync(typeof(TuiApplication).Assembly.GetName().Version ?? new Version(0, 0, 0), Environment.ProcessPath, token));

@@ -4,6 +4,8 @@ A lazygit-style terminal client for SQL Server: browse the schema, write T-SQL w
 run it, page through results and export them, all from the keyboard. It also has a headless mode with JSON output
 for scripts and coding agents. It ships as a single native binary you can copy to the server that hosts the database.
 
+**Documentation: <https://carandev.github.io/lazytsql/> · [en español](https://carandev.github.io/lazytsql/es/)**
+
 - [Requirements](#requirements)
 - [Install](#install)
 - [Quick start](#quick-start)
@@ -43,35 +45,28 @@ When a newer release exists, the TUI says so in the messages panel, with the upd
 release page for a downloaded binary. It asks NuGet.org at most once a day, shows nothing when offline, and
 `LAZYTSQL_NO_UPDATE_CHECK=1` turns it off.
 
-### Option 2: download the binary (no .NET needed)
+### Option 2: install script (no .NET needed)
 
-Linux (use `lazytsql-linux-arm64.tar.gz` on ARM):
+One command downloads the native binary of the latest release, checks its SHA-256 and puts it on your `PATH`.
 
-```bash
-curl -fsSL https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-linux-x64.tar.gz | tar -xz
-sudo mv lazytsql /usr/local/bin/
-lazytsql --version
-```
-
-macOS (Apple Silicon):
+Linux and macOS (installs to `~/.local/bin`):
 
 ```bash
-curl -fsSL https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-osx-arm64.tar.gz | tar -xz
-sudo mv lazytsql /usr/local/bin/
-lazytsql --version
+curl -fsSL https://raw.githubusercontent.com/carandev/lazytsql/main/install.sh | sh
 ```
 
-The binary is not signed. If you download it with a browser instead of `curl`, macOS blocks it; allow it with
-`xattr -d com.apple.quarantine /usr/local/bin/lazytsql`.
-
-Windows (PowerShell):
+Windows, in PowerShell (installs to `%LOCALAPPDATA%\lazytsql\bin` and adds it to your user `PATH`):
 
 ```powershell
-Invoke-WebRequest https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-win-x64.zip -OutFile lazytsql.zip
-Expand-Archive lazytsql.zip -DestinationPath "$env:LOCALAPPDATA\lazytsql"
-# Add %LOCALAPPDATA%\lazytsql to your PATH, open a new terminal, then:
-lazytsql --version
+irm https://raw.githubusercontent.com/carandev/lazytsql/main/install.ps1 | iex
 ```
+
+Run the same command again to update. `LAZYTSQL_INSTALL_DIR` changes where it installs and `LAZYTSQL_VERSION=0.1.3`
+installs a given version. Builds exist for linux-x64, linux-arm64, osx-arm64 (Apple Silicon) and win-x64; on an
+Intel Mac use the .NET tool.
+
+To do it by hand instead, download `lazytsql-<platform>.tar.gz` (`.zip` on Windows) from the releases page, check it
+against `SHA256SUMS`, extract it and put `lazytsql` on your `PATH`.
 
 Every release is listed at <https://github.com/carandev/lazytsql/releases>.
 
@@ -120,8 +115,10 @@ lazytsql -c dev ./scripts       # browse a folder of scripts in panel [2]
 The screen has six panels: connections `[1]`, files `[2]`, schema `[3]`, query `[4]`, results `[5]` and messages `[6]`.
 The footer always shows the keys of the focused panel or dialog.
 
-The files panel shows the folder given on the command line, else the folder of the script being edited, else the
-working directory: its subfolders and `.sql` files, without hidden folders such as `.git`.
+The files panel shows the folders you add with `o` (or give on the command line) and remembers them across sessions,
+in `~/.config/lazytsql/folders.json`; `d` removes one from the panel, not from disk. A script given on the command
+line shows its folder for that session only. Each tree lists subfolders and `.sql` files, without hidden folders such
+as `.git`.
 
 ### Keys
 
@@ -131,19 +128,25 @@ working directory: its subfolders and `.sql` files, without hidden folders such 
 | `F5` / `Ctrl+E` | Anywhere | Run the selection, or the whole script batch by batch (`GO`, `GO n`) |
 | `Ctrl+K` | Anywhere | Cancel the running query, export or import |
 | `Ctrl+O` / `Ctrl+S` | Anywhere | Open / save a `.sql` file; the title shows `*` while there are unsaved changes |
+| `Ctrl+W` | Anywhere | Close the open `.sql` file (asks first if it has unsaved changes) and empty the editor |
 | `?` / `F1` | Anywhere | Keys of the focused panel; `a` in the help switches to every key |
-| `q` / `Ctrl+Q` | Anywhere | Quit after confirming (`q` only outside the editor) |
+| `q` / `Esc` / `Ctrl+Q` | Anywhere | Quit after confirming (`q` and `Esc` only outside the editor, where `Esc` leaves it) |
 | `h` `j` `k` `l`, `g` / `G`, `Ctrl+D` / `Ctrl+U` | Outside the editor | Vim motions |
+| `Alt+↓` / `Alt+↑` (or `+` / `-` outside the editor) | Anywhere | Make the focused panel taller / shorter; schema and results grow by shrinking files and the query |
+| `Alt+→` / `Alt+←` | Anywhere | Widen / narrow the left column. Sizes are kept for the next session |
 | `Enter` | Connections | Connect |
 | `a` / `e` / `d` | Connections | Add, edit or delete a connection |
 | `Enter` | Files | Open the selected script in the editor (asks first if there are unsaved changes), or expand a folder |
 | `h` / `l` | Files | Collapse / expand a folder |
+| `o` / `d` | Files | Add a folder, remembered across sessions / remove the selected top-level folder from the panel |
+| `/`, then `n` / `N` | Files | Search folders and scripts at any depth, like vim: type to jump, `Enter` keeps the match, `Esc` goes back; `n`/`N` move to the next/previous match |
 | `r` | Files | Refresh after files change on disk; saving a new script refreshes it too |
 | `Enter`, `h` / `l` | Schema | Expand or collapse |
 | `s` | Schema | `SELECT TOP (100)` from the selected table or view |
 | `e` | Schema | Open the selected procedure or function definition in the editor |
 | `r` | Schema | Reload the schema and the completion names |
 | `x` / `i` | Schema | Export the selected database to a `.bacpac` / import a `.bacpac` as a new database |
+| `Ctrl+V` | Query, text fields | Paste the system clipboard (the terminal's own paste, usually `Ctrl+Shift+V`, works too) |
 | `Tab` / `Ctrl+Space` | Query | Accept / open the completion list (`Esc` closes it) |
 | `Esc` | Query | Leave the editor |
 | `[` / `]` | Results | Previous / next result set |
@@ -159,7 +162,7 @@ database, the schema tree shows only that database; otherwise it lists every dat
 
 ### Writing queries
 
-The editor highlights T-SQL and completes names from the connected database while you type:
+The editor highlights T-SQL, numbers its lines and completes names from the connected database while you type:
 
 | You type | It suggests |
 | --- | --- |
@@ -287,6 +290,8 @@ cat ~/.local/state/lazytsql/logs/2026-10-28.log
 | Setting | Purpose |
 | --- | --- |
 | `$XDG_CONFIG_HOME/lazytsql/connections.json` (default `~/.config/lazytsql/connections.json`) | Saved connections, created with owner-only permissions |
+| `$XDG_CONFIG_HOME/lazytsql/folders.json` | The folders shown in the files panel |
+| `$XDG_STATE_HOME/lazytsql/layout` | Panel sizes set with `Alt`+arrows |
 | `${VAR}` inside a connection string | Replaced by that environment variable when connecting, so secrets stay out of the file |
 | `LAZYTSQL_CONNECTION` | Connection used when `-c` is not given |
 | `LAZYTSQL_SQLPACKAGE` | Path to sqlpackage when it is not on the `PATH` or in `~/.dotnet/tools` |
@@ -304,6 +309,7 @@ The UI keeps the terminal's background and uses its 16 ANSI colors, so it follow
 | `Globalization Invariant Mode is not supported` or ICU errors on Linux | Install ICU: `sudo apt install libicu-dev` (Debian/Ubuntu) or `sudo dnf install libicu` (Fedora). |
 | `The certificate chain was issued by an authority that is not trusted` | Add `TrustServerCertificate=true` to the connection string (development servers with self-signed certificates). |
 | `sqlpackage not found` | `dotnet tool install -g microsoft.sqlpackage`, or set `LAZYTSQL_SQLPACKAGE` to its path. |
+| `Ctrl+V` pastes nothing on Linux | lazytsql reads the clipboard with `wl-paste` (Wayland), `xclip` or `xsel`; install one of them (`wl-clipboard` on Wayland), or use the terminal's paste (`Ctrl+Shift+V`). |
 | Import fails with `contains one or more user objects` | Import into a new database name; sqlpackage only imports into an empty database. |
 
 Integrated (Windows) and Microsoft Entra ID authentication are not yet verified in the native binary.

@@ -53,11 +53,24 @@ public sealed class MainView : Runnable
     private bool _quitConfirmed;
     private ScriptFile? _script;
     private string _savedText = string.Empty;
-    private FileNode _filesRoot = FileNode.Directory(Environment.CurrentDirectory);
+    // The folders the files panel shows: the saved ones, plus a script's folder for this session only.
+    private readonly List<FileNode> _fileRoots = [];
+    private readonly FolderStore _folders;
+    // Panel sizes from Alt+arrows, kept in the state directory for the next session.
+    private readonly string _layoutPath = Path.Combine(StateDirectory.Resolve(Environment.GetEnvironmentVariable), "layout");
+    private PanelLayout _layout = new();
+    private readonly SystemClipboard _clipboard = SystemClipboard.Default();
+    // The / search of the files panel: the query while typing (null otherwise), its matches for n/N, and where it started.
+    private string? _fileQuery;
+    private IReadOnlyList<FileNode> _fileMatches = [];
+    private int _fileMatch;
+    private FileNode? _fileSearchStart;
+    private CancellationTokenSource? _fileSearchCancellation;
 
-    public MainView(IDatabaseConnector connector, IBacpacTool bacpac, FileConnectionStore store, ActivityLog activity)
+    public MainView(IDatabaseConnector connector, IBacpacTool bacpac, FileConnectionStore store, ActivityLog activity, FolderStore folders)
     {
         _activity = activity;
+        _folders = folders;
         _connector = connector;
         _bacpac = bacpac;
         _store = store;
@@ -92,12 +105,17 @@ public sealed class MainView : Runnable
         _messages = new TextView { Width = Dim.Fill(), Height = Dim.Fill(), ReadOnly = true, WordWrap = true };
 
         var connectionsPanel = Panel("[1] Connections", _connections, 0, 0, Dim.Percent(28), Dim.Percent(20));
-        var filesPanel = Panel("[2] Files", _files, 0, Pos.Bottom(connectionsPanel), Dim.Percent(28), Dim.Percent(30));
+        var filesPanel = Panel("[2] Files · o to add", _files, 0, Pos.Bottom(connectionsPanel), Dim.Percent(28), Dim.Percent(30));
         var schemaPanel = Panel("[3] Schema", _schema, 0, Pos.Bottom(filesPanel), Dim.Percent(28), Dim.Fill(1));
         var editorPanel = Panel("[4] Query", _editor, Pos.Right(connectionsPanel), 0, Dim.Fill(), Dim.Percent(38));
         var messagesPanel = Panel("[6] Messages", _messages, Pos.Right(schemaPanel), Pos.AnchorEnd(8), Dim.Fill(), 7);
         var resultsPanel = Panel("[5] Results", _results, Pos.Right(schemaPanel), Pos.Bottom(editorPanel), Dim.Fill(), Dim.Fill(8));
         _panels = [connectionsPanel, filesPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel];
+        // Added after the editor, so focusing the panel still focuses the editor.
+        var lineNumbers = new LineNumbers(_editor) { X = 0, Y = 0 };
+        _editor.X = Pos.Right(lineNumbers);
+        editorPanel.Add(lineNumbers);
+        LoadLayout();
 
         _hints = new Label { X = 1, Y = Pos.AnchorEnd(1), Width = Dim.Fill(1), Height = 1 };
         _hints.SetScheme(Theme.Hints);
@@ -111,7 +129,6 @@ public sealed class MainView : Runnable
 
         SetScheme(Theme.Content);
         Add(connectionsPanel, filesPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel, _hints);
-        ShowFiles(Environment.CurrentDirectory);
         Initialized += (_, _) =>
         {
             App!.Keyboard.KeyDown += OnGlobalKeyDown;
@@ -132,12 +149,75 @@ public sealed class MainView : Runnable
     }
 
     /// <summary>Shows a folder's scripts in the files panel, the folder itself expanded at the top.</summary>
-    public void ShowFiles(string directory)
+    /// <summary>Shows the folders saved in earlier sessions.</summary>
+    public void ShowSavedFolders()
     {
-        _filesRoot = FileNode.Directory(directory);
-        _files.ClearObjects();
-        _files.AddObject(_filesRoot);
-        _files.Expand(_filesRoot);
+        try
+        {
+            foreach (var folder in _folders.Load()) AddFolder(folder, save: false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            Log($"Could not read {_folders.Path}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Adds a folder to the files panel, expanded and selected; <paramref name="save"/> keeps it for the next sessions.
+    /// A folder already shown is only selected.
+    /// </summary>
+    public void AddFolder(string directory, bool save)
+    {
+        var node = FileNode.Directory(FolderStore.Normalize(directory));
+        if (!_fileRoots.Contains(node))
+        {
+            _fileRoots.Add(node);
+            _files.AddObject(node);
+            _files.Expand(node);
+        }
+
+        if (save)
+        {
+            try
+            {
+                _folders.Add(node.Path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            {
+                Log($"✗ Could not save the folder list in {_folders.Path}: {ex.Message}");
+            }
+        }
+
+        // Before the screen is laid out the tree has no height, and scrolling to the folder would hide the ones above it.
+        if (IsInitialized) _files.GoTo(node);
+        _fileMatches = [];
+        UpdateFileSearch();
+    }
+
+    /// <summary>d on a folder at the top of the files panel removes it from the panel and the saved list, not from disk.</summary>
+    private void RemoveFolder()
+    {
+        if (_files.SelectedObject is not { } node || !_fileRoots.Contains(node))
+        {
+            Log("Select a folder at the top level of [2] to remove it.");
+            return;
+        }
+
+        if (!ConfirmDialog.Show(App!, "Remove folder", $"Remove {node.Path} from the files panel?\nThe folder and its files stay on disk.", "Remove", confirmIsDefault: false)) return;
+        try
+        {
+            _folders.Remove(node.Path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            Log($"✗ Could not save the folder list in {_folders.Path}: {ex.Message}");
+        }
+
+        _fileRoots.Remove(node);
+        _files.Remove(node);
+        _fileMatches = [];
+        UpdateFileSearch();
+        Log($"Removed {node.Path} from [2].");
     }
 
     /// <summary>Runs the update check off the UI thread once the screen is up; a notice goes to the messages panel.</summary>
@@ -187,7 +267,7 @@ public sealed class MainView : Runnable
 
     private static FrameView Panel(string title, View content, Pos x, Pos y, Dim width, Dim height)
     {
-        var frame = new FrameView { Title = title, X = x, Y = y, Width = width, Height = height, BorderStyle = LineStyle.Rounded };
+        var frame = new FrameView { Title = title, X = x, Y = y, Width = width, Height = height, BorderStyle = LineStyle.Rounded, HotKeySpecifier = Theme.NoHotKey };
         frame.Add(content);
         Theme.StylePanel(frame, content);
         return frame;
@@ -195,6 +275,12 @@ public sealed class MainView : Runnable
 
     private void OnGlobalKeyDown(object? sender, Key key)
     {
+        if (key == Key.V.WithCtrl && PasteFromClipboard())
+        {
+            key.Handled = true;
+            return;
+        }
+
         // Dialogs own the keyboard while they are open; only help is answered for them here.
         if (App?.TopRunnableView is View { Data: KeyContext dialog } top && top != this)
         {
@@ -210,6 +296,13 @@ public sealed class MainView : Runnable
 
         if (App?.TopRunnableView != this) return;
 
+        if (_fileQuery is not null && _files.HasFocus)
+        {
+            key.Handled = true;
+            SearchFilesKey(key);
+            return;
+        }
+
         var inEditor = _editor.HasFocus;
         var handled = true;
 
@@ -218,14 +311,24 @@ public sealed class MainView : Runnable
         else if (key == Key.F1) HelpDialog.Show(App!, PanelContext());
         else if (key == Key.S.WithCtrl) SaveScript();
         else if (key == Key.O.WithCtrl) PromptOpenScript();
+        else if (key == Key.W.WithCtrl) CloseScript();
         else if (key == Key.Q.WithCtrl) Quit();
         // Esc first closes the completion popup; the editor handles that.
         else if (key == Key.Esc && inEditor && !_editor.Autocomplete.Visible) FocusPanel(ResultsPanel);
+        // Esc is also Terminal.Gui's quit key. Left to it, the confirmation opens inside a stop that was already vetoed,
+        // and confirming did not quit; asking here, like q does, quits on the first confirmation.
+        else if (key == Key.Esc && !inEditor) Quit();
+        else if (key == Key.CursorDown.WithAlt) ResizePanel(+1);
+        else if (key == Key.CursorUp.WithAlt) ResizePanel(-1);
+        else if (key == Key.CursorRight.WithAlt) ResizeLeftColumn(+1);
+        else if (key == Key.CursorLeft.WithAlt) ResizeLeftColumn(-1);
         else if (key.IsAlt && PanelIndex(key.NoAlt) is { } altPanel) FocusPanel(altPanel);
         else if (!inEditor && VimMotion(key) is { } motion) _panels[CurrentPanel()].SubViews.First().NewKeyDownEvent(motion);
-        else if (inEditor || _messages.HasFocus && key != Key.Tab) handled = false;
+        else if (inEditor) handled = false;
         else if (PanelIndex(key) is { } panel) FocusPanel(panel);
         else if (key == Key.Q) Quit();
+        else if (key.AsRune.Value == '+') ResizePanel(+1);
+        else if (key.AsRune.Value == '-') ResizePanel(-1);
         else if (key == Key.Tab) FocusPanel((CurrentPanel() + 1) % _panels.Length);
         else if (key.AsRune.Value == '?') HelpDialog.Show(App!, PanelContext());
         else if (_connections.HasFocus && key == Key.Enter) ConnectSelected();
@@ -234,6 +337,10 @@ public sealed class MainView : Runnable
         else if (_connections.HasFocus && key == Key.D) DeleteConnection();
         else if (_files.HasFocus && key == Key.Enter) OpenSelectedFile();
         else if (_files.HasFocus && key == Key.R) ReloadFiles();
+        else if (_files.HasFocus && key == Key.O) OpenFolder();
+        else if (_files.HasFocus && key == Key.D) RemoveFolder();
+        else if (_files.HasFocus && key.AsRune.Value == '/' && _fileRoots.Count > 0) StartFileSearch();
+        else if (_files.HasFocus && key.AsRune.Value is 'n' or 'N' && _fileMatches.Count > 0) ShowFileMatch(FileSearch.Step(_fileMatch, key.AsRune.Value == 'n' ? 1 : -1, _fileMatches.Count));
         else if (_schema.HasFocus && key == Key.S) SelectTopFromTable();
         else if (_schema.HasFocus && key == Key.E) OpenDefinition();
         else if (_schema.HasFocus && key == Key.R) ReloadSchema();
@@ -268,13 +375,63 @@ public sealed class MainView : Runnable
     }
 
     /// <summary>Keys for the focused panel, or for the open dialog, like lazygit's bottom line.</summary>
+    private void ResizePanel(int direction)
+    {
+        _layout.Resize(PanelContext(), direction);
+        ApplyLayout();
+    }
+
+    private void ResizeLeftColumn(int direction)
+    {
+        _layout.ResizeLeft(direction);
+        ApplyLayout();
+    }
+
+    private void LoadLayout()
+    {
+        try
+        {
+            if (File.Exists(_layoutPath)) _layout = PanelLayout.Parse(File.ReadAllText(_layoutPath));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The default sizes are fine.
+        }
+
+        ApplyLayout(save: false);
+    }
+
+    /// <summary>Sizes the panels from <see cref="_layout"/>; schema and results take what the others leave.</summary>
+    private void ApplyLayout(bool save = true)
+    {
+        var (connections, files, schema, query, results, messages) = (_panels[ConnectionsPanel], _panels[FilesPanel], _panels[SchemaPanel], _panels[QueryPanel], _panels[ResultsPanel], _panels[MessagesPanel]);
+        foreach (var left in new[] { connections, files, schema }) left.Width = Dim.Percent(_layout.Left);
+        connections.Height = Dim.Percent(_layout.Connections);
+        files.Height = Dim.Percent(_layout.Files);
+        query.Height = Dim.Percent(_layout.Query);
+        messages.Y = Pos.AnchorEnd(_layout.MessagesRows + 1);
+        messages.Height = _layout.MessagesRows;
+        results.Height = Dim.Fill(_layout.MessagesRows + 1);
+        SetNeedsLayout();
+        if (!save) return;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_layoutPath)!);
+            File.WriteAllText(_layoutPath, _layout.ToString());
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Sizes still apply for this session.
+        }
+    }
+
     private void UpdateHints() =>
         _hints.Text = KeyHelp.Footer(App?.TopRunnableView is View { Data: KeyContext dialog } top && top != this ? dialog : PanelContext());
 
     private KeyContext PanelContext() => CurrentPanel() switch
     {
         ConnectionsPanel => KeyContext.Connections,
-        FilesPanel => KeyContext.Files,
+        FilesPanel => _fileQuery is null ? KeyContext.Files : KeyContext.FileSearch,
         SchemaPanel => KeyContext.Schema,
         QueryPanel => KeyContext.Query,
         ResultsPanel => KeyContext.Results,
@@ -820,6 +977,17 @@ public sealed class MainView : Runnable
         return true;
     }
 
+    /// <summary>Ctrl+W closes the open script, asking first when it has unsaved changes, and leaves an empty editor.</summary>
+    private void CloseScript()
+    {
+        if (_script is not { } script || !ConfirmDiscardScript()) return;
+        _script = null;
+        _editor.Text = string.Empty;
+        _savedText = string.Empty;
+        UpdateEditorTitle();
+        Log($"Closed {script.Path}.");
+    }
+
     private void PromptOpenScript()
     {
         if (!ConfirmDiscardScript()) return;
@@ -841,6 +1009,107 @@ public sealed class MainView : Runnable
         {
             OpenScriptFile(node.Path);
         }
+    }
+
+    /// <summary>
+    /// Ctrl+V in a text input pastes the system clipboard through the same path as a terminal paste. Terminal.Gui reads
+    /// the clipboard only with xclip, which cannot see a Wayland session's clipboard; when no tool can read it, the key
+    /// is left to Terminal.Gui (which handles Windows itself).
+    /// </summary>
+    private bool PasteFromClipboard()
+    {
+        if (App?.Navigation?.GetFocused() is not (TextView { ReadOnly: false } or TextField)) return false;
+        if (_clipboard.Read() is not { Length: > 0 } text) return false;
+        App.RaisePasteEvent(text);
+        return true;
+    }
+
+    private void StartFileSearch()
+    {
+        _fileQuery = string.Empty;
+        _fileMatches = [];
+        _fileSearchStart = _files.SelectedObject;
+        UpdateFileSearch();
+    }
+
+    /// <summary>Keys while typing a / search: text extends the query, Enter keeps the match, Esc goes back.</summary>
+    private void SearchFilesKey(Key key)
+    {
+        if (key == Key.Esc || (key == Key.Backspace && _fileQuery!.Length == 0))
+        {
+            _fileSearchCancellation?.Cancel();
+            _fileQuery = null;
+            _fileMatches = [];
+            if (_fileSearchStart is { } start) _files.GoTo(start);
+        }
+        else if (key == Key.Enter)
+        {
+            _fileQuery = null;
+        }
+        else if (key == Key.Backspace)
+        {
+            _fileQuery = _fileQuery![..^1];
+            Search();
+        }
+        else if (!key.IsCtrl && !key.IsAlt && key.AsRune.Value >= ' ')
+        {
+            _fileQuery += key.AsRune.ToString();
+            Search();
+        }
+
+        UpdateFileSearch();
+
+        // Off the UI thread, so typing never waits for the disk; each key cancels the search of the previous one.
+        void Search()
+        {
+            _fileSearchCancellation?.Cancel();
+            var cancellation = _fileSearchCancellation = new CancellationTokenSource();
+            var (roots, query) = (_fileRoots.ToList(), _fileQuery!);
+            _fileMatches = [];
+            _ = Task.Run(() =>
+            {
+                IReadOnlyList<FileNode> matches = [.. roots.SelectMany(root => FileSearch.Matches(root, query, cancellation.Token))];
+                OnUi(() =>
+                {
+                    if (cancellation.IsCancellationRequested || _fileQuery != query) return;
+                    _fileMatches = matches;
+                    if (matches.Count > 0) ShowFileMatch(0);
+                    else UpdateFileSearch();
+                });
+            });
+        }
+    }
+
+    /// <summary>Selects a match, expanding the folders above it.</summary>
+    private void ShowFileMatch(int index)
+    {
+        _fileMatch = index;
+        var match = _fileMatches[index];
+        if (FileSearch.RootOf(_fileRoots, match) is { } root)
+        {
+            foreach (var folder in FileSearch.Ancestors(root, match)) _files.Expand(folder);
+        }
+
+        _files.GoTo(match);
+        UpdateFileSearch();
+    }
+
+    /// <summary>The files panel title shows the query while typing and the match position while n/N can move.</summary>
+    private void UpdateFileSearch()
+    {
+        var position = _fileMatches.Count > 0 ? $" {_fileMatch + 1}/{_fileMatches.Count}" : _fileQuery is { Length: > 0 } ? " no match" : string.Empty;
+        _panels[FilesPanel].Title = _fileQuery is not null ? $"[2] Files · /{_fileQuery}{position}"
+            : _fileMatches.Count > 0 ? $"[2] Files ·{position}" : _fileRoots.Count == 0 ? "[2] Files · o to add" : "[2] Files";
+        UpdateHints();
+    }
+
+    /// <summary>Picks a folder to add to the files panel, starting from the selected one.</summary>
+    private void OpenFolder()
+    {
+        var start = (_files.SelectedObject is { IsDirectory: true } selected ? selected.Path : null) ?? _fileRoots.FirstOrDefault()?.Path ?? Environment.CurrentDirectory;
+        if (FilePicker.ShowFolder(App!, "Add folder", "Add", start.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar) is not { } folder) return;
+        AddFolder(folder, save: true);
+        Log($"Added {folder} to [2]; it stays there in the next sessions until you remove it with d.");
     }
 
     private void ReloadFiles()

@@ -1,0 +1,60 @@
+# Builds the Astro Starlight site in website/ and deploys it to GitHub Pages
+# (https://carandev.github.io/lazytsql/). Needs Settings → Pages → Source: GitHub Actions.
+name: Website
+
+on:
+  push:
+    branches: [main]
+    paths: ['website/**', '.github/workflows/website.yml']
+  # The changelog page lists the GitHub releases, so it is rebuilt after each one.
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+    branches: [main]
+  # Release notes edited by hand on GitHub show up on the changelog page.
+  release:
+    types: [edited]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # After a release, only a successful one changes the changelog.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Build
+        working-directory: website
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          npm ci
+          npm run build
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: website/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
