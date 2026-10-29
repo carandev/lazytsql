@@ -1,0 +1,90 @@
+---
+title: Installation
+description: Install lazytsql as a .NET tool, as a downloaded native binary, or build it from source.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+## Requirements
+
+| What | Needed for | Notes |
+| --- | --- | --- |
+| A SQL Server you can reach | Everything | SQL Server 2016 or later, or Azure SQL. Tested against SQL Server 2022. |
+| ICU (`libicu`) and OpenSSL | Linux only | Present on virtually every distribution. Windows and macOS need nothing. |
+| [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) | Installing with `dotnet tool`, or building | Not needed to run the native binary. |
+| [sqlpackage](https://learn.microsoft.com/sql/tools/sqlpackage/sqlpackage) | Only `.bacpac` export and import | `dotnet tool install -g microsoft.sqlpackage` |
+
+## Option 1: .NET tool
+
+Works on any OS with the .NET 10 SDK.
+
+```bash
+dotnet tool install -g lazytsql
+lazytsql --version
+```
+
+The tool is the native binary of your platform (linux-x64, linux-arm64, win-x64, osx-arm64); any other platform
+gets a build that runs on the .NET 10 runtime. If `lazytsql` is not found, add `~/.dotnet/tools` (Windows:
+`%USERPROFILE%\.dotnet\tools`) to your `PATH` and open a new terminal.
+
+Update with:
+
+```bash
+dotnet tool update -g lazytsql
+```
+
+The TUI tells you when a newer release exists; see [update notice](/lazytsql/guides/updates/).
+
+## Option 2: download the binary
+
+No .NET needed. Every release is listed at [GitHub Releases](https://github.com/carandev/lazytsql/releases).
+
+<Tabs syncKey="os">
+  <TabItem label="Linux">
+    ```bash
+    # use lazytsql-linux-arm64.tar.gz on ARM
+    curl -fsSL https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-linux-x64.tar.gz | tar -xz
+    sudo mv lazytsql /usr/local/bin/
+    lazytsql --version
+    ```
+  </TabItem>
+  <TabItem label="macOS">
+    ```bash
+    curl -fsSL https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-osx-arm64.tar.gz | tar -xz
+    sudo mv lazytsql /usr/local/bin/
+    lazytsql --version
+    ```
+    <Aside type="caution">
+      The binary is not signed. If you download it with a browser instead of `curl`, macOS blocks it; allow it with
+      `xattr -d com.apple.quarantine /usr/local/bin/lazytsql`.
+    </Aside>
+  </TabItem>
+  <TabItem label="Windows">
+    ```powershell
+    Invoke-WebRequest https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-win-x64.zip -OutFile lazytsql.zip
+    Expand-Archive lazytsql.zip -DestinationPath "$env:LOCALAPPDATA\lazytsql"
+    # Add %LOCALAPPDATA%\lazytsql to your PATH, open a new terminal, then:
+    lazytsql --version
+    ```
+  </TabItem>
+</Tabs>
+
+## Option 3: build from source
+
+```bash
+git clone https://github.com/carandev/lazytsql.git
+cd lazytsql
+dotnet publish src/LazyTsql -c Release -r linux-x64 -o dist   # or linux-arm64, win-x64, osx-arm64
+./dist/lazytsql --version
+```
+
+The result is a single file of about 21 MB. Native AOT only compiles for the OS you build on, so build the Windows
+binary on Windows and the macOS one on macOS.
+
+## Optional: sqlpackage
+
+Only needed to [export and import `.bacpac` files](/lazytsql/guides/bacpac/):
+
+```bash
+dotnet tool install -g microsoft.sqlpackage
+```

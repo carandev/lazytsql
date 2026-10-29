@@ -4,6 +4,8 @@ A lazygit-style terminal client for SQL Server: browse the schema, write T-SQL w
 run it, page through results and export them, all from the keyboard. It also has a headless mode with JSON output
 for scripts and coding agents. It ships as a single native binary you can copy to the server that hosts the database.
 
+**Documentation: <https://carandev.github.io/lazytsql/>**
+
 - [Requirements](#requirements)
 - [Install](#install)
 - [Quick start](#quick-start)
