@@ -132,6 +132,8 @@ as `.git`.
 | `?` / `F1` | Anywhere | Keys of the focused panel; `a` in the help switches to every key |
 | `q` / `Esc` / `Ctrl+Q` | Anywhere | Quit after confirming (`q` and `Esc` only outside the editor, where `Esc` leaves it) |
 | `h` `j` `k` `l`, `g` / `G`, `Ctrl+D` / `Ctrl+U` | Outside the editor | Vim motions |
+| `Alt+↓` / `Alt+↑` (or `+` / `-` outside the editor) | Anywhere | Make the focused panel taller / shorter; schema and results grow by shrinking files and the query |
+| `Alt+→` / `Alt+←` | Anywhere | Widen / narrow the left column. Sizes are kept for the next session |
 | `Enter` | Connections | Connect |
 | `a` / `e` / `d` | Connections | Add, edit or delete a connection |
 | `Enter` | Files | Open the selected script in the editor (asks first if there are unsaved changes), or expand a folder |
@@ -289,6 +291,7 @@ cat ~/.local/state/lazytsql/logs/2026-10-28.log
 | --- | --- |
 | `$XDG_CONFIG_HOME/lazytsql/connections.json` (default `~/.config/lazytsql/connections.json`) | Saved connections, created with owner-only permissions |
 | `$XDG_CONFIG_HOME/lazytsql/folders.json` | The folders shown in the files panel |
+| `$XDG_STATE_HOME/lazytsql/layout` | Panel sizes set with `Alt`+arrows |
 | `${VAR}` inside a connection string | Replaced by that environment variable when connecting, so secrets stay out of the file |
 | `LAZYTSQL_CONNECTION` | Connection used when `-c` is not given |
 | `LAZYTSQL_SQLPACKAGE` | Path to sqlpackage when it is not on the `PATH` or in `~/.dotnet/tools` |

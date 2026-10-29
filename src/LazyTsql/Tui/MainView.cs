@@ -56,6 +56,9 @@ public sealed class MainView : Runnable
     // The folders the files panel shows: the saved ones, plus a script's folder for this session only.
     private readonly List<FileNode> _fileRoots = [];
     private readonly FolderStore _folders;
+    // Panel sizes from Alt+arrows, kept in the state directory for the next session.
+    private readonly string _layoutPath = Path.Combine(StateDirectory.Resolve(Environment.GetEnvironmentVariable), "layout");
+    private PanelLayout _layout = new();
     private readonly SystemClipboard _clipboard = SystemClipboard.Default();
     // The / search of the files panel: the query while typing (null otherwise), its matches for n/N, and where it started.
     private string? _fileQuery;
@@ -108,6 +111,7 @@ public sealed class MainView : Runnable
         var messagesPanel = Panel("[6] Messages", _messages, Pos.Right(schemaPanel), Pos.AnchorEnd(8), Dim.Fill(), 7);
         var resultsPanel = Panel("[5] Results", _results, Pos.Right(schemaPanel), Pos.Bottom(editorPanel), Dim.Fill(), Dim.Fill(8));
         _panels = [connectionsPanel, filesPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel];
+        LoadLayout();
 
         _hints = new Label { X = 1, Y = Pos.AnchorEnd(1), Width = Dim.Fill(1), Height = 1 };
         _hints.SetScheme(Theme.Hints);
@@ -310,11 +314,17 @@ public sealed class MainView : Runnable
         // Esc is also Terminal.Gui's quit key. Left to it, the confirmation opens inside a stop that was already vetoed,
         // and confirming did not quit; asking here, like q does, quits on the first confirmation.
         else if (key == Key.Esc && !inEditor) Quit();
+        else if (key == Key.CursorDown.WithAlt) ResizePanel(+1);
+        else if (key == Key.CursorUp.WithAlt) ResizePanel(-1);
+        else if (key == Key.CursorRight.WithAlt) ResizeLeftColumn(+1);
+        else if (key == Key.CursorLeft.WithAlt) ResizeLeftColumn(-1);
         else if (key.IsAlt && PanelIndex(key.NoAlt) is { } altPanel) FocusPanel(altPanel);
         else if (!inEditor && VimMotion(key) is { } motion) _panels[CurrentPanel()].SubViews.First().NewKeyDownEvent(motion);
-        else if (inEditor || _messages.HasFocus && key != Key.Tab) handled = false;
+        else if (inEditor) handled = false;
         else if (PanelIndex(key) is { } panel) FocusPanel(panel);
         else if (key == Key.Q) Quit();
+        else if (key.AsRune.Value == '+') ResizePanel(+1);
+        else if (key.AsRune.Value == '-') ResizePanel(-1);
         else if (key == Key.Tab) FocusPanel((CurrentPanel() + 1) % _panels.Length);
         else if (key.AsRune.Value == '?') HelpDialog.Show(App!, PanelContext());
         else if (_connections.HasFocus && key == Key.Enter) ConnectSelected();
@@ -361,6 +371,56 @@ public sealed class MainView : Runnable
     }
 
     /// <summary>Keys for the focused panel, or for the open dialog, like lazygit's bottom line.</summary>
+    private void ResizePanel(int direction)
+    {
+        _layout.Resize(PanelContext(), direction);
+        ApplyLayout();
+    }
+
+    private void ResizeLeftColumn(int direction)
+    {
+        _layout.ResizeLeft(direction);
+        ApplyLayout();
+    }
+
+    private void LoadLayout()
+    {
+        try
+        {
+            if (File.Exists(_layoutPath)) _layout = PanelLayout.Parse(File.ReadAllText(_layoutPath));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The default sizes are fine.
+        }
+
+        ApplyLayout(save: false);
+    }
+
+    /// <summary>Sizes the panels from <see cref="_layout"/>; schema and results take what the others leave.</summary>
+    private void ApplyLayout(bool save = true)
+    {
+        var (connections, files, schema, query, results, messages) = (_panels[ConnectionsPanel], _panels[FilesPanel], _panels[SchemaPanel], _panels[QueryPanel], _panels[ResultsPanel], _panels[MessagesPanel]);
+        foreach (var left in new[] { connections, files, schema }) left.Width = Dim.Percent(_layout.Left);
+        connections.Height = Dim.Percent(_layout.Connections);
+        files.Height = Dim.Percent(_layout.Files);
+        query.Height = Dim.Percent(_layout.Query);
+        messages.Y = Pos.AnchorEnd(_layout.MessagesRows + 1);
+        messages.Height = _layout.MessagesRows;
+        results.Height = Dim.Fill(_layout.MessagesRows + 1);
+        SetNeedsLayout();
+        if (!save) return;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_layoutPath)!);
+            File.WriteAllText(_layoutPath, _layout.ToString());
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Sizes still apply for this session.
+        }
+    }
+
     private void UpdateHints() =>
         _hints.Text = KeyHelp.Footer(App?.TopRunnableView is View { Data: KeyContext dialog } top && top != this ? dialog : PanelContext());
 

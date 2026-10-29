@@ -14,6 +14,8 @@ la aplicación muestra con `?` (o `F1`).
 | `Tab` | Siguiente panel |
 | `h` `j` `k` `l` | Moverse (fuera del editor) |
 | `g` / `G` | Inicio / final |
+| `Alt+↓` / `Alt+↑` | Hacer más alto / más bajo el panel enfocado (`+` / `-` fuera del editor) |
+| `Alt+→` / `Alt+←` | Ensanchar / angostar la columna izquierda |
 | `Ctrl+D` / `Ctrl+U` | Avanzar / retroceder una página |
 | `F5` / `Ctrl+E` | Ejecutar la selección, o todo el script lote por lote |
 | `Ctrl+K` | Cancelar la consulta, exportación o importación en curso |

@@ -37,6 +37,13 @@ Without `-c`, lazytsql connects on start when `LAZYTSQL_CONNECTION` is set.
 | `[5]` Results | One result set at a time | Its position (`2/3 [ ]`) and row count, `first N rows` when capped by the row limit |
 | `[6]` Messages | Server messages, errors and lazytsql's own messages | `· update available` when there is a newer release |
 
+## Panel sizes
+
+- `Alt+↓` / `Alt+↑` make the focused panel taller or shorter; outside the editor `+` and `-` do the same. Schema and
+  results fill what is left, so growing them shrinks files and the query editor.
+- `Alt+→` / `Alt+←` widen or narrow the left column.
+- Sizes are kept in `~/.local/state/lazytsql/layout` and come back in the next session.
+
 ## Focus and keys
 
 - `1`-`6` focus a panel; `Tab` goes to the next one. Inside the editor, digits are text, so use `Alt+1`-`Alt+6`.

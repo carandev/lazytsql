@@ -15,6 +15,8 @@ with `?` (or `F1`).
 | `h` `j` `k` `l` | Move (outside the editor) |
 | `g` / `G` | Top / bottom |
 | `Ctrl+D` / `Ctrl+U` | Page down / up |
+| `Alt+↓` / `Alt+↑` | Make the focused panel taller / shorter (`+` / `-` outside the editor) |
+| `Alt+→` / `Alt+←` | Widen / narrow the left column |
 | `F5` / `Ctrl+E` | Run the selection, or the whole script batch by batch |
 | `Ctrl+K` | Cancel the running query, export or import |
 | `Ctrl+O` / `Ctrl+S` | Open / save a `.sql` file |

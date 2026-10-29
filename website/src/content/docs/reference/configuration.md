@@ -12,6 +12,7 @@ lazytsql has no settings file: it is configured with environment variables, and 
 | `$XDG_CONFIG_HOME/lazytsql/connections.json` (default `~/.config/lazytsql/connections.json`) | Saved connections | Owner only (0600) |
 | `$XDG_CONFIG_HOME/lazytsql/folders.json` | The folders shown in the files panel | |
 | `$XDG_STATE_HOME/lazytsql/logs/<date>.log` (default `~/.local/state/lazytsql/logs/`) | [Activity log](/lazytsql/guides/activity-log/), kept 30 days | Owner only (0600, directory 0700) |
+| `$XDG_STATE_HOME/lazytsql/layout` | Panel sizes set with `Alt`+arrows | |
 | `$XDG_STATE_HOME/lazytsql/latest-version` | The latest release seen on NuGet.org and when | |
 
 On Windows the state files live in `%LOCALAPPDATA%\lazytsql\` and the connections in

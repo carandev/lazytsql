@@ -35,6 +35,7 @@ public static class KeyHelp
             ("h j k l", "move"),
             ("g/G", "top/bottom"),
             ("Ctrl+D/Ctrl+U", "page down/up"),
+            ("Alt+arrows", "resize panel"),
             ("F5/Ctrl+E", "run query"),
             ("Ctrl+O/Ctrl+S", "open/save .sql"),
             ("Ctrl+W", "close .sql"),

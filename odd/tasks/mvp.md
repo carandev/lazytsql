@@ -40,6 +40,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - S35 "El modal de confirmar si le doy en quit no se sale sino que tengo que darle a esc nuevamente, debería salirse si ya estoy confirmando"
 - S36 "Que los directorios que yo cargue queden guardados y se visualicen siempre que ingrese, que haya un botón para quitarlos si hace falta"
 - S37 "Cómo cierro un archivo .sql que abrí?" — there was no way; added Ctrl+W.
+- S38 "Hay forma de hacer más grande el panel de editor? para que verticalmente sea más amplio? Se puede colocar algún atajo para crecer o disminuar cada panel"
 - Backlog (not in scope yet): "que se pueda cargar un directorio con archivos sql"; "agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta"
 
 ## Tasks
@@ -91,6 +92,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T46 S35 Esc outside the editor asks to quit directly (like q) instead of going through Terminal.Gui's quit key — inline — tmux e2e: Esc+y/Enter exit, Esc+n stays, Esc from Messages exits, Esc in the editor only leaves it, q+y unchanged (no unit test: the bug lives in Terminal.Gui's run loop)
 - [x] T47 S36 FolderStore (folders.json next to connections.json); files panel shows every saved folder; o and a CLI folder are saved, a script's folder is session-only; d removes a top-level folder after confirming; missing folders show "(not found)"; search covers every folder — inline — 5 tests (RED then GREEN) + tmux e2e across sessions
 - [x] T48 S37 Ctrl+W closes the open script (confirm when dirty) and empties the editor — inline — 1 help test (written with the code) + tmux e2e: clean close, dirty n keeps, dirty y closes and leaves the file on disk unchanged
+- [x] T49 S38 PanelLayout + Alt+↑/↓ (focused panel), Alt+←/→ (left column), +/- outside the editor, kept in <state>/layout; also fixed: the messages panel passed every key to its text view, so digits, q, ? and +/- did nothing there — inline — 5 tests (RED then GREEN) + tmux e2e: rows measured before/after, persistence across sessions, messages keys
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"

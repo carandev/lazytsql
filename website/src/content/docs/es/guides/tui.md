@@ -37,6 +37,13 @@ Sin `-c`, lazytsql se conecta al iniciar cuando `LAZYTSQL_CONNECTION` está defi
 | `[5]` Results | Un conjunto de resultados a la vez | Su posición (`2/3 [ ]`) y el número de filas, `first N rows` cuando el límite de filas lo recorta |
 | `[6]` Messages | Mensajes del servidor, errores y los mensajes propios de lazytsql | `· update available` cuando hay una versión más reciente |
 
+## Tamaño de los paneles
+
+- `Alt+↓` / `Alt+↑` hacen más alto o más bajo el panel enfocado; fuera del editor, `+` y `-` hacen lo mismo. Esquema y
+  resultados ocupan lo que queda, así que agrandarlos achica archivos y el editor de consultas.
+- `Alt+→` / `Alt+←` ensanchan o angostan la columna izquierda.
+- Los tamaños se guardan en `~/.local/state/lazytsql/layout` y vuelven en la siguiente sesión.
+
 ## Foco y teclas
 
 - `1`-`6` enfocan un panel; `Tab` pasa al siguiente. Dentro del editor, los dígitos son texto, así que usa `Alt+1`-`Alt+6`.

@@ -64,6 +64,12 @@ public class TuiTests
     }
 
     [Fact]
+    public void Help_lists_how_to_resize_panels()
+    {
+        Assert.Contains(KeyHelp.Render(context: null), line => line.Contains("Alt+arrows", StringComparison.Ordinal) && line.Contains("resize", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Help_lists_how_to_close_a_script()
     {
         Assert.Contains(KeyHelp.Render(KeyContext.Query).Concat(KeyHelp.Render(context: null)), line => line.Contains("Ctrl+W", StringComparison.Ordinal) && line.Contains("close .sql", StringComparison.Ordinal));
