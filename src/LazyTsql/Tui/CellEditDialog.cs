@@ -81,7 +81,7 @@ public static class CellEditDialog
             field.SetFocus();
             field.MoveEnd();
         };
-        app.Run(dialog);
+        KeySequenceGuard.Run(app, dialog);
         dialog.Dispose();
         value = result;
         return accepted;

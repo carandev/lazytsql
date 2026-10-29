@@ -30,7 +30,7 @@ public static class TuiApplication
         view.CheckForUpdatesOnStart(token => UpdateCheck.Default(Environment.GetEnvironmentVariable)
             .MessageAsync(typeof(TuiApplication).Assembly.GetName().Version ?? new Version(0, 0, 0), Environment.ProcessPath, token));
         if (connectionString is not null) view.ConnectOnStart(connectionString, ConnectionResolver.DisplayName(initialConnection, store));
-        app.Run(view);
+        KeySequenceGuard.Run(app, view);
         return 0;
     }
 }

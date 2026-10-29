@@ -82,7 +82,7 @@ public static class ConfirmDialog
         Theme.StyleButtons(confirm, cancel);
         // Focus the default button so Enter picks it.
         dialog.Initialized += (_, _) => (confirmIsDefault ? confirm : cancel).SetFocus();
-        app.Run(dialog);
+        KeySequenceGuard.Run(app, dialog);
         dialog.Dispose();
         return confirmed;
     }

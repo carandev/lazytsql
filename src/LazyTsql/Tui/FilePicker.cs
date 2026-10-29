@@ -190,7 +190,7 @@ public static class FilePicker
         status.SetScheme(Theme.Hints);
         Refresh();
         dialog.Initialized += (_, _) => FocusField();
-        app.Run(dialog);
+        KeySequenceGuard.Run(app, dialog);
         dialog.Dispose();
         return result;
     }
