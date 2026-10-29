@@ -147,13 +147,13 @@ as `.git`.
 | `r` | Schema | Reload the schema and the completion names |
 | `x` / `i` | Schema | Export the selected database to a `.bacpac` / import a `.bacpac` as a new database |
 | `Ctrl+V` | Query, text fields | Paste the system clipboard (the terminal's own paste, usually `Ctrl+Shift+V`, works too) |
-| `Tab` / `Ctrl+Space` | Query | Accept / open the completion list (`Esc` closes it) |
+| `Tab` / `Ctrl+Space` | Query | Accept / open the completion list (`Esc` closes it); `↑` / `↓` pick a suggestion |
 | `Esc` | Query | Leave the editor |
 | `e` / `Enter` | Results | Edit the selected cell; `Ctrl+N` in the dialog sets `NULL` |
 | `s` | Results | Save the edits: shows the script that runs, then runs it once confirmed |
 | `u` / `U` | Results | Undo the edit of the selected cell / every edit |
 | `[` / `]` | Results | Previous / next result set |
-| `x` | Results | Export the current result set to CSV with every row |
+| `x` | Results | Export the current result set to CSV with every row, or copy it (`Alt+C` in the dialog) |
 | `m` | Results | Row limit: how many rows each result set fetches, or `all` |
 
 ### Connections
@@ -198,7 +198,8 @@ reached; any other batch reads and discards the remaining rows, so every stateme
 
 `x` exports the current result set to CSV (UTF-8 with BOM, so Excel keeps accents). A capped result set is exported
 by running its batch again and streaming every row to the file; it asks first, because the batch's side effects run
-again too. `Ctrl+K` cancels and removes the partial file.
+again too. `Ctrl+K` cancels and removes the partial file. **Copy** (`Alt+C`) in the same dialog puts the CSV on the
+clipboard instead, without the BOM.
 
 ### Editing results
 

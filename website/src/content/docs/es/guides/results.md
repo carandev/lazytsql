@@ -87,6 +87,8 @@ Volver a ejecutar libera primero los resultados anteriores. Como referencia, un 
 - Si **sí** fue recortado, lazytsql vuelve a ejecutar su lote y envía cada fila directamente al archivo, sin mantenerlas
   en memoria. Pregunta primero, porque los efectos secundarios del lote también se vuelven a ejecutar.
 - `Ctrl+K` cancela y elimina el archivo parcial.
+- **Copy** (`Alt+C`) en el mismo diálogo copia el CSV al portapapeles en vez de a un archivo, sin BOM. Un conjunto de
+  resultados recortado se copia igual, volviendo a ejecutar su lote. En Linux usa `wl-copy`, `xclip` o `xsel`.
 - Si te conectaste a otro lugar después de la ejecución, la exportación se rechaza: vuelve a ejecutar la consulta.
 
 Desde la línea de comandos, `--csv` escribe las filas en stdout; consulta [modo headless](/lazytsql/es/guides/headless/).

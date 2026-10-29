@@ -87,6 +87,8 @@ Running again releases the previous results first. As a reference, one million r
 - If it **was** capped, lazytsql runs its batch again and streams every row straight to the file, without holding
   them in memory. It asks first, because the batch's side effects run again too.
 - `Ctrl+K` cancels and removes the partial file.
+- **Copy** (`Alt+C`) in the same dialog puts the CSV on the clipboard instead of a file, without the BOM. A capped
+  result set is copied the same way, by running its batch again. On Linux it uses `wl-copy`, `xclip` or `xsel`.
 - If you connected somewhere else since the run, the export is refused: run the query again.
 
 From the command line, `--csv` writes rows to stdout; see [headless mode](/lazytsql/guides/headless/).

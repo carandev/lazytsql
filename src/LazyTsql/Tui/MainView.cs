@@ -1004,7 +1004,14 @@ public sealed class MainView : Runnable
         }
 
         var suggested = Path.Combine(Environment.CurrentDirectory, $"results-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
-        if (FilePicker.Show(App!, "Export CSV", "Export", suggested, ".csv") is not { } path) return;
+        var choice = FilePicker.ShowWithOther(App!, "Export CSV", "Export", "Copy", suggested, ".csv");
+        if (choice.Other)
+        {
+            CopyResultSet(shown);
+            return;
+        }
+
+        if (choice.Path is not { } path) return;
 
         if (!shown.Set.IsTruncated)
         {
@@ -1046,6 +1053,44 @@ public sealed class MainView : Runnable
             }
         }, _queryCancellation.Token);
     }
+
+    /// <summary>Copies the result as CSV, the same text an export writes but without the byte order mark.</summary>
+    private void CopyResultSet(ShownResult shown)
+    {
+        if (!shown.Set.IsTruncated)
+        {
+            var text = new StringWriter();
+            Output.CsvResultWriter.Write(text, shown.Set);
+            Log(CopyCsv(text.ToString(), shown.Set.Rows.Count));
+            return;
+        }
+
+        _queryCancellation?.Dispose();
+        _queryCancellation = new CancellationTokenSource();
+        Log("Copying every row… (Ctrl+K cancels)");
+        RunInBackground(async token =>
+        {
+            try
+            {
+                var text = new StringWriter();
+                var count = await shown.Session.StreamResultSetAsync(shown.Batch, shown.Index, new Output.CsvRowWriter(text), new QueryOptions(), token);
+                var result = CopyCsv(text.ToString(), count);
+                OnUi(() => Log(result));
+            }
+            catch (Exception ex)
+            {
+                // Cancelling stops the command on the server, which SqlClient may report as an error.
+                if (ex is OperationCanceledException || token.IsCancellationRequested) throw new OperationCanceledException(token);
+                OnUi(() => Log($"✗ Copy failed: {ex.Message}"));
+            }
+        }, _queryCancellation.Token);
+    }
+
+    /// <summary>Puts the CSV on the system clipboard, or Terminal.Gui's where no tool is known (Windows); returns the log line.</summary>
+    private string CopyCsv(string csv, long rows) =>
+        _clipboard.Write(csv) || App?.Clipboard?.TrySetClipboardData(csv) == true
+            ? $"Copied {rows} rows to the clipboard as CSV."
+            : "✗ Could not copy: no clipboard tool found. Install wl-clipboard, xclip or xsel.";
 
     /// <summary>Exports the database of the selected schema node (or the current one) with sqlpackage.</summary>
     private void ExportBacpac()

@@ -50,12 +50,13 @@ la aplicación muestra con `?` (o `F1`).
 | | `Ctrl+S` | Guardar |
 | | `Ctrl+V` | Pegar el portapapeles del sistema |
 | | `Tab` / `Ctrl+Space` | Aceptar / abrir el autocompletado (`Esc` lo cierra) |
+| | `↑` / `↓` | Elegir una sugerencia |
 | | `Esc` | Salir del editor |
 | Resultados `[5]` | `e` / `Enter` | Editar la celda seleccionada |
 | | `s` | Guardar las ediciones (muestra el script antes) |
 | | `u` / `U` | Deshacer la celda seleccionada / todas las ediciones |
 | | `[` / `]` | Conjunto de resultados anterior / siguiente |
-| | `x` | Exportar a CSV |
+| | `x` | Exportar a CSV, o copiarlo (`Alt+C` en el diálogo) |
 | | `m` | Límite de filas |
 | | `h` `j` `k` `l` | Moverse entre celdas |
 | Mensajes `[6]` | `j` / `k` | Desplazarse |

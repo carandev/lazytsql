@@ -50,12 +50,13 @@ with `?` (or `F1`).
 | | `Ctrl+S` | Save |
 | | `Ctrl+V` | Paste the system clipboard |
 | | `Tab` / `Ctrl+Space` | Accept / open completion (`Esc` closes it) |
+| | `↑` / `↓` | Pick a suggestion |
 | | `Esc` | Leave the editor |
 | Results `[5]` | `e` / `Enter` | Edit the selected cell |
 | | `s` | Save the edits (shows the script first) |
 | | `u` / `U` | Undo the selected cell / every edit |
 | | `[` / `]` | Previous / next result set |
-| | `x` | Export to CSV |
+| | `x` | Export to CSV, or copy it (`Alt+C` in the dialog) |
 | | `m` | Row limit |
 | | `h` `j` `k` `l` | Move between cells |
 | Messages `[6]` | `j` / `k` | Scroll |

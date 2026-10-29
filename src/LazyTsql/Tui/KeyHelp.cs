@@ -74,6 +74,7 @@ public static class KeyHelp
             ("Ctrl+S", "save"),
             ("Ctrl+V", "paste"),
             ("Tab/Ctrl+Space", "complete"),
+            ("↑/↓", "pick suggestion"),
             ("Esc", "leave editor"),
         ]),
         new(KeyContext.Results, "Results [5]", [
@@ -81,7 +82,7 @@ public static class KeyHelp
             ("s", "save edits"),
             ("u/U", "undo cell/all"),
             ("[/]", "prev/next set"),
-            ("x", "export to CSV"),
+            ("x", "export/copy CSV"),
             ("m", "row limit"),
             ("h j k l", "move"),
         ]),
