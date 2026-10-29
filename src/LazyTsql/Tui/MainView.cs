@@ -22,7 +22,7 @@ namespace LazyTsql.Tui;
 /// </summary>
 public sealed class MainView : Runnable
 {
-    private const int ConnectionsPanel = 0, FilesPanel = 1, SchemaPanel = 2, QueryPanel = 3, ResultsPanel = 4;
+    private const int ConnectionsPanel = 0, FilesPanel = 1, SchemaPanel = 2, QueryPanel = 3, ResultsPanel = 4, MessagesPanel = 5;
 
     private readonly IDatabaseConnector _connector;
     private readonly IBacpacTool _bacpac;
@@ -139,6 +139,18 @@ public sealed class MainView : Runnable
         _files.AddObject(_filesRoot);
         _files.Expand(_filesRoot);
     }
+
+    /// <summary>Runs the update check off the UI thread once the screen is up; a notice goes to the messages panel.</summary>
+    public void CheckForUpdatesOnStart(Func<CancellationToken, Task<string?>> check) =>
+        Initialized += (_, _) => _ = Task.Run(async () =>
+        {
+            if (await check(CancellationToken.None) is not { } notice) return;
+            OnUi(() =>
+            {
+                Log(notice);
+                _panels[MessagesPanel].Title = "[6] Messages · update available";
+            });
+        });
 
     public void ConnectOnStart(string connectionString, string displayName) =>
         Initialized += (_, _) => Connect(connectionString, displayName);

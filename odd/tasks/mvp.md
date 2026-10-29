@@ -32,6 +32,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - S27 "Vamos con cargar un directorio de archivos .sql" — answer: "Panel de archivos (Recommended)": a Files panel lists the folder's subfolders and .sql scripts; Enter opens a script in the editor; `lazytsql -c dev ./scripts` picks the folder.
 - S28 "Vamos con los logs detallados guardados en disco y realiza el pr al pr existente" (backlog: "agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta").
 - S29 "Vamos con sugerir joins a través de sinónimos"
+- S30 "Hay forma de indicar que hay una actualización disponible en el tui?" → "Sí, impleméntalo y agrégalo al PR": NuGet flat container, once a day, silent offline, LAZYTSQL_NO_UPDATE_CHECK, command per install kind.
 - Backlog (not in scope yet): "que se pueda cargar un directorio con archivos sql"; "agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta"
 
 ## Tasks
@@ -72,6 +73,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T35 S27 Files panel [2] (panels renumbered 1-6), directory CLI argument, `r` refresh, refresh after save — inline — 5 tests (RED then GREEN) + tmux e2e: expand folder, open script, discard prompt, refresh keeps expansion, file argument shows its folder, Esc/6 focus; AOT publish without new warnings
 - [x] T36 S28 ActivityLog: daily files in $XDG_STATE_HOME/lazytsql/logs (0600, 30 days, LAZYTSQL_LOG_DIR); TUI messages and SQL run, CLI query/export/import/connections/errors; never connection strings — inline — 8 tests (RED then GREEN) + e2e against SQL Server 2022 (CLI, login failure, TUI); full suite 162 passed
 - [x] T37 S29 Synonyms carry their target (PARSENAME of base_object_name; none for linked servers) and Resolve follows it, so joins, ON conditions, columns and diagnostics use the base table — inline — 3 Core tests (join test RED then GREEN) + SQL Server synonym test extended (written with the code, RED not observed) + tmux e2e against SQL Server 2022; full suite 165 passed
+- [x] T38 S30 UpdateCheck (cache in $XDG_STATE_HOME/lazytsql/latest-version, shared StateDirectory with ActivityLog) + notice in the messages panel — inline — 7 tests (RED then GREEN) + AOT e2e against NuGet.org: 0.1.1 no notice, 0.1.0 notice with release URL, opt-out silent
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"
@@ -123,3 +125,4 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - L47 2026-10-28 "Vamos con cargar un directorio de archivos .sql" — decision: Files sits between Connections and Schema as in the chosen preview, so Schema/Query/Results/Messages move to 3-6.
 - L48 2026-10-28 "Vamos con los logs detallados guardados en disco y realiza el pr al pr existente" — also found and fixed: after the T35 renumbering RunQuery/ShowResultSet still wrote "[4] Results" into _panels[3] (now Query); fixed in fd05b02, verified in tmux ("[5] Results · 4 rows").
 - L49 2026-10-29 "Vamos con sugerir joins a través de sinónimos" — Resolve is shared, so column completion and unknown-column marks now follow synonyms too; pinned with tests.
+- L50 2026-10-29 "Sí, impleméntalo y agrégalo al PR" — one AOT e2e run showed no notice within 5 s; rerun showed it; the check is asynchronous and depends on network latency.

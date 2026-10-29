@@ -23,12 +23,7 @@ public sealed class ActivityLog(string directory, TimeProvider time)
     public static string DefaultDirectory(Func<string, string?> getEnvironmentVariable)
     {
         if (getEnvironmentVariable(EnvironmentVariable) is { Length: > 0 } custom) return custom;
-        if (OperatingSystem.IsWindows())
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "lazytsql", "logs");
-        var stateHome = getEnvironmentVariable("XDG_STATE_HOME") is { Length: > 0 } state
-            ? state
-            : Path.Combine(getEnvironmentVariable("HOME") ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "state");
-        return Path.Combine(stateHome, "lazytsql", "logs");
+        return Path.Combine(StateDirectory.Resolve(getEnvironmentVariable), "logs");
     }
 
     /// <summary>Appends one entry; lines after the first are indented so each entry starts with its time.</summary>

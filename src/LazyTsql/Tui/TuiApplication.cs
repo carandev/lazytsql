@@ -24,6 +24,8 @@ public static class TuiApplication
         // The files panel shows the folder given, else the opened script's folder, else the working directory.
         if ((directory ?? (script is { } inFolder ? Path.GetDirectoryName(inFolder.Script.Path) : null)) is { } folder) view.ShowFiles(folder);
         if (script is { } opened) view.OpenScript(opened.Script, opened.Text);
+        view.CheckForUpdatesOnStart(token => UpdateCheck.Default(Environment.GetEnvironmentVariable)
+            .MessageAsync(typeof(TuiApplication).Assembly.GetName().Version ?? new Version(0, 0, 0), Environment.ProcessPath, token));
         if (connectionString is not null) view.ConnectOnStart(connectionString, ConnectionResolver.DisplayName(initialConnection, store));
         app.Run(view);
         return 0;

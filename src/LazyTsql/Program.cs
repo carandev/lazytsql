@@ -24,6 +24,7 @@ const string Usage = """
     Exit codes: 0 success, 1 SQL errors, 2 usage or connection errors.
     Activity (SQL run, messages, exports, imports) is logged to ~/.local/state/lazytsql/logs/<date>.log for 30 days;
     set $LAZYTSQL_LOG_DIR to log elsewhere. Connection strings are never logged.
+    The TUI checks NuGet.org for a newer release once a day; set $LAZYTSQL_NO_UPDATE_CHECK=1 to turn that off.
     """;
 
 var json = args.Contains("--json");

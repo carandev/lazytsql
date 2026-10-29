@@ -39,6 +39,10 @@ The tool is the native binary of your platform (linux-x64, linux-arm64, win-x64,
 build that runs on the .NET 10 runtime. If `lazytsql` is not found, add `~/.dotnet/tools` (Windows:
 `%USERPROFILE%\.dotnet\tools`) to your `PATH`. Update with `dotnet tool update -g lazytsql`.
 
+When a newer release exists, the TUI says so in the messages panel, with the update command for a dotnet tool or the
+release page for a downloaded binary. It asks NuGet.org at most once a day, shows nothing when offline, and
+`LAZYTSQL_NO_UPDATE_CHECK=1` turns it off.
+
 ### Option 2: download the binary (no .NET needed)
 
 Linux (use `lazytsql-linux-arm64.tar.gz` on ARM):
@@ -288,6 +292,7 @@ cat ~/.local/state/lazytsql/logs/2026-10-28.log
 | `LAZYTSQL_SQLPACKAGE` | Path to sqlpackage when it is not on the `PATH` or in `~/.dotnet/tools` |
 | `$XDG_STATE_HOME/lazytsql/logs` (default `~/.local/state/lazytsql/logs`) | Activity log, one file per day, kept 30 days |
 | `LAZYTSQL_LOG_DIR` | Write the activity log to another directory |
+| `LAZYTSQL_NO_UPDATE_CHECK` | Set to `1` to stop the TUI from checking NuGet.org for a newer release |
 
 The UI keeps the terminal's background and uses its 16 ANSI colors, so it follows your terminal theme.
 
