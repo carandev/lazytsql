@@ -6,6 +6,8 @@ name: Release
 on:
   push:
     branches: [main]
+    # The website deploys on its own (website.yml) and is not part of a release.
+    paths-ignore: ['website/**', '.github/workflows/website.yml']
   workflow_dispatch:
 
 permissions:
