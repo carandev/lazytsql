@@ -554,7 +554,7 @@ public sealed class MainView : Runnable
         _queryCancellation = new CancellationTokenSource();
         var cancellation = _queryCancellation;
         ReleaseResults();
-        _panels[3].Title = "[4] Results · running…";
+        _panels[ResultsPanel].Title = "[5] Results · running…";
         Log("Running…");
 
         RunInBackground(async _ =>
@@ -576,7 +576,7 @@ public sealed class MainView : Runnable
                 UpdateEditorTitle();
                 Log($"Done in {total.TotalMilliseconds:0} ms.");
             });
-        }, cancellation.Token, onError: () => _panels[3].Title = "[4] Results");
+        }, cancellation.Token, onError: () => _panels[ResultsPanel].Title = "[5] Results");
     }
 
     private void CancelQuery()
@@ -605,7 +605,7 @@ public sealed class MainView : Runnable
         if (_resultSets.Count == 0)
         {
             _results.Table = null;
-            _panels[3].Title = "[4] Results";
+            _panels[ResultsPanel].Title = "[5] Results";
             return;
         }
 
@@ -615,7 +615,7 @@ public sealed class MainView : Runnable
         var count = resultSet.Rows.Count;
         var rows = resultSet.IsTruncated ? $"first {count} rows" : count == 1 ? "1 row" : $"{count} rows";
         var position = _resultSets.Count > 1 ? $" {_resultIndex + 1}/{_resultSets.Count} [ ]" : string.Empty;
-        _panels[3].Title = $"[4] Results{position} · {rows}";
+        _panels[ResultsPanel].Title = $"[5] Results{position} · {rows}";
     }
 
     private void ExportResultSet()
