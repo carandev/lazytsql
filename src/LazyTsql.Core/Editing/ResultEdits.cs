@@ -96,11 +96,14 @@ public sealed class ResultEdits
     /// <summary>
     /// One UPDATE per changed row of each table, found by the key values the result read. The whole script is one
     /// transaction, rolled back unless every UPDATE changed exactly one row: a row deleted or re-keyed since the query
-    /// ran saves nothing instead of saving part of the changes.
+    /// ran saves nothing instead of saving part of the changes. It refuses to run inside a transaction already open in
+    /// the session, whose work its rollback would undo and whose later rollback would undo the saved changes.
     /// </summary>
     public string Script()
     {
-        var script = new StringBuilder("BEGIN TRY\n    BEGIN TRANSACTION;\n");
+        var script = new StringBuilder(
+            "IF @@TRANCOUNT > 0 THROW 50000, N'A transaction is open in this session. Commit or roll it back before saving edits.', 1;\n" +
+            "BEGIN TRY\n    BEGIN TRANSACTION;\n");
         var changes = _pending
             .OrderBy(change => change.Key.Row).ThenBy(change => change.Key.Column)
             .GroupBy(change => (change.Key.Row, _targets[change.Key.Column]!.Table), change => change);
@@ -142,7 +145,11 @@ public sealed class ResultEdits
         var display = $"{SqlValue.Quote(column.Schema ?? "dbo")}.{SqlValue.Quote(column.Table!)}";
         var keyColumns = source.Where(other => other.IsKey && SameTable(other)).ToList();
         var key = new List<KeyColumn>();
-        string? problem = keyColumns.Count == 0 ? $"{display} has no primary key or unique key." : null;
+        // Browse mode names every instance of a self-joined or re-read table the same, so a key column listed twice
+        // means the rows of one instance cannot be told from the other's: a key from one would update the other's row.
+        string? problem = keyColumns.Count == 0 ? $"{display} has no primary key or unique key."
+            : keyColumns.DistinctBy(other => other.Column).Count() < keyColumns.Count ? $"the query reads {display} more than once, so a cell's row cannot be told apart."
+            : null;
         foreach (var keyColumn in keyColumns)
         {
             var index = visible.FindIndex(other => SameTable(other) && other.Column == keyColumn.Column);

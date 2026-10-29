@@ -55,7 +55,7 @@ public static class SqlValue
             Kind.Ansi or Kind.Unicode => text,
             Kind.Integer => ParseInteger(text, type),
             Kind.Exact => decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var exact) ? exact : null,
-            Kind.Approximate => double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) && double.IsFinite(number)
+            Kind.Approximate => double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) && double.IsFinite(number) && (type != "real" || float.IsFinite((float)number))
                 ? type == "real" ? (object)(float)number : number
                 : null,
             Kind.Bit => text.Trim().ToLowerInvariant() switch { "1" or "true" => true, "0" or "false" => false, _ => null },

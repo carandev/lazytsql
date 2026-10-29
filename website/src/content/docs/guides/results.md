@@ -22,6 +22,7 @@ The results of a lone `SELECT` can be edited in place and saved with a script yo
 3. `s` opens a confirmation with the exact script that runs. `y` runs it; `n`, `Esc` or `Enter` cancel.
 
 ```sql
+IF @@TRANCOUNT > 0 THROW 50000, N'A transaction is open in this session. Commit or roll it back before saving edits.', 1;
 BEGIN TRY
     BEGIN TRANSACTION;
     UPDATE [shop].[dbo].[customers] SET [name] = N'Anna' WHERE [id] = 1;
@@ -46,6 +47,8 @@ Read-only, with the reason in the messages panel:
 - Columns computed by the query (`UPPER(name)`, `COUNT(*)`, literals).
 - Identity, computed and rowversion columns.
 - Tables without a primary or unique key, or whose key columns the query leaves out.
+- A table the query reads more than once (a self-join, or a subquery on the same table): its rows cannot be told
+  apart.
 - Types without a literal form: `geography`, `geometry`, `hierarchyid`, `sql_variant`.
 - Results of a batch with more than one statement, and values with line breaks.
 
@@ -55,6 +58,8 @@ Read-only, with the reason in the messages panel:
 - The script is one transaction. If a row was deleted or its key changed since the query ran, the `UPDATE` matches
   no row, the transaction rolls back and **nothing is saved**.
 - On any error, the changes stay pending, so you can fix them or undo them.
+- Saving is refused while a transaction you opened (`BEGIN TRANSACTION`) is open in the session: rolling back the
+  save would undo your work too. Commit or roll it back first.
 - The script is written to the [activity log](/lazytsql/guides/activity-log/).
 - Running another query or quitting with unsaved edits asks first.
 

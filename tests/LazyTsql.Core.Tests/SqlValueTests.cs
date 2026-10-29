@@ -42,6 +42,7 @@ public class SqlValueTests
     [InlineData("tinyint", "256", "tinyint expects a whole number from 0 to 255.")]
     [InlineData("decimal(5,2)", "1,5", "decimal expects a number such as 12.50.")]
     [InlineData("float", "NaN", "float expects a number such as 1.5 or 2E-3.")]
+    [InlineData("real", "1E39", "real expects a number such as 1.5 or 2E-3.")]
     [InlineData("bit", "yes", "bit expects 1 or 0.")]
     [InlineData("date", "29/02/2024", "date expects yyyy-MM-dd.")]
     [InlineData("date", "2024-02-29 10:00", "date expects yyyy-MM-dd.")]

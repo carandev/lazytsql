@@ -71,6 +71,41 @@ public sealed class ResultEditingTests
     }
 
     [SqlServerFact]
+    public async Task Saving_inside_an_open_transaction_is_refused_and_leaves_it_untouched()
+    {
+        await WithDatabaseAsync(async (session, database) =>
+        {
+            var query = new SqlBatch("SELECT oid, note FROM dbo.orders ORDER BY oid", 1);
+            var set = (await session.ExecuteAsync(query, new QueryOptions(), CancellationToken.None)).ResultSets[0];
+            var edits = ResultEdits.Create(set, await session.DescribeResultAsync(database, query, CancellationToken.None), database);
+            edits.Set(0, 1, "changed");
+            await RunAsync(session, "BEGIN TRANSACTION; INSERT dbo.audit VALUES (N'mine');");
+
+            var result = await RunAsync(session, edits.Script());
+
+            Assert.Equal("A transaction is open in this session. Commit or roll it back before saving edits.", Assert.Single(result.Messages, m => m.IsError).Text);
+            Assert.Equal(1, (await RunAsync(session, "SELECT @@TRANCOUNT")).ResultSets[0].Rows[0][0]);
+            Assert.Equal("mine", (await RunAsync(session, "SELECT what FROM dbo.audit")).ResultSets[0].Rows[0][0]);
+            Assert.Equal("first", (await RunAsync(session, "SELECT note FROM dbo.orders WHERE oid = 10")).ResultSets[0].Rows[0][0]);
+            await RunAsync(session, "ROLLBACK");
+        });
+    }
+
+    [SqlServerFact]
+    public async Task A_self_join_is_read_only_instead_of_updating_the_other_instance_row()
+    {
+        await WithDatabaseAsync(async (session, database) =>
+        {
+            var query = new SqlBatch("SELECT e.id, e.name, b.id AS bid, b.name AS bname FROM dbo.customers e JOIN dbo.customers b ON b.id = e.id + 1", 1);
+            var set = (await session.ExecuteAsync(query, new QueryOptions(), CancellationToken.None)).ResultSets[0];
+            var edits = ResultEdits.Create(set, await session.DescribeResultAsync(database, query, CancellationToken.None), database);
+
+            Assert.NotNull(edits.ReadOnlyReason(1));
+            Assert.NotNull(edits.ReadOnlyReason(3));
+        });
+    }
+
+    [SqlServerFact]
     public async Task A_trigger_that_writes_other_rows_does_not_fail_the_row_check()
     {
         await WithDatabaseAsync(async (session, database) =>

@@ -207,10 +207,11 @@ value, checked against the column's type; the new value shows in yellow and the 
 `s` shows the script that saves them and runs it once you confirm (`y`); nothing is written before that.
 
 - Each changed row is updated by its primary or unique key, so the result must include every key column. Columns
-  computed by the query, identity, computed and rowversion columns, and tables without a key stay read-only, and
-  editing one says why.
+  computed by the query, identity, computed and rowversion columns, tables without a key, and a table the query
+  reads more than once (a self-join) stay read-only, and editing one says why.
 - The script is one transaction: if any row was deleted or its key changed since the query ran, it rolls back and
   nothing is saved. The changes stay pending, so they can be fixed or undone (`u` / `U`).
+- Saving is refused while a transaction you opened (`BEGIN TRANSACTION`) is still open in the session.
 - Running another query or quitting with unsaved edits asks first.
 
 ### File picker

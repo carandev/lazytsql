@@ -22,6 +22,7 @@ Los resultados de un `SELECT` solo se pueden editar en el mismo panel y guardar 
 3. `s` abre una confirmación con el script exacto que se ejecutará. `y` lo ejecuta; `n`, `Esc` o `Enter` cancelan.
 
 ```sql
+IF @@TRANCOUNT > 0 THROW 50000, N'A transaction is open in this session. Commit or roll it back before saving edits.', 1;
 BEGIN TRY
     BEGIN TRANSACTION;
     UPDATE [shop].[dbo].[customers] SET [name] = N'Anna' WHERE [id] = 1;
@@ -46,6 +47,8 @@ Quedan de solo lectura, con el motivo en el panel de mensajes:
 - Las columnas que calcula la consulta (`UPPER(name)`, `COUNT(*)`, literales).
 - Las columnas identity, calculadas y rowversion.
 - Las tablas sin llave primaria o única, o cuya llave la consulta no incluye.
+- Una tabla que la consulta lee más de una vez (un self-join o una subconsulta sobre la misma tabla): no se puede
+  saber a qué fila pertenece cada celda.
 - Los tipos sin forma literal: `geography`, `geometry`, `hierarchyid`, `sql_variant`.
 - Los resultados de un lote con más de una sentencia y los valores con saltos de línea.
 
@@ -55,6 +58,8 @@ Quedan de solo lectura, con el motivo en el panel de mensajes:
 - El script es una sola transacción. Si una fila se borró o su llave cambió desde que se ejecutó la consulta, el
   `UPDATE` no encuentra ninguna fila, la transacción se revierte y **no se guarda nada**.
 - Ante cualquier error, los cambios siguen pendientes para que puedas corregirlos o deshacerlos.
+- No se guarda mientras haya una transacción tuya abierta en la sesión (`BEGIN TRANSACTION`): revertir el guardado
+  desharía también tu trabajo. Confírmala o reviértela antes.
 - El script queda en el [registro de actividad](/lazytsql/es/guides/activity-log/).
 - Ejecutar otra consulta o salir con ediciones sin guardar pregunta antes.
 

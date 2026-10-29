@@ -45,6 +45,37 @@ public class ResultEditsTests
     }
 
     [Fact]
+    public void A_table_the_query_reads_twice_is_read_only_because_its_rows_cannot_be_told_apart()
+    {
+        // SELECT e.id, e.name, b.id AS bid, b.name AS bname FROM dbo.emp e JOIN dbo.emp b ON b.id = e.boss
+        var set = new ResultSet([new("id", "int"), new("name", "nvarchar"), new("bid", "int"), new("bname", "nvarchar")], [[2, "Ann", 1, "Boss"]], false);
+        var edits = ResultEdits.Create(set, [
+            new("id", false, null, "dbo", "emp", "id", true, true, "int"),
+            new("name", false, null, "dbo", "emp", "name", false, true, "nvarchar(20)"),
+            new("bid", false, null, "dbo", "emp", "id", true, true, "int"),
+            new("bname", false, null, "dbo", "emp", "name", false, true, "nvarchar(20)"),
+        ], "shop");
+
+        Assert.All([1, 3], column => Assert.Equal(
+            $"{set.Columns[column].Name} cannot be changed: the query reads [dbo].[emp] more than once, so a cell's row cannot be told apart.",
+            edits.ReadOnlyReason(column)));
+    }
+
+    [Fact]
+    public void A_table_read_again_through_a_hidden_key_is_read_only()
+    {
+        // SELECT t.id, x.name FROM dbo.t CROSS APPLY (SELECT TOP 1 name FROM dbo.t t2 ...) x
+        var set = new ResultSet([new("id", "int"), new("name", "nvarchar")], [[1, "b"]], false);
+        var edits = ResultEdits.Create(set, [
+            new("id", false, null, "dbo", "t", "id", true, true, "int"),
+            new("name", false, null, "dbo", "t", "name", false, true, "nvarchar(20)"),
+            new("id", true, null, "dbo", "t", "id", true, true, "int"),
+        ], "shop");
+
+        Assert.Equal("name cannot be changed: the query reads [dbo].[t] more than once, so a cell's row cannot be told apart.", edits.ReadOnlyReason(1));
+    }
+
+    [Fact]
     public void A_table_without_a_key_is_read_only()
     {
         var set = new ResultSet([new("a", "int")], [[1]], false);
@@ -128,6 +159,7 @@ public class ResultEditsTests
         edits.Set(0, 1, null);
 
         Assert.Equal("""
+            IF @@TRANCOUNT > 0 THROW 50000, N'A transaction is open in this session. Commit or roll it back before saving edits.', 1;
             BEGIN TRY
                 BEGIN TRANSACTION;
                 UPDATE [shop].[dbo].[customers] SET [name] = N'Anna' WHERE [id] = 1;
