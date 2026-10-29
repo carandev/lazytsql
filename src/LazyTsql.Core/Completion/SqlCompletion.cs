@@ -353,18 +353,24 @@ public static class SqlCompletion
         }
     }
 
-    /// <summary>The table or view a name refers to: [[database.]schema.]name, preferring dbo when the schema is omitted.</summary>
-    private static (string Database, DbObject Table)? Resolve(IReadOnlyList<string> parts, SchemaCatalog catalog, string database)
+    /// <summary>
+    /// The table or view a name refers to: [[database.]schema.]name, preferring dbo when the schema is omitted. A synonym
+    /// resolves to the table or view it points to, so its columns and foreign keys are that object's.
+    /// </summary>
+    private static (string Database, DbObject Table)? Resolve(IReadOnlyList<string> parts, SchemaCatalog catalog, string database, bool synonyms = true)
     {
         var name = parts[^1];
         var schema = parts.Count >= 2 ? parts[^2] : null;
         var owner = parts.Count >= 3 ? parts[^3] : database;
         if (catalog.Objects(owner) is not { } objects) return null;
         var matches = objects
-            .Where(item => item.Kind is DbObjectKind.Table or DbObjectKind.View && Same(item.Name, name) && (schema is null || Same(item.Schema, schema)))
+            .Where(item => (item.Kind is DbObjectKind.Table or DbObjectKind.View || synonyms && item.Target is not null)
+                && Same(item.Name, name) && (schema is null || Same(item.Schema, schema)))
             .ToList();
         var match = matches.FirstOrDefault(item => Same(item.Schema, "dbo")) ?? matches.FirstOrDefault();
-        return match is null ? null : (owner, match);
+        if (match?.Target is not { } target) return match is null ? null : (owner, match);
+        // A synonym cannot point to another synonym, so its target is looked up among tables and views only.
+        return Resolve(target.Schema is null ? [target.Name] : [target.Schema, target.Name], catalog, target.Database ?? owner, synonyms: false);
     }
 
     /// <summary>

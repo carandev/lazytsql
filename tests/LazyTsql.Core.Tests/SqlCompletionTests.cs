@@ -290,4 +290,37 @@ public class SqlCompletionTests
         Assert.Equal(["clients"], Texts(result));
         Assert.Equal(CompletionKind.Synonym, result.Items[0].Kind);
     }
+
+    private static SchemaCatalog WithSynonyms()
+    {
+        var catalog = WithKeys();
+        catalog.SetObjects("shop",
+        [
+            .. catalog.Objects("shop")!,
+            new DbObject("dbo", "clients", DbObjectKind.Synonym, new SynonymTarget(null, "dbo", "customers")),
+            new DbObject("dbo", "old_orders", DbObjectKind.Synonym, new SynonymTarget("archive", "dbo", "orders")),
+            new DbObject("dbo", "remote_orders", DbObjectKind.Synonym),
+        ]);
+        catalog.SetObjects("archive", [new DbObject("dbo", "orders", DbObjectKind.Table), new DbObject("dbo", "customers", DbObjectKind.Table)]);
+        catalog.SetForeignKeys("archive", [new ForeignKey("dbo", "orders", "dbo", "customers", [new KeyColumn("customer_id", "id")])]);
+        return catalog;
+    }
+
+    [Fact]
+    public void A_synonym_joins_through_the_foreign_keys_of_the_table_it_points_to()
+    {
+        Assert.Equal(["orders o ON o.customer_id = c.id"], Texts(Suggest("SELECT * FROM clients c JOIN |", WithSynonyms())));
+        Assert.Equal(["c.id = o.customer_id"], Texts(Suggest("SELECT * FROM orders o JOIN clients c ON |", WithSynonyms())));
+        Assert.Equal(["archive.dbo.customers c ON c.id = x.customer_id"], Texts(Suggest("SELECT * FROM old_orders x JOIN |", WithSynonyms())));
+        Assert.Empty(Suggest("SELECT * FROM remote_orders r JOIN |", WithSynonyms()).Items);
+    }
+
+    [Fact]
+    public void A_synonym_completes_the_columns_of_the_table_it_points_to()
+    {
+        var catalog = WithSynonyms();
+        catalog.SetColumns("shop", new DbObject("dbo", "customers", DbObjectKind.Table), [Column("id", "int"), Column("name", "nvarchar(100)")]);
+
+        Assert.Equal(["id", "name"], Texts(Suggest("SELECT c.| FROM clients c", catalog)));
+    }
 }

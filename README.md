@@ -172,6 +172,10 @@ Tables and `alias.column` names the database does not have are underlined in red
 tables, CTEs, tables the script creates and system views are never marked. Names load in the background the first
 time they are needed, without changing the current database; `r` in the schema panel reloads them.
 
+A synonym behaves like the table or view it points to, in this database or another one on the same server: `c.`
+completes that table's columns, `JOIN ` suggests its foreign keys, and its unknown columns are underlined. A synonym
+for an object on a linked server is completed by name only.
+
 Saving keeps the file's encoding and line endings, so scripts from SSMS (UTF-16 or UTF-8 with BOM, CRLF) round-trip
 unchanged. Quitting or replacing the editor contents asks first when the open file has unsaved changes.
 
