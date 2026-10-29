@@ -22,9 +22,12 @@ const string Usage = """
     export/import need sqlpackage (dotnet tool install -g microsoft.sqlpackage, or set $LAZYTSQL_SQLPACKAGE);
     the database defaults to the connection's, and sqlpackage's progress goes to stderr.
     Exit codes: 0 success, 1 SQL errors, 2 usage or connection errors.
+    Activity (SQL run, messages, exports, imports) is logged to ~/.local/state/lazytsql/logs/<date>.log for 30 days;
+    set $LAZYTSQL_LOG_DIR to log elsewhere. Connection strings are never logged.
     """;
 
 var json = args.Contains("--json");
+var activity = ActivityLog.Default(Environment.GetEnvironmentVariable);
 try
 {
     var arguments = CliArguments.Parse(args);
@@ -50,11 +53,12 @@ try
     var store = FileConnectionStore.Default();
     var connector = new SqlServerConnector();
     var bacpac = new SqlPackageTool(Environment.GetEnvironmentVariable);
-    var commands = new HeadlessCommands(connector, bacpac, store, Console.Out, Console.OpenStandardOutput(), Console.Error, Console.In, Environment.GetEnvironmentVariable);
+    var commands = new HeadlessCommands(connector, bacpac, store, Console.Out, Console.OpenStandardOutput(), Console.Error, Console.In, Environment.GetEnvironmentVariable, activity);
+    activity.Prune();
 
     return arguments.Command switch
     {
-        null => TuiApplication.Run(connector, bacpac, store, arguments.Get("-c", "--connection"), arguments.ScriptPath, arguments.DirectoryPath),
+        null => TuiApplication.Run(connector, bacpac, store, activity, arguments.Get("-c", "--connection"), arguments.ScriptPath, arguments.DirectoryPath),
         "query" => await commands.QueryAsync(arguments, cancellation.Token),
         "schema" => await commands.SchemaAsync(arguments, cancellation.Token),
         "databases" => await commands.DatabasesAsync(arguments, cancellation.Token),
@@ -62,12 +66,13 @@ try
         "import" => await commands.ImportAsync(arguments, cancellation.Token),
         "connections" => commands.Connections(arguments),
         _ when arguments.ScriptPath is not null || arguments.DirectoryPath is not null =>
-            TuiApplication.Run(connector, bacpac, store, arguments.Get("-c", "--connection"), arguments.ScriptPath, arguments.DirectoryPath),
+            TuiApplication.Run(connector, bacpac, store, activity, arguments.Get("-c", "--connection"), arguments.ScriptPath, arguments.DirectoryPath),
         _ => throw new CliException($"Unknown command '{arguments.Command}'. Run 'lazytsql --help'."),
     };
 }
 catch (Exception ex)
 {
+    activity.Write("cli", $"✗ {ex.Message}");
     if (json)
     {
         using var stdout = Console.OpenStandardOutput();

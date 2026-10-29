@@ -29,6 +29,8 @@ public sealed class MainView : Runnable
     // sqlpackage opens its own connection, so it needs the connection string, not the session.
     private string? _connectionString;
     private readonly FileConnectionStore _store;
+    private readonly ActivityLog _activity;
+    private bool _activityFailed;
     private readonly SemaphoreSlim _sessionGate = new(1, 1);
     private readonly SchemaCatalog _catalog = new();
     private readonly ObservableCollection<string> _connectionNames = [];
@@ -53,8 +55,9 @@ public sealed class MainView : Runnable
     private string _savedText = string.Empty;
     private FileNode _filesRoot = FileNode.Directory(Environment.CurrentDirectory);
 
-    public MainView(IDatabaseConnector connector, IBacpacTool bacpac, FileConnectionStore store)
+    public MainView(IDatabaseConnector connector, IBacpacTool bacpac, FileConnectionStore store, ActivityLog activity)
     {
+        _activity = activity;
         _connector = connector;
         _bacpac = bacpac;
         _store = store;
@@ -555,6 +558,7 @@ public sealed class MainView : Runnable
         var cancellation = _queryCancellation;
         ReleaseResults();
         _panels[ResultsPanel].Title = "[5] Results · running…";
+        WriteActivity($"Running on {_sessionName} › {_session.CurrentDatabase}:\n{script}");
         Log("Running…");
 
         RunInBackground(async _ =>
@@ -880,10 +884,20 @@ public sealed class MainView : Runnable
     private IDatabaseSession RequireSession() =>
         _session ?? throw new InvalidOperationException("Not connected.");
 
+    /// <summary>Every message also goes to the activity log on disk.</summary>
     private void Log(string text)
     {
+        WriteActivity(text);
         _messages.Text = string.IsNullOrEmpty(_messages.Text) ? text : $"{_messages.Text}\n{text}";
         _messages.MoveEnd();
+    }
+
+    /// <summary>A log that cannot be written is reported once; the work goes on.</summary>
+    private void WriteActivity(string text)
+    {
+        if (_activity.Write("tui", text) || _activityFailed) return;
+        _activityFailed = true;
+        Log($"Could not write the activity log in {_activity.Directory}.");
     }
 
     private void OnUi(Action action) => App?.Invoke(action);

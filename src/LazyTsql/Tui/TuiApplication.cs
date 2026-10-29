@@ -7,7 +7,7 @@ namespace LazyTsql.Tui;
 
 public static class TuiApplication
 {
-    public static int Run(IDatabaseConnector connector, IBacpacTool bacpac, FileConnectionStore store, string? initialConnection, string? scriptPath, string? directory = null)
+    public static int Run(IDatabaseConnector connector, IBacpacTool bacpac, FileConnectionStore store, ActivityLog activity, string? initialConnection, string? scriptPath, string? directory = null)
     {
         // Resolve before the terminal switches to the alternate screen so errors stay readable.
         var connectionString = initialConnection is null && Environment.GetEnvironmentVariable(ConnectionResolver.EnvironmentVariable) is null
@@ -20,7 +20,7 @@ public static class TuiApplication
         app.Init();
         // ANSI palette indices instead of fixed RGB, so the UI follows the terminal's color scheme.
         if (app.Driver is { } driver) driver.Force16Colors = true;
-        using var view = new MainView(connector, bacpac, store);
+        using var view = new MainView(connector, bacpac, store, activity);
         // The files panel shows the folder given, else the opened script's folder, else the working directory.
         if ((directory ?? (script is { } inFolder ? Path.GetDirectoryName(inFolder.Script.Path) : null)) is { } folder) view.ShowFiles(folder);
         if (script is { } opened) view.OpenScript(opened.Script, opened.Text);

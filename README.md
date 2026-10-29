@@ -253,6 +253,27 @@ progress shows in the messages panel and `Ctrl+K` cancels.
   sqlpackage cannot read a double quote (`"`) there, so a password containing one is refused.
 - sqlpackage is found on the `PATH`, in `~/.dotnet/tools`, or at `$LAZYTSQL_SQLPACKAGE`.
 
+## Activity log
+
+Everything lazytsql does is kept on disk so you can look back at it: each SQL script run (TUI and `query`), the
+server messages and errors, connections, exports, imports and saved scripts. One file per day:
+
+```bash
+cat ~/.local/state/lazytsql/logs/2026-10-28.log
+```
+
+```text
+2026-10-28 23:01:17.287 -05:00 [tui] Running on dev › shop:
+    SELECT name FROM sys.databases
+2026-10-28 23:01:17.380 -05:00 [tui] Done in 32 ms.
+2026-10-28 23:01:10.807 -05:00 [cli] ✗ Login failed for user 'sa'.
+```
+
+- Files are readable only by you and are deleted after 30 days.
+- Connection strings are never written; entries name the saved connection or the server. The SQL itself is logged as
+  run, so avoid literal secrets in scripts you run.
+- On Windows the logs live in `%LOCALAPPDATA%\lazytsql\logs`.
+
 ## Configuration reference
 
 | Setting | Purpose |
@@ -261,6 +282,8 @@ progress shows in the messages panel and `Ctrl+K` cancels.
 | `${VAR}` inside a connection string | Replaced by that environment variable when connecting, so secrets stay out of the file |
 | `LAZYTSQL_CONNECTION` | Connection used when `-c` is not given |
 | `LAZYTSQL_SQLPACKAGE` | Path to sqlpackage when it is not on the `PATH` or in `~/.dotnet/tools` |
+| `$XDG_STATE_HOME/lazytsql/logs` (default `~/.local/state/lazytsql/logs`) | Activity log, one file per day, kept 30 days |
+| `LAZYTSQL_LOG_DIR` | Write the activity log to another directory |
 
 The UI keeps the terminal's background and uses its 16 ANSI colors, so it follows your terminal theme.
 
