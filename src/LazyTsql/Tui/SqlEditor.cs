@@ -60,6 +60,17 @@ public sealed class SqlEditor : TextView
     }
 
     /// <summary>
+    /// Terminal.Gui 2.5's suggestion popup moves its selection on ↑/↓ but asks only the editor to redraw, not the popup
+    /// drawn over it, so the highlight stayed on the first suggestion while Tab took the selected one.
+    /// </summary>
+    protected override bool OnKeyDown(Key key)
+    {
+        if (!base.OnKeyDown(key)) return false;
+        if (key == Key.CursorDown || key == Key.CursorUp) App?.TopRunnableView?.SetNeedsDraw();
+        return true;
+    }
+
+    /// <summary>
     /// Terminal.Gui 2.5's TextView inserts a paste without asking to redraw unless it replaced a selection, so a paste
     /// stayed invisible until something else redrew the editor.
     /// </summary>

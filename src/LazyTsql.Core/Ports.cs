@@ -1,4 +1,5 @@
 using LazyTsql.Core.Batches;
+using LazyTsql.Core.Editing;
 using LazyTsql.Core.Execution;
 using LazyTsql.Core.Schema;
 
@@ -43,6 +44,12 @@ public interface IDatabaseSession : IAsyncDisposable
     Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(string database, CancellationToken cancellationToken);
 
     Task<string> GetDefinitionAsync(DbObject routine, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Where each column of <paramref name="batch"/>'s first result set comes from, compiled in
+    /// <paramref name="database"/> without running it. Fails when the server cannot tell, as for a query on a temp table.
+    /// </summary>
+    Task<IReadOnlyList<SourceColumn>> DescribeResultAsync(string database, SqlBatch batch, CancellationToken cancellationToken);
 }
 
 /// <summary>Moves a whole database to and from a .bacpac file. Each output line is passed to <c>output</c> as it comes.</summary>

@@ -147,10 +147,13 @@ as `.git`.
 | `r` | Schema | Reload the schema and the completion names |
 | `x` / `i` | Schema | Export the selected database to a `.bacpac` / import a `.bacpac` as a new database |
 | `Ctrl+V` | Query, text fields | Paste the system clipboard (the terminal's own paste, usually `Ctrl+Shift+V`, works too) |
-| `Tab` / `Ctrl+Space` | Query | Accept / open the completion list (`Esc` closes it) |
+| `Tab` / `Ctrl+Space` | Query | Accept / open the completion list (`Esc` closes it); `↑` / `↓` pick a suggestion |
 | `Esc` | Query | Leave the editor |
+| `e` / `Enter` | Results | Edit the selected cell; `Ctrl+N` in the dialog sets `NULL` |
+| `s` | Results | Save the edits: shows the script that runs, then runs it once confirmed |
+| `u` / `U` | Results | Undo the edit of the selected cell / every edit |
 | `[` / `]` | Results | Previous / next result set |
-| `x` | Results | Export the current result set to CSV with every row |
+| `x` | Results | Export the current result set to CSV with every row, or copy it (`Alt+C` in the dialog) |
 | `m` | Results | Row limit: how many rows each result set fetches, or `all` |
 
 ### Connections
@@ -195,7 +198,22 @@ reached; any other batch reads and discards the remaining rows, so every stateme
 
 `x` exports the current result set to CSV (UTF-8 with BOM, so Excel keeps accents). A capped result set is exported
 by running its batch again and streaming every row to the file; it asks first, because the batch's side effects run
-again too. `Ctrl+K` cancels and removes the partial file.
+again too. `Ctrl+K` cancels and removes the partial file. **Copy** (`Alt+C`) in the same dialog puts the CSV on the
+clipboard instead, without the BOM.
+
+### Editing results
+
+The results of a lone `SELECT` can be edited in place, like in DataGrip. `e` (or `Enter`) on a cell asks for its new
+value, checked against the column's type; the new value shows in yellow and the title counts the unsaved changes.
+`s` shows the script that saves them and runs it once you confirm (`y`); nothing is written before that.
+
+- Each changed row is updated by its primary or unique key, so the result must include every key column. Columns
+  computed by the query, identity, computed and rowversion columns, tables without a key, and a table the query
+  reads more than once (a self-join) stay read-only, and editing one says why.
+- The script is one transaction: if any row was deleted or its key changed since the query ran, it rolls back and
+  nothing is saved. The changes stay pending, so they can be fixed or undone (`u` / `U`).
+- Saving is refused while a transaction you opened (`BEGIN TRANSACTION`) is still open in the session.
+- Running another query or quitting with unsaved edits asks first.
 
 ### File picker
 

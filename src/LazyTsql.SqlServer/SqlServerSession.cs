@@ -2,6 +2,7 @@ using System.Data;
 using System.Diagnostics;
 using LazyTsql.Core;
 using LazyTsql.Core.Batches;
+using LazyTsql.Core.Editing;
 using LazyTsql.Core.Execution;
 using LazyTsql.Core.Schema;
 using Microsoft.Data.SqlClient;
@@ -195,6 +196,29 @@ internal sealed class SqlServerSession : IDatabaseSession
             cancellationToken,
             new SqlParameter("@name", SqlDbType.NVarChar, 512) { Value = routine.QualifiedName });
         return rows.Count > 0 ? rows[0] : string.Empty;
+    }
+
+    public async Task<IReadOnlyList<SourceColumn>> DescribeResultAsync(string database, SqlBatch batch, CancellationToken cancellationToken)
+    {
+        // Browse mode names each column's table and key, and adds the key columns the query leaves out as hidden.
+        var columns = await QueryAsync(
+            $"EXEC {SqlValue.Quote(database)}.sys.sp_describe_first_result_set @tsql = @tsql, @params = NULL, @browse_information_mode = 1",
+            r => (Ordinal: r.GetInt32(r.GetOrdinal("column_ordinal")), Column: new SourceColumn(
+                Text(r, "name"),
+                r.GetBoolean(r.GetOrdinal("is_hidden")),
+                Text(r, "source_database"),
+                Text(r, "source_schema"),
+                Text(r, "source_table"),
+                Text(r, "source_column"),
+                Flag(r, "is_part_of_unique_key"),
+                Flag(r, "is_updateable"),
+                Text(r, "system_type_name") ?? string.Empty)),
+            cancellationToken,
+            new SqlParameter("@tsql", SqlDbType.NVarChar, -1) { Value = batch.Text });
+        return [.. columns.OrderBy(column => column.Ordinal).Select(column => column.Column)];
+
+        static string? Text(SqlDataReader r, string name) => r.IsDBNull(r.GetOrdinal(name)) ? null : r.GetString(r.GetOrdinal(name));
+        static bool Flag(SqlDataReader r, string name) => !r.IsDBNull(r.GetOrdinal(name)) && r.GetBoolean(r.GetOrdinal(name));
     }
 
     public ValueTask DisposeAsync() => _connection.DisposeAsync();

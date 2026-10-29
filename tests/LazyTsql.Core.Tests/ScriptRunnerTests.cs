@@ -1,4 +1,5 @@
 using LazyTsql.Core.Batches;
+using LazyTsql.Core.Editing;
 using LazyTsql.Core.Execution;
 using LazyTsql.Core.Schema;
 
@@ -72,6 +73,8 @@ public class ScriptRunnerTests
         public Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(string database, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<DbObject>> GetSynonymsAsync(string database, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<string> GetDefinitionAsync(DbObject routine, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<SourceColumn>> DescribeResultAsync(string database, SqlBatch batch, CancellationToken cancellationToken) => throw new NotSupportedException();
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

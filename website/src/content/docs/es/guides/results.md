@@ -1,6 +1,6 @@
 ---
 title: Resultados y exportación
-description: Conjuntos de resultados, el límite de filas, la memoria y la exportación de todas las filas a CSV.
+description: Conjuntos de resultados, la edición de celdas, el límite de filas, la memoria y la exportación de todas las filas a CSV.
 ---
 
 ## Conjuntos de resultados
@@ -10,6 +10,58 @@ el título muestra la posición (`2/3`) y el número de filas. Las celdas se mue
 en espacios y `NULL` se escribe como `NULL`.
 
 Los conteos de filas (`(3 rows affected)`), la salida de `PRINT` y los errores van al panel de mensajes, junto con el tiempo que tardó cada ejecución.
+
+## Editar celdas
+
+Los resultados de un `SELECT` solo se pueden editar en el mismo panel y guardar con un script que revisas antes, como en DataGrip.
+
+1. Pon el cursor en una celda y presiona `e` (o `Enter`). Escribe el valor nuevo; `Ctrl+N` lo deja en `NULL`. El valor
+   se valida contra el tipo de la columna: una fecha debe ser `yyyy-MM-dd` y un número no puede ser texto.
+2. El valor nuevo se muestra en amarillo y el título cuenta los cambios: `3 rows · 2 unsaved changes (s save)`. `u`
+   deshace la celda seleccionada y `U`, todos los cambios.
+3. `s` abre una confirmación con el script exacto que se ejecutará. `y` lo ejecuta; `n`, `Esc` o `Enter` cancelan.
+
+```sql
+IF @@TRANCOUNT > 0 THROW 50000, N'A transaction is open in this session. Commit or roll it back before saving edits.', 1;
+BEGIN TRY
+    BEGIN TRANSACTION;
+    UPDATE [shop].[dbo].[customers] SET [name] = N'Anna' WHERE [id] = 1;
+    IF @@ROWCOUNT <> 1 THROW 50000, N'Row 1 no longer matches exactly one row of [shop].[dbo].[customers]. Nothing was saved.', 1;
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+    THROW;
+END CATCH;
+```
+
+### Qué se puede editar
+
+La primera vez que editas, lazytsql le pregunta a SQL Server de dónde viene cada columna
+(`sp_describe_first_result_set` en modo browse), compilando la consulta sin volver a ejecutarla. Una celda se puede
+cambiar cuando su columna se lee de una tabla y el resultado incluye **todas las columnas de la llave primaria o única
+de esa tabla**, así cada cambio identifica exactamente una fila. Una consulta sobre una vista edita la tabla base de la vista.
+
+Quedan de solo lectura, con el motivo en el panel de mensajes:
+
+- Las columnas que calcula la consulta (`UPPER(name)`, `COUNT(*)`, literales).
+- Las columnas identity, calculadas y rowversion.
+- Las tablas sin llave primaria o única, o cuya llave la consulta no incluye.
+- Una tabla que la consulta lee más de una vez (un self-join o una subconsulta sobre la misma tabla): no se puede
+  saber a qué fila pertenece cada celda.
+- Los tipos sin forma literal: `geography`, `geometry`, `hierarchyid`, `sql_variant`.
+- Los resultados de un lote con más de una sentencia y los valores con saltos de línea.
+
+### Guardar
+
+- Cada fila cambiada se convierte en un `UPDATE` por su llave, con el nombre completo de la tabla.
+- El script es una sola transacción. Si una fila se borró o su llave cambió desde que se ejecutó la consulta, el
+  `UPDATE` no encuentra ninguna fila, la transacción se revierte y **no se guarda nada**.
+- Ante cualquier error, los cambios siguen pendientes para que puedas corregirlos o deshacerlos.
+- No se guarda mientras haya una transacción tuya abierta en la sesión (`BEGIN TRANSACTION`): revertir el guardado
+  desharía también tu trabajo. Confírmala o reviértela antes.
+- El script queda en el [registro de actividad](/lazytsql/es/guides/activity-log/).
+- Ejecutar otra consulta o salir con ediciones sin guardar pregunta antes.
 
 ## Límite de filas
 
@@ -35,6 +87,8 @@ Volver a ejecutar libera primero los resultados anteriores. Como referencia, un 
 - Si **sí** fue recortado, lazytsql vuelve a ejecutar su lote y envía cada fila directamente al archivo, sin mantenerlas
   en memoria. Pregunta primero, porque los efectos secundarios del lote también se vuelven a ejecutar.
 - `Ctrl+K` cancela y elimina el archivo parcial.
+- **Copy** (`Alt+C`) en el mismo diálogo copia el CSV al portapapeles en vez de a un archivo, sin BOM. Un conjunto de
+  resultados recortado se copia igual, volviendo a ejecutar su lote. En Linux usa `wl-copy`, `xclip` o `xsel`.
 - Si te conectaste a otro lugar después de la ejecución, la exportación se rechaza: vuelve a ejecutar la consulta.
 
 Desde la línea de comandos, `--csv` escribe las filas en stdout; consulta [modo headless](/lazytsql/es/guides/headless/).

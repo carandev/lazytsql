@@ -16,18 +16,29 @@ public static class FilePicker
 {
     /// <summary>Returns the chosen absolute path, or null when cancelled. A name without extension gets <paramref name="extension"/>.</summary>
     public static string? Show(IApplication app, string title, string acceptLabel, string initialPath, string extension) =>
-        Show(app, title, acceptLabel, initialPath, extension, folders: false);
+        Show(app, title, acceptLabel, initialPath, extension, folders: false, otherLabel: null).Path;
+
+    /// <summary>
+    /// Like <see cref="Show(IApplication, string, string, string, string)"/>, with a second action beside the accept
+    /// button (Alt+C), such as copying instead of saving: <see cref="Choice.Other"/> is true when it was chosen, with no path.
+    /// </summary>
+    public static Choice ShowWithOther(IApplication app, string title, string acceptLabel, string otherLabel, string initialPath, string extension) =>
+        Show(app, title, acceptLabel, initialPath, extension, folders: false, otherLabel);
 
     /// <summary>
     /// Picks a folder: the list shows only folders, Enter on one browses into it, and Enter on the path (or the accept
     /// button) chooses the folder typed there. Returns its absolute path, or null when cancelled.
     /// </summary>
     public static string? ShowFolder(IApplication app, string title, string acceptLabel, string initialPath) =>
-        Show(app, title, acceptLabel, initialPath, extension: string.Empty, folders: true);
+        Show(app, title, acceptLabel, initialPath, extension: string.Empty, folders: true, otherLabel: null).Path;
 
-    private static string? Show(IApplication app, string title, string acceptLabel, string initialPath, string extension, bool folders)
+    /// <summary>What the picker ended with: a path, the other action, or neither when cancelled.</summary>
+    public readonly record struct Choice(string? Path, bool Other);
+
+    private static Choice Show(IApplication app, string title, string acceptLabel, string initialPath, string extension, bool folders, string? otherLabel)
     {
         string? result = null;
+        var other = false;
         var separator = Path.DirectorySeparatorChar;
         var dialog = new Dialog { Title = title, Width = Dim.Percent(70), Height = Dim.Percent(70), BorderStyle = LineStyle.Rounded, Data = KeyContext.FilePicker, HotKeySpecifier = Theme.NoHotKey };
         var field = new TextField { Text = Display(initialPath), X = 7, Y = 1, Width = Dim.Fill(2) };
@@ -184,15 +195,39 @@ public static class FilePicker
 
         dialog.Add(new Label { Text = "Path:", X = 1, Y = 1 }, field, list, status);
         dialog.AddButton(cancel);
+        if (otherLabel is not null)
+        {
+            var otherButton = new Button { Text = $"{otherLabel} (Alt+C)", HotKeySpecifier = Theme.NoHotKey };
+            void ChooseOther()
+            {
+                other = true;
+                app.RequestStop(dialog);
+            }
+
+            otherButton.Accepting += (_, e) =>
+            {
+                e.Handled = true;
+                ChooseOther();
+            };
+            dialog.KeyDown += (_, key) =>
+            {
+                if (key != Key.C.WithAlt) return;
+                key.Handled = true;
+                ChooseOther();
+            };
+            dialog.AddButton(otherButton);
+            Theme.StyleButtons(otherButton);
+        }
+
         dialog.AddButton(accept);
         Theme.StyleDialog(dialog);
         Theme.StyleButtons(cancel, accept);
         status.SetScheme(Theme.Hints);
         Refresh();
         dialog.Initialized += (_, _) => FocusField();
-        app.Run(dialog);
+        KeySequenceGuard.Run(app, dialog);
         dialog.Dispose();
-        return result;
+        return new Choice(other ? null : result, other);
     }
 
     /// <summary>Paths under the home directory are shown with <c>~</c>.</summary>

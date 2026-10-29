@@ -165,7 +165,7 @@ public static class ConnectionDialog
         dialog.AddButton(save);
         Theme.StyleDialog(dialog);
         Theme.StyleButtons(cancel, save);
-        app.Run(dialog);
+        KeySequenceGuard.Run(app, dialog);
         dialog.Dispose();
         return result;
     }

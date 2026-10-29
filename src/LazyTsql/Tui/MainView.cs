@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using LazyTsql.Core;
 using LazyTsql.Core.Completion;
+using LazyTsql.Core.Editing;
 using LazyTsql.Core.Execution;
 using LazyTsql.Core.Schema;
 using LazyTsql.Infrastructure;
@@ -51,6 +52,8 @@ public sealed class MainView : Runnable
     private int _maxRows = new QueryOptions().MaxRows;
     private int _resultIndex;
     private bool _quitConfirmed;
+    // Set while result edits are being saved, so the changes being saved cannot change underneath.
+    private bool _savingEdits;
     private ScriptFile? _script;
     private string _savedText = string.Empty;
     // The folders the files panel shows: the saved ones, plus a script's folder for this session only.
@@ -258,8 +261,10 @@ public sealed class MainView : Runnable
 
     private void Quit()
     {
-        var dirty = IsScriptDirty;
-        var question = dirty ? $"Quit lazytsql?\nUnsaved changes in {_script!.Name} will be lost." : "Quit lazytsql?";
+        var dirty = IsScriptDirty || PendingEdits > 0;
+        var question = "Quit lazytsql?";
+        if (IsScriptDirty) question += $"\nUnsaved changes in {_script!.Name} will be lost.";
+        if (PendingEdits > 0) question += $"\n{Count(PendingEdits, "unsaved change")} to the results will be lost.";
         if (_quitConfirmed || !ConfirmDialog.Show(App!, "Quit", question, "Quit", confirmIsDefault: !dirty)) return;
         _quitConfirmed = true;
         App?.RequestStop(this);
@@ -347,6 +352,10 @@ public sealed class MainView : Runnable
         else if (_schema.HasFocus && key == Key.X) ExportBacpac();
         else if (_schema.HasFocus && key == Key.I) ImportBacpac();
         else if (_schema.HasFocus && key == Key.Enter) ToggleSchemaNode();
+        else if (_results.HasFocus && (key == Key.E || key == Key.Enter)) EditCell();
+        else if (_results.HasFocus && key == Key.S) SaveEdits();
+        else if (_results.HasFocus && key.AsRune.Value == 'u') RevertCell();
+        else if (_results.HasFocus && key.AsRune.Value == 'U') RevertAllEdits();
         else if (_results.HasFocus && key.AsRune.Value == ']') ShowResultSet(_resultIndex + 1);
         else if (_results.HasFocus && key.AsRune.Value == '[') ShowResultSet(_resultIndex - 1);
         else if (_results.HasFocus && key == Key.X) ExportResultSet();
@@ -721,6 +730,13 @@ public sealed class MainView : Runnable
 
         var script = string.IsNullOrEmpty(_editor.SelectedText) ? _editor.Text : _editor.SelectedText;
         if (string.IsNullOrWhiteSpace(script)) return;
+        if (_savingEdits)
+        {
+            Log("Saving the result edits; run the query when it finishes.");
+            return;
+        }
+
+        if (PendingEdits > 0 && !ConfirmDialog.Show(App!, "Unsaved edits", $"Run the query and discard {Count(PendingEdits, "unsaved change")} to the results?", "Discard", confirmIsDefault: false)) return;
 
         _queryCancellation?.Dispose();
         _queryCancellation = new CancellationTokenSource();
@@ -737,7 +753,7 @@ public sealed class MainView : Runnable
             var total = TimeSpan.Zero;
             await foreach (var result in ScriptRunner.RunAsync(session, script, new QueryOptions(_maxRows), cancellation.Token))
             {
-                resultSets.AddRange(result.ResultSets.Select((set, i) => new ShownResult(set, session, result.Batch, i)));
+                resultSets.AddRange(result.ResultSets.Select((set, i) => new ShownResult(set, session, result.Batch, i, session.CurrentDatabase)));
                 total += result.Elapsed;
                 OnUi(() => LogBatch(result));
             }
@@ -783,12 +799,182 @@ public sealed class MainView : Runnable
         }
 
         _resultIndex = Math.Clamp(index, 0, _resultSets.Count - 1);
-        var resultSet = _resultSets[_resultIndex].Set;
-        _results.Table = new ResultSetTableSource(resultSet);
-        var count = resultSet.Rows.Count;
-        var rows = resultSet.IsTruncated ? $"first {count} rows" : count == 1 ? "1 row" : $"{count} rows";
+        _results.Table = new ResultSetTableSource(_resultSets[_resultIndex].Set);
+        ShowEdits(_resultSets[_resultIndex]);
+    }
+
+    /// <summary>Shows the pending edits of the shown result set: new values in their color, and their count in the title.</summary>
+    private void ShowEdits(ShownResult shown)
+    {
+        if (_resultSets.ElementAtOrDefault(_resultIndex) != shown || _results.Table is not ResultSetTableSource source) return;
+
+        source.Edits = shown.Edits;
+        _results.Style.ColumnStyles.Clear();
+        if (shown.Edits is { } edits)
+        {
+            for (var i = 0; i < shown.Set.Columns.Count; i++)
+            {
+                var column = i;
+                _results.Style.GetOrCreateColumnStyle(column).ColorGetter = cell => edits.IsPending(cell.RowIndex, column) ? Theme.PendingCell : null;
+            }
+        }
+
+        var count = shown.Set.Rows.Count;
+        var rows = shown.Set.IsTruncated ? $"first {count} rows" : Count(count, "row");
         var position = _resultSets.Count > 1 ? $" {_resultIndex + 1}/{_resultSets.Count} [ ]" : string.Empty;
-        _panels[ResultsPanel].Title = $"[5] Results{position} · {rows}";
+        var pending = shown.Edits is { Count: > 0 } changed ? $" · {Count(changed.Count, "unsaved change")} (s save)" : string.Empty;
+        _panels[ResultsPanel].Title = $"[5] Results{position} · {rows}{pending}";
+        _results.SetNeedsDraw();
+    }
+
+    private (int Row, int Column) SelectedCell() => _results.Value?.SelectedCell is { } cell ? (cell.Y, cell.X) : (-1, -1);
+
+    private int PendingEdits => _resultSets.Sum(shown => shown.Edits?.Count ?? 0);
+
+    private static string Count(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
+
+    /// <summary>
+    /// The shown result set when its cells can be edited. Its source columns are read the first time, compiling its
+    /// query in the database it ran in; then the selected cell opens for editing.
+    /// </summary>
+    private void EditCell()
+    {
+        if (EditableResult() is not { } shown) return;
+        if (shown.Edits is { } edits)
+        {
+            EditCell(shown, edits);
+            return;
+        }
+
+        RunInBackground(async token =>
+        {
+            IReadOnlyList<SourceColumn> source;
+            try
+            {
+                source = await shown.Session.DescribeResultAsync(shown.Database, shown.Batch, token);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                OnUi(() => Log($"✗ These results cannot be edited: {ex.Message}"));
+                return;
+            }
+
+            OnUi(() =>
+            {
+                shown.Edits ??= ResultEdits.Create(shown.Set, source, shown.Database);
+                ShowEdits(shown);
+                if (_resultSets.ElementAtOrDefault(_resultIndex) == shown && _results.HasFocus) EditCell(shown, shown.Edits);
+            });
+        });
+    }
+
+    private void EditCell(ShownResult shown, ResultEdits edits)
+    {
+        var (row, column) = SelectedCell();
+        if (row < 0 || row >= shown.Set.Rows.Count || column < 0 || column >= shown.Set.Columns.Count) return;
+        if (edits.ReadOnlyReason(column) is { } reason)
+        {
+            Log(reason);
+            return;
+        }
+
+        var current = edits.Value(row, column);
+        if (current is string text && text.AsSpan().IndexOfAny('\r', '\n') >= 0)
+        {
+            Log("This value has several lines; change it with an UPDATE in the editor.");
+            return;
+        }
+
+        if (!CellEditDialog.Show(App!, shown.Set.Columns[column].Name, edits.TypeName(column), current, out var value)) return;
+        edits.Set(row, column, value);
+        ShowEdits(shown);
+    }
+
+    private ShownResult? EditableResult()
+    {
+        if (_resultSets.Count == 0)
+        {
+            Log("Nothing to edit. Run a query first.");
+            return null;
+        }
+
+        var shown = _resultSets[_resultIndex];
+        if (_savingEdits)
+        {
+            Log("Saving the result edits; wait for it to finish.");
+            return null;
+        }
+
+        if (shown.Session != _session)
+        {
+            Log("These results came from another connection. Run the query again to edit them.");
+            return null;
+        }
+
+        if (shown.Index != 0 || !shown.Batch.IsSingleQuery)
+        {
+            Log("Only the results of a lone SELECT can be edited. Select it in the editor and run just that.");
+            return null;
+        }
+
+        return shown;
+    }
+
+    private void RevertCell()
+    {
+        if (_savingEdits || _resultSets.ElementAtOrDefault(_resultIndex) is not { Edits: { } edits } shown) return;
+        var (row, column) = SelectedCell();
+        edits.Revert(row, column);
+        ShowEdits(shown);
+    }
+
+    private void RevertAllEdits()
+    {
+        if (_savingEdits || _resultSets.ElementAtOrDefault(_resultIndex) is not { Edits: { Count: > 0 } edits } shown) return;
+        if (!ConfirmDialog.Show(App!, "Undo edits", $"Undo {Count(edits.Count, "unsaved change")} to these results?", "Undo", confirmIsDefault: false)) return;
+        edits.RevertAll();
+        ShowEdits(shown);
+    }
+
+    /// <summary>
+    /// Shows the script that saves the pending edits and runs it once confirmed. It saves every change or none; on
+    /// failure the changes stay pending, so they can be fixed and saved again.
+    /// </summary>
+    private void SaveEdits()
+    {
+        if (_resultSets.ElementAtOrDefault(_resultIndex) is not { Edits: { Count: > 0 } edits })
+        {
+            Log("No changes to save. Press e on a cell to edit it.");
+            return;
+        }
+
+        if (EditableResult() is not { } shown) return;
+        var script = edits.Script();
+        var count = edits.Count;
+        var question = $"Run this on {_sessionName} to save {Count(count, "change")}?\nIt saves all of them or none.";
+        if (!ConfirmDialog.ShowScript(App!, "Save edits", question, script, "Run")) return;
+
+        _savingEdits = true;
+        WriteActivity($"Saving result edits on {_sessionName}:\n{script}");
+        Log("Saving…");
+        RunInBackground(async token =>
+        {
+            var result = await shown.Session.ExecuteAsync(new Core.Batches.SqlBatch(script, 1), new QueryOptions(0), token);
+            OnUi(() =>
+            {
+                _savingEdits = false;
+                LogBatch(result);
+                if (result.HasErrors)
+                {
+                    Log("✗ Nothing was saved; the changes are still pending.");
+                    return;
+                }
+
+                edits.Commit();
+                ShowEdits(shown);
+                Log($"Saved {Count(count, "change")}.");
+            });
+        }, onError: () => _savingEdits = false);
     }
 
     private void ExportResultSet()
@@ -818,7 +1004,14 @@ public sealed class MainView : Runnable
         }
 
         var suggested = Path.Combine(Environment.CurrentDirectory, $"results-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
-        if (FilePicker.Show(App!, "Export CSV", "Export", suggested, ".csv") is not { } path) return;
+        var choice = FilePicker.ShowWithOther(App!, "Export CSV", "Export", "Copy", suggested, ".csv");
+        if (choice.Other)
+        {
+            CopyResultSet(shown);
+            return;
+        }
+
+        if (choice.Path is not { } path) return;
 
         if (!shown.Set.IsTruncated)
         {
@@ -860,6 +1053,44 @@ public sealed class MainView : Runnable
             }
         }, _queryCancellation.Token);
     }
+
+    /// <summary>Copies the result as CSV, the same text an export writes but without the byte order mark.</summary>
+    private void CopyResultSet(ShownResult shown)
+    {
+        if (!shown.Set.IsTruncated)
+        {
+            var text = new StringWriter();
+            Output.CsvResultWriter.Write(text, shown.Set);
+            Log(CopyCsv(text.ToString(), shown.Set.Rows.Count));
+            return;
+        }
+
+        _queryCancellation?.Dispose();
+        _queryCancellation = new CancellationTokenSource();
+        Log("Copying every row… (Ctrl+K cancels)");
+        RunInBackground(async token =>
+        {
+            try
+            {
+                var text = new StringWriter();
+                var count = await shown.Session.StreamResultSetAsync(shown.Batch, shown.Index, new Output.CsvRowWriter(text), new QueryOptions(), token);
+                var result = CopyCsv(text.ToString(), count);
+                OnUi(() => Log(result));
+            }
+            catch (Exception ex)
+            {
+                // Cancelling stops the command on the server, which SqlClient may report as an error.
+                if (ex is OperationCanceledException || token.IsCancellationRequested) throw new OperationCanceledException(token);
+                OnUi(() => Log($"✗ Copy failed: {ex.Message}"));
+            }
+        }, _queryCancellation.Token);
+    }
+
+    /// <summary>Puts the CSV on the system clipboard, or Terminal.Gui's where no tool is known (Windows); returns the log line.</summary>
+    private string CopyCsv(string csv, long rows) =>
+        _clipboard.Write(csv) || App?.Clipboard?.TrySetClipboardData(csv) == true
+            ? $"Copied {rows} rows to the clipboard as CSV."
+            : "✗ Could not copy: no clipboard tool found. Install wl-clipboard, xclip or xsel.";
 
     /// <summary>Exports the database of the selected schema node (or the current one) with sqlpackage.</summary>
     private void ExportBacpac()
@@ -1209,5 +1440,9 @@ public sealed class MainView : Runnable
     }
 
     /// <summary>A result set with the session and batch that produced it, so an export can fetch every row again.</summary>
-    private sealed record ShownResult(ResultSet Set, IDatabaseSession Session, Core.Batches.SqlBatch Batch, int Index);
+    /// <summary>The database it ran in is where its query is described for editing; its edits stay until saved or discarded.</summary>
+    private sealed record ShownResult(ResultSet Set, IDatabaseSession Session, Core.Batches.SqlBatch Batch, int Index, string Database)
+    {
+        public ResultEdits? Edits { get; set; }
+    }
 }

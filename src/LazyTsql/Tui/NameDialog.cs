@@ -60,7 +60,7 @@ public static class NameDialog
             field.SetFocus();
             field.MoveEnd();
         };
-        app.Run(dialog);
+        KeySequenceGuard.Run(app, dialog);
         dialog.Dispose();
         return result;
     }

@@ -65,7 +65,7 @@ public static class HelpDialog
         app.Keyboard.KeyDown += OnKeyDown;
         try
         {
-            app.Run(dialog);
+            KeySequenceGuard.Run(app, dialog);
         }
         finally
         {

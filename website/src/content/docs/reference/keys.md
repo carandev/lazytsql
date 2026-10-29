@@ -50,9 +50,13 @@ with `?` (or `F1`).
 | | `Ctrl+S` | Save |
 | | `Ctrl+V` | Paste the system clipboard |
 | | `Tab` / `Ctrl+Space` | Accept / open completion (`Esc` closes it) |
+| | `↑` / `↓` | Pick a suggestion |
 | | `Esc` | Leave the editor |
-| Results `[5]` | `[` / `]` | Previous / next result set |
-| | `x` | Export to CSV |
+| Results `[5]` | `e` / `Enter` | Edit the selected cell |
+| | `s` | Save the edits (shows the script first) |
+| | `u` / `U` | Undo the selected cell / every edit |
+| | `[` / `]` | Previous / next result set |
+| | `x` | Export to CSV, or copy it (`Alt+C` in the dialog) |
 | | `m` | Row limit |
 | | `h` `j` `k` `l` | Move between cells |
 | Messages `[6]` | `j` / `k` | Scroll |
@@ -73,6 +77,9 @@ with `?` (or `F1`).
 | Connection form | `Tab` | Next field |
 | | `←` `→` | Choose an option |
 | | `Enter` / `Esc` | Save / cancel |
+| Edit cell | `Enter` | Set the typed value |
+| | `Ctrl+N` | Set `NULL` |
+| | `Esc` | Cancel |
 | Row limit | `Enter` / `Esc` | Apply / cancel |
 | Database name | `Enter` / `Esc` | Import / cancel |
 | Help | `a` | Switch between this panel's keys and every key |
