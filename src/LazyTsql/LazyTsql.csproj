@@ -14,6 +14,49 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AssemblyName>lazytsql</AssemblyName>
+    <RootNamespace>LazyTsql</RootNamespace>
+    <Version>0.1.0</Version>
+    <!-- Single native binary: fast startup and low memory, copyable to the database server. -->
+    <PublishAot>true</PublishAot>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <StripSymbols>true</StripSymbols>
+    <!-- The stripped .dbg (48 MB) and .pdb files stay in obj; the published binary and tool package do without them. -->
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <!-- SqlClient throws "Globalization Invariant Mode is not supported", so ICU is required at runtime. -->
+    <EventSourceSupport>false</EventSourceSupport>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <!-- SqlClient is not fully trim-annotated; its AOT warnings stay visible and the binary is verified at runtime. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);IL2104;IL3053</WarningsNotAsErrors>
   </PropertyGroup>
+
+  <!--
+    .NET tool: `dotnet tool install -g lazytsql` picks the native AOT package of the platform, packed on that OS with
+    `dotnet pack -r <rid>`; `any` (packed with PublishAot=false) runs on the .NET runtime everywhere else.
+  -->
+  <PropertyGroup>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>lazytsql</ToolCommandName>
+    <PackageId>lazytsql</PackageId>
+    <ToolPackageRuntimeIdentifiers>linux-x64;linux-arm64;win-x64;osx-arm64;any</ToolPackageRuntimeIdentifiers>
+    <Description>A lazygit-style terminal client for SQL Server: schema browser, editor with completion, results grid, CSV and .bacpac export.</Description>
+    <PackageTags>sql-server;tsql;tui;terminal;cli</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Authors>Carlos Gomez</Authors>
+    <PackageProjectUrl>https://github.com/carandev/lazytsql</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/carandev/lazytsql</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- Oniguruma ships with Terminal.Gui for TextMate highlighting, which lazytsql does not use yet. -->
+  <Target Name="RemoveUnusedNativeLibraries" AfterTargets="Publish">
+    <Delete Files="$(PublishDir)libonigwrap.so;$(PublishDir)libonigwrap.dylib;$(PublishDir)onigwrap.dll" />
+  </Target>
 
 </Project>

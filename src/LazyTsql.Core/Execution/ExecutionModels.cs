@@ -23,4 +23,13 @@ public sealed record BatchResult(
     public bool HasErrors => Messages.Any(m => m.IsError);
 }
 
+/// <summary><see cref="MaxRows"/> of 0 fetches every row.</summary>
 public sealed record QueryOptions(int MaxRows = 1000, int CommandTimeoutSeconds = 0);
+
+/// <summary>Receives a result set row by row, so it can be written out without holding it in memory.</summary>
+public interface IRowSink
+{
+    void Begin(IReadOnlyList<ColumnInfo> columns);
+
+    void Row(object?[] values);
+}
