@@ -44,3 +44,14 @@ public interface IDatabaseSession : IAsyncDisposable
 
     Task<string> GetDefinitionAsync(DbObject routine, CancellationToken cancellationToken);
 }
+
+/// <summary>Moves a whole database to and from a .bacpac file. Each output line is passed to <c>output</c> as it comes.</summary>
+public interface IBacpacTool
+{
+    Task ExportAsync(string connectionString, string database, string file, Action<string> output, CancellationToken cancellationToken);
+
+    /// <summary>Creates <paramref name="database"/> from <paramref name="file"/>; it must not exist or be empty.</summary>
+    Task ImportAsync(string connectionString, string database, string file, Action<string> output, CancellationToken cancellationToken);
+}
+
+public sealed class BacpacException(string message) : Exception(message);

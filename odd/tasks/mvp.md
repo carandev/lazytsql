@@ -26,7 +26,9 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - S21 "La tabla que está escrita existe pero no me la sugiere, debería hacerlo"
 - S22 "sería bueno que me señale de alguna manera si escribo una tabla o columna que no existe" → "Si"
 - S23 "Realiza los ajustes de la deuda técnica y por ahora sin autenticación de Entra ID": a capped query stops reading past the limit, synonyms in completion and unknown-name marks, TUI memory profiling, AOT rebuild
-- Backlog (not in scope yet): "que se pueda cargar un directorio con archivos sql o abrir un archivo sql directamente y también poder importar o exportar archivos .bacpac con sqlpackage"; "agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta"
+- S24 "Vamos con importar y exportar .bacpac" (backlog: "poder importar o exportar archivos .bacpac con sqlpackage"): export a database to a .bacpac and import a .bacpac as a new database, from the CLI and the TUI, through sqlpackage.
+- S25 "después de eso vamos a configurar para que al hacer el push se publique el compilado pero que también pueda estar como tool para instalarlo"
+- Backlog (not in scope yet): "que se pueda cargar un directorio con archivos sql"; "agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta"
 
 ## Tasks
 - [x] T1 S4 Core domain: batch splitter (`GO`, `GO n`), result models, ports — inline — 14 tests green
@@ -58,6 +60,10 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T27 S23 Synonyms in the completion catalog (not in the schema tree or CLI) — inline — 1 completion + 1 diagnostics + 1 SQL Server test
 - [x] T28 S23 TUI memory profile with large results; results are released before a run and the heap compacted after a large one — inline — AOT binary, 1M rows × 3 columns: idle 59 MB private, one run 280 MB; before the fix runs 2-3 reached 431/474 MB and a tiny result after kept 482 MB, after it 288/292 MB and 65 MB. No unit test (MainView has none); checked end to end
 - [x] T29 S23 AOT publish and smoke test — inline — publish exit 0, 21.6 MB, only third-party trim/AOT warnings (SqlClient, ConfigurationManager); CLI query/schema/synonym/capped billions-of-rows SELECT; TUI synonym completion, FK join, unknown-name marks
+- [x] T30 S24 sqlpackage adapter: locate it, pass the connection string in a 0600 response file (never in argv), stream its output, cancel, fail with its last lines — inline — 8 fake-sqlpackage tests (argv, 0600, removal, output, failure, cancel, not found, PATH, quoting) + real round trip against SQL Server 2022 (export, import as a new database, rows equal) + real export with a password holding ' ; and a space
+- [ ] T31 S24 CLI `lazytsql export|import -c <conn> -d <db> <file.bacpac>` + help + README — inline
+- [ ] T32 S24 TUI: `x` exports the selected database, `i` imports a .bacpac as a new database, output in Messages, Ctrl+K cancels — inline
+- [ ] T33 S25 Release on push (AOT binaries) and a .NET tool package — inline, after T30-T32
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"
@@ -97,3 +103,6 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - L35 2026-10-28 "Qué es AOT? Además el de arbir un archivo .sql directamente ya se puede no? Realiza los ajustes de la deuda técnica y por ahora sin autenticación de Entra ID" — opening a .sql file already works (Ctrl+O, `lazytsql -c dev file.sql`); my pending list was wrong. Entra ID / Windows auth stays out.
 - L36 Finding: cancelling a capped query already stopped the drain (NextResultAsync honours the token); the real cost is time: 3M rows capped at 10 took ~1.5 s vs ~0.3 s for TOP 10, growing with the table. Rows cannot be skipped on the TDS stream without cancelling the command, which would also skip later statements, so only a batch that is one SELECT (no `;` before more text, no INTO, no other statement word, every other SELECT after `(` or a set operator) is cancelled at the limit. A CTE batch is conservatively not stopped.
 - L37 Finding: the old results stayed referenced until a run finished, so two large results coexisted, and the workstation GC kept the heap afterwards. Running now clears the grid first (also on a failed run, like SSMS) and compacts aggressively when the released results held 100k+ rows. Known gap: joins are not suggested from a synonym (its base table is not resolved).
+- L38 2026-10-28 "Vamos con importar y exportar .bacpac y después de eso vamos a configurar para que al hacer el push se publique el compilado pero que también pueda estar como tool para instalarlo"
+- L39 Decision: sqlpackage stays an external dependency (found through $LAZYTSQL_SQLPACKAGE, PATH or ~/.dotnet/tools; the error says how to install it). The connection string goes in a response file (`/@:<file>`, created 0600 and deleted afterwards) because argv is visible to every user in `ps`. The repository has no git remote yet, so T33 needs one.
+- L40 Finding: sqlpackage takes a response file as `@<file>` (the help's `/@<file>` and `/@:<file>` are rejected), and its parser delimits values with double quotes with no escape for one inside: a doubled quote silently changed the password ("Login failed"). Connection values are written single-quoted (`''` for a quote, valid ADO.NET syntax); a value or path holding a double quote is refused with a clear error.
