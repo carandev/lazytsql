@@ -49,18 +49,19 @@ try
 
     var store = FileConnectionStore.Default();
     var connector = new SqlServerConnector();
-    var commands = new HeadlessCommands(connector, new SqlPackageTool(Environment.GetEnvironmentVariable), store, Console.Out, Console.OpenStandardOutput(), Console.Error, Console.In, Environment.GetEnvironmentVariable);
+    var bacpac = new SqlPackageTool(Environment.GetEnvironmentVariable);
+    var commands = new HeadlessCommands(connector, bacpac, store, Console.Out, Console.OpenStandardOutput(), Console.Error, Console.In, Environment.GetEnvironmentVariable);
 
     return arguments.Command switch
     {
-        null => TuiApplication.Run(connector, store, arguments.Get("-c", "--connection"), arguments.ScriptPath),
+        null => TuiApplication.Run(connector, bacpac, store, arguments.Get("-c", "--connection"), arguments.ScriptPath),
         "query" => await commands.QueryAsync(arguments, cancellation.Token),
         "schema" => await commands.SchemaAsync(arguments, cancellation.Token),
         "databases" => await commands.DatabasesAsync(arguments, cancellation.Token),
         "export" => await commands.ExportAsync(arguments, cancellation.Token),
         "import" => await commands.ImportAsync(arguments, cancellation.Token),
         "connections" => commands.Connections(arguments),
-        _ when arguments.ScriptPath is { } script => TuiApplication.Run(connector, store, arguments.Get("-c", "--connection"), script),
+        _ when arguments.ScriptPath is { } script => TuiApplication.Run(connector, bacpac, store, arguments.Get("-c", "--connection"), script),
         _ => throw new CliException($"Unknown command '{arguments.Command}'. Run 'lazytsql --help'."),
     };
 }

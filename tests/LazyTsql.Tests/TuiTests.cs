@@ -96,4 +96,29 @@ public class TuiTests
     {
         Assert.Contains("m row limit", KeyHelp.Footer(KeyContext.Results), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Schema_footer_shows_the_bacpac_keys()
+    {
+        var footer = KeyHelp.Footer(KeyContext.Schema);
+
+        Assert.Contains("x export bacpac", footer, StringComparison.Ordinal);
+        Assert.Contains("i import bacpac", footer, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("/backups/shop.bacpac", "shop")]
+    [InlineData("/backups/shop-20261028-101500.bacpac", "shop-20261028-101500")]
+    public void An_imported_database_is_named_after_its_file(string file, string expected)
+    {
+        Assert.Equal(expected, NameDialog.DefaultDatabaseName(file));
+    }
+
+    [Theory]
+    [InlineData("  shop_copy ", "shop_copy")]
+    [InlineData("   ", null)]
+    public void A_database_name_is_trimmed_and_cannot_be_empty(string input, string? expected)
+    {
+        Assert.Equal(expected, NameDialog.Parse(input));
+    }
 }

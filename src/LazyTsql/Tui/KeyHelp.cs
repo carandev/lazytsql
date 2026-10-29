@@ -13,6 +13,7 @@ public enum KeyContext
     Confirm,
     ConnectionForm,
     RowLimit,
+    Name,
     Help,
 }
 
@@ -44,6 +45,8 @@ public static class KeyHelp
             ("s", "SELECT TOP 100"),
             ("e", "open definition"),
             ("r", "reload"),
+            ("x", "export bacpac"),
+            ("i", "import bacpac"),
         ]),
         new(KeyContext.Query, "Query [3]", [
             ("F5", "run selection or all"),
@@ -74,6 +77,7 @@ public static class KeyHelp
             ("Esc", "cancel"),
         ]),
         new(KeyContext.RowLimit, "Row limit", [("Enter", "apply"), ("Esc", "cancel")]),
+        new(KeyContext.Name, "Database name", [("Enter", "import"), ("Esc", "cancel")]),
         new(KeyContext.Help, "Help", [("a", "context/all keys"), ("j/k", "scroll"), ("Esc", "close")]),
     ];
 
@@ -86,7 +90,7 @@ public static class KeyHelp
             KeyContext.Global or KeyContext.Connections or KeyContext.Schema or KeyContext.Results or KeyContext.Messages =>
                 "1-5 panels · ? help · q quit",
             KeyContext.Query => "Alt+1-5 panels · F1 help · Ctrl+Q quit",
-            KeyContext.FilePicker or KeyContext.ConnectionForm or KeyContext.RowLimit => "F1 help",
+            KeyContext.FilePicker or KeyContext.ConnectionForm or KeyContext.RowLimit or KeyContext.Name => "F1 help",
             KeyContext.Confirm => "? help",
             _ => null,
         };

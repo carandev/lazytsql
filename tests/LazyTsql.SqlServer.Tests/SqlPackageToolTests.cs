@@ -15,7 +15,8 @@ public sealed class SqlPackageToolTests : IDisposable
     private string FakeSqlPackage(string body)
     {
         var path = Path.Combine(_directory, "sqlpackage");
-        File.WriteAllText(path, $"#!/bin/sh\nrsp=\"${{1#@}}\"\n{body}\n");
+        // $target is the file sqlpackage is told to write.
+        File.WriteAllText(path, $"#!/bin/sh\nrsp=\"${{1#@}}\"\ntarget=$(sed -n 's|^/TargetFile:\"\\(.*\\)\"$|\\1|p' \"$rsp\")\n{body}\n");
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         return path;
     }
@@ -39,6 +40,7 @@ public sealed class SqlPackageToolTests : IDisposable
             stat -c %a "$rsp" >> {record}
             cat "$rsp" >> {record}
             echo "Connecting to database 'shop'"
+            echo exported > "$target"
             echo "Successfully exported database"
             """);
         var output = new List<string>();
@@ -51,7 +53,9 @@ public sealed class SqlPackageToolTests : IDisposable
         Assert.Equal("600", lines[1]);
         Assert.Equal("/Action:Export", lines[2]);
         Assert.Equal("/SourceConnectionString:\"data source=db.example,1433;initial catalog=shop;user id=sa;password=S3cret;trust server certificate=True\"", lines[3]);
-        Assert.Equal($"/TargetFile:\"{Path.Combine(_directory, "shop.bacpac")}\"", lines[4]);
+        Assert.Matches($"^/TargetFile:\"{_directory}/shop\\.partial-[0-9a-f]{{32}}\\.bacpac\"$", lines[4]);
+        Assert.Equal("exported\n", File.ReadAllText(Path.Combine(_directory, "shop.bacpac")));
+        Assert.Equal(["record", "shop.bacpac", "sqlpackage"], Directory.GetFiles(_directory).Select(Path.GetFileName).Order());
         Assert.Equal(["Connecting to database 'shop'", "Successfully exported database"], output);
         Assert.False(File.Exists(lines[0][(lines[0].IndexOf("arg=@", StringComparison.Ordinal) + 5)..]));
     }
@@ -77,9 +81,9 @@ public sealed class SqlPackageToolTests : IDisposable
     {
         if (OperatingSystem.IsWindows()) return;
         var record = Path.Combine(_directory, "record");
-        var executable = FakeSqlPackage($"sed -n 2p \"$rsp\" > {record}");
+        var executable = FakeSqlPackage($"sed -n 2p \"$rsp\" > {record}\necho x > \"$target\"");
 
-        await Tool(executable).ExportAsync("Server=db;User Id=odd;Password=\"Ab1'x;y z!\"", "my db", "x.bacpac", _ => { }, CancellationToken.None);
+        await Tool(executable).ExportAsync("Server=db;User Id=odd;Password=\"Ab1'x;y z!\"", "my db", Path.Combine(_directory, "x.bacpac"), _ => { }, CancellationToken.None);
 
         var line = File.ReadAllText(record).Trim();
         var connectionString = line["/SourceConnectionString:\"".Length..^1];
@@ -100,6 +104,20 @@ public sealed class SqlPackageToolTests : IDisposable
 
         Assert.Equal("sqlpackage cannot read a connection string or file path containing a double quote (\"). Change that password or path.", error.Message);
         Assert.False(File.Exists(record));
+    }
+
+    [Fact]
+    public async Task A_failed_or_cancelled_export_leaves_an_existing_file_untouched()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var file = Path.Combine(_directory, "shop.bacpac");
+        File.WriteAllText(file, "previous");
+        var executable = FakeSqlPackage("echo partial > \"$target\"\necho '*** Error exporting database' >&2\nexit 1");
+
+        await Assert.ThrowsAsync<BacpacException>(() => Tool(executable).ExportAsync(ConnectionString, "shop", file, _ => { }, CancellationToken.None));
+
+        Assert.Equal("previous", File.ReadAllText(file));
+        Assert.Equal(["shop.bacpac", "sqlpackage"], Directory.GetFiles(_directory).Select(Path.GetFileName).Order());
     }
 
     [Fact]
@@ -124,7 +142,7 @@ public sealed class SqlPackageToolTests : IDisposable
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            Tool(executable).ExportAsync(ConnectionString, "shop", "shop.bacpac", _ => cancellation.Cancel(), cancellation.Token));
+            Tool(executable).ExportAsync(ConnectionString, "shop", Path.Combine(_directory, "shop.bacpac"), _ => cancellation.Cancel(), cancellation.Token));
 
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10), $"took {stopwatch.Elapsed}");
         Assert.False(File.Exists(File.ReadAllText(record).Trim()));
@@ -143,10 +161,10 @@ public sealed class SqlPackageToolTests : IDisposable
     public async Task It_is_found_on_the_PATH()
     {
         if (OperatingSystem.IsWindows()) return;
-        FakeSqlPackage("echo found");
+        FakeSqlPackage("echo found\necho x > \"$target\"");
         var output = new List<string>();
 
-        await Tool(executable: null, path: $"/nonexistent:{_directory}").ExportAsync(ConnectionString, "shop", "shop.bacpac", output.Add, CancellationToken.None);
+        await Tool(executable: null, path: $"/nonexistent:{_directory}").ExportAsync(ConnectionString, "shop", Path.Combine(_directory, "shop.bacpac"), output.Add, CancellationToken.None);
 
         Assert.Equal(["found"], output);
     }

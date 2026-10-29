@@ -23,6 +23,9 @@ namespace LazyTsql.Tui;
 public sealed class MainView : Runnable
 {
     private readonly IDatabaseConnector _connector;
+    private readonly IBacpacTool _bacpac;
+    // sqlpackage opens its own connection, so it needs the connection string, not the session.
+    private string? _connectionString;
     private readonly FileConnectionStore _store;
     private readonly SemaphoreSlim _sessionGate = new(1, 1);
     private readonly SchemaCatalog _catalog = new();
@@ -46,9 +49,10 @@ public sealed class MainView : Runnable
     private ScriptFile? _script;
     private string _savedText = string.Empty;
 
-    public MainView(IDatabaseConnector connector, FileConnectionStore store)
+    public MainView(IDatabaseConnector connector, IBacpacTool bacpac, FileConnectionStore store)
     {
         _connector = connector;
+        _bacpac = bacpac;
         _store = store;
 
         _connections = new ListView { Width = Dim.Fill(), Height = Dim.Fill() };
@@ -192,6 +196,8 @@ public sealed class MainView : Runnable
         else if (_schema.HasFocus && key == Key.S) SelectTopFromTable();
         else if (_schema.HasFocus && key == Key.E) OpenDefinition();
         else if (_schema.HasFocus && key == Key.R) ReloadSchema();
+        else if (_schema.HasFocus && key == Key.X) ExportBacpac();
+        else if (_schema.HasFocus && key == Key.I) ImportBacpac();
         else if (_schema.HasFocus && key == Key.Enter) ToggleSchemaNode();
         else if (_results.HasFocus && key.AsRune.Value == ']') ShowResultSet(_resultIndex + 1);
         else if (_results.HasFocus && key.AsRune.Value == '[') ShowResultSet(_resultIndex - 1);
@@ -325,6 +331,7 @@ public sealed class MainView : Runnable
             var previous = _session;
             _session = session;
             _sessionName = displayName;
+            _connectionString = connectionString;
             if (previous is not null) await previous.DisposeAsync();
 
             OnUi(() =>
@@ -650,6 +657,78 @@ public sealed class MainView : Runnable
                 // Cancelling stops the command on the server, which SqlClient may report as an error.
                 if (ex is OperationCanceledException || token.IsCancellationRequested) throw new OperationCanceledException(token);
                 OnUi(() => Log($"✗ Export failed: {ex.Message}"));
+            }
+        }, _queryCancellation.Token);
+    }
+
+    /// <summary>Exports the database of the selected schema node (or the current one) with sqlpackage.</summary>
+    private void ExportBacpac()
+    {
+        if (_session is not { } session || _connectionString is not { } connectionString)
+        {
+            Log("Not connected. Pick a connection in [1] and press Enter.");
+            return;
+        }
+
+        var database = _schema.SelectedObject switch
+        {
+            DatabaseNode node => node.Name,
+            ObjectNode node => node.Database,
+            _ => session.CurrentDatabase,
+        };
+        var suggested = Path.Combine(Environment.CurrentDirectory, $"{database}-{DateTime.Now:yyyyMMdd-HHmmss}.bacpac");
+        if (FilePicker.Show(App!, $"Export {database}", "Export", suggested, ".bacpac") is not { } path) return;
+
+        RunSqlPackage($"Exporting {database} to {path}…", $"Exported {database} to {path}.", token =>
+            _bacpac.ExportAsync(connectionString, database, path, line => OnUi(() => Log(line)), token), onCancel: null);
+    }
+
+    /// <summary>Imports a .bacpac as a new database with sqlpackage, then reloads the schema.</summary>
+    private void ImportBacpac()
+    {
+        if (_session is null || _connectionString is not { } connectionString)
+        {
+            Log("Not connected. Pick a connection in [1] and press Enter.");
+            return;
+        }
+
+        if (FilePicker.Show(App!, "Import .bacpac", "Import", Environment.CurrentDirectory + Path.DirectorySeparatorChar, ".bacpac") is not { } path) return;
+        if (!File.Exists(path))
+        {
+            Log($"✗ File not found: {path}");
+            return;
+        }
+
+        if (NameDialog.Show(App!, "Import .bacpac", "New database name (it must not exist or be empty):", NameDialog.DefaultDatabaseName(path)) is not { } database) return;
+
+        RunSqlPackage($"Importing {path} as {database}…", $"Imported {path} as {database}.", async token =>
+        {
+            await _bacpac.ImportAsync(connectionString, database, path, line => OnUi(() => Log(line)), token);
+            OnUi(ReloadSchema);
+        }, onCancel: $"The database {database} may exist partially imported.");
+    }
+
+    /// <summary>Runs sqlpackage in the background with its output in Messages; Ctrl+K cancels it.</summary>
+    private void RunSqlPackage(string starting, string done, Func<CancellationToken, Task> run, string? onCancel)
+    {
+        _queryCancellation?.Dispose();
+        _queryCancellation = new CancellationTokenSource();
+        Log($"{starting} (Ctrl+K cancels)");
+        RunInBackground(async token =>
+        {
+            try
+            {
+                await run(token);
+                OnUi(() => Log(done));
+            }
+            catch (BacpacException ex)
+            {
+                OnUi(() => Log($"✗ {ex.Message}"));
+            }
+            catch (OperationCanceledException) when (onCancel is not null)
+            {
+                OnUi(() => Log(onCancel));
+                throw;
             }
         }, _queryCancellation.Token);
     }

@@ -16,8 +16,25 @@ public sealed class SqlPackageTool(Func<string, string?> getEnvironmentVariable)
 
     private const int ErrorLines = 5;
 
-    public Task ExportAsync(string connectionString, string database, string file, Action<string> output, CancellationToken cancellationToken) =>
-        RunAsync("Export", $"/SourceConnectionString:{Quote(WithDatabase(connectionString, database))}", $"/TargetFile:{Quote(Path.GetFullPath(file))}", output, cancellationToken);
+    /// <summary>
+    /// sqlpackage writes a file next to <paramref name="file"/> that replaces it only once complete, so a failed or
+    /// cancelled export neither leaves a partial file nor destroys an existing one.
+    /// </summary>
+    public async Task ExportAsync(string connectionString, string database, string file, Action<string> output, CancellationToken cancellationToken)
+    {
+        var target = Path.GetFullPath(file);
+        var partial = Path.Combine(Path.GetDirectoryName(target)!, $"{Path.GetFileNameWithoutExtension(target)}.partial-{Guid.NewGuid():N}.bacpac");
+        try
+        {
+            await RunAsync("Export", $"/SourceConnectionString:{Quote(WithDatabase(connectionString, database))}", $"/TargetFile:{Quote(partial)}", output, cancellationToken);
+            if (!File.Exists(partial)) throw new BacpacException($"sqlpackage finished without writing {target}.");
+            File.Move(partial, target, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(partial);
+        }
+    }
 
     public Task ImportAsync(string connectionString, string database, string file, Action<string> output, CancellationToken cancellationToken) =>
         RunAsync("Import", $"/TargetConnectionString:{Quote(WithDatabase(connectionString, database))}", $"/SourceFile:{Quote(Path.GetFullPath(file))}", output, cancellationToken);

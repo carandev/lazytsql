@@ -53,6 +53,7 @@ lazytsql -c dev migration.sql   # edit a script (created on the first save if it
 | `s` | `SELECT TOP (100)` from the selected table or view |
 | `e` | Open the selected procedure or function definition in the editor |
 | `r` | Reload the schema |
+| `x` / `i` | Export the selected database to a `.bacpac` / import a `.bacpac` as a new database (sqlpackage; `Ctrl+K` cancels) |
 | `[` / `]` | Previous / next result set |
 | `x` | Export the current result set to CSV with every row (UTF-8 with BOM so Excel keeps accents) |
 | `m` | Row limit: how many rows each result set fetches, or `all` |
@@ -107,7 +108,8 @@ lazytsql import -c dev -d app_copy app.bacpac     # .bacpac into a new, empty da
 `export` and `import` run [sqlpackage](https://learn.microsoft.com/sql/tools/sqlpackage/sqlpackage)
 (`dotnet tool install -g microsoft.sqlpackage`), found on the `PATH`, in `~/.dotnet/tools` or at
 `$LAZYTSQL_SQLPACKAGE`. The connection string reaches it through a response file only you can read, removed
-afterwards, never on the command line; a password containing `"` cannot be passed that way and is refused.
+afterwards, never on the command line; a password containing `"` cannot be passed that way and is refused. An export
+is written next to the target and replaces it only once complete, so a failed or cancelled export keeps the previous file.
 
 Options: `-d/--database`, `-m/--max-rows` (default 1000), `-t/--timeout` seconds (default 30).
 
