@@ -64,6 +64,8 @@ public static class Theme
     private static readonly Attribute VariableText = new(new Color(ColorName16.Cyan), Default);
 
     /// <summary>A table or column the database does not have.</summary>
+    public static Attribute LineNumber { get; } = new(Muted, Default);
+    public static Attribute CurrentLineNumber { get; } = new(Accent, Default, TextStyle.Bold);
     public static Attribute UnknownName { get; } = new(new Color(ColorName16.Red), Default, TextStyle.Underline);
 
     /// <summary>Editor color for a token; null keeps the normal text color.</summary>

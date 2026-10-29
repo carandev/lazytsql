@@ -111,6 +111,10 @@ public sealed class MainView : Runnable
         var messagesPanel = Panel("[6] Messages", _messages, Pos.Right(schemaPanel), Pos.AnchorEnd(8), Dim.Fill(), 7);
         var resultsPanel = Panel("[5] Results", _results, Pos.Right(schemaPanel), Pos.Bottom(editorPanel), Dim.Fill(), Dim.Fill(8));
         _panels = [connectionsPanel, filesPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel];
+        // Added after the editor, so focusing the panel still focuses the editor.
+        var lineNumbers = new LineNumbers(_editor) { X = 0, Y = 0 };
+        _editor.X = Pos.Right(lineNumbers);
+        editorPanel.Add(lineNumbers);
         LoadLayout();
 
         _hints = new Label { X = 1, Y = Pos.AnchorEnd(1), Width = Dim.Fill(1), Height = 1 };
