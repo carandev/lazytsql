@@ -61,7 +61,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T28 S23 TUI memory profile with large results; results are released before a run and the heap compacted after a large one — inline — AOT binary, 1M rows × 3 columns: idle 59 MB private, one run 280 MB; before the fix runs 2-3 reached 431/474 MB and a tiny result after kept 482 MB, after it 288/292 MB and 65 MB. No unit test (MainView has none); checked end to end
 - [x] T29 S23 AOT publish and smoke test — inline — publish exit 0, 21.6 MB, only third-party trim/AOT warnings (SqlClient, ConfigurationManager); CLI query/schema/synonym/capped billions-of-rows SELECT; TUI synonym completion, FK join, unknown-name marks
 - [x] T30 S24 sqlpackage adapter: locate it, pass the connection string in a 0600 response file (never in argv), stream its output, cancel, fail with its last lines — inline — 8 fake-sqlpackage tests (argv, 0600, removal, output, failure, cancel, not found, PATH, quoting) + real round trip against SQL Server 2022 (export, import as a new database, rows equal) + real export with a password holding ' ; and a space
-- [ ] T31 S24 CLI `lazytsql export|import -c <conn> -d <db> <file.bacpac>` + help + README — inline
+- [x] T31 S24 CLI `lazytsql export|import -c <conn> -d <db> <file.bacpac>` + help + README — inline — 8 tests (fake IBacpacTool: calls, stdout/stderr, default database, usage errors, exit 1 on failure) + e2e: export, import as shop_copy, rows equal, import into a non-empty database exits 1 with sqlpackage's error
 - [ ] T32 S24 TUI: `x` exports the selected database, `i` imports a .bacpac as a new database, output in Messages, Ctrl+K cancels — inline
 - [ ] T33 S25 Release on push (AOT binaries) and a .NET tool package — inline, after T30-T32
 

@@ -10,6 +10,7 @@ namespace LazyTsql.Cli;
 /// <summary>Non-interactive commands meant for scripts and agents. Exit codes: 0 success, 1 SQL errors, 2 usage or connection errors.</summary>
 public sealed class HeadlessCommands(
     IDatabaseConnector connector,
+    IBacpacTool bacpac,
     FileConnectionStore store,
     TextWriter stdout,
     Stream stdoutStream,
@@ -70,6 +71,50 @@ public sealed class HeadlessCommands(
         await using var session = await OpenAsync(args, cancellationToken);
         foreach (var database in await session.GetDatabasesAsync(cancellationToken)) stdout.WriteLine(database);
         return 0;
+    }
+
+    public Task<int> ExportAsync(CliArguments args, CancellationToken cancellationToken) =>
+        RunBacpacAsync(args, "export", (connection, database, file) =>
+            bacpac.ExportAsync(connection, database, file, stderr.WriteLine, cancellationToken), "Exported {0} to {1}", cancellationToken);
+
+    public Task<int> ImportAsync(CliArguments args, CancellationToken cancellationToken) =>
+        RunBacpacAsync(args, "import", (connection, database, file) =>
+            bacpac.ImportAsync(connection, database, file, stderr.WriteLine, cancellationToken), "Imported {1} as {0}", cancellationToken);
+
+    /// <summary>
+    /// export/import: sqlpackage's progress goes to stderr and one summary line to stdout. The database is -d or the
+    /// connection's; a file name without extension gets .bacpac.
+    /// </summary>
+    private async Task<int> RunBacpacAsync(CliArguments args, string command, Func<string, string, string, Task> run, string done, CancellationToken cancellationToken)
+    {
+        if (args.Has("--json") || args.Has("--csv")) throw new CliException($"{command} does not support --json or --csv.");
+        if (args.Positionals.Count != 1) throw new CliException($"Usage: lazytsql {command} [-c <conn>] [-d <db>] <file.bacpac>");
+        var file = Path.GetFullPath(Path.HasExtension(args.Positionals[0]) ? args.Positionals[0] : $"{args.Positionals[0]}.bacpac");
+        if (command == "import" && !File.Exists(file)) throw new CliException($"File not found: {args.Positionals[0]}");
+
+        var connectionString = ConnectionResolver.Resolve(args.Get("-c", "--connection"), store, getEnvironmentVariable);
+        var database = args.Get("-d", "--database") ?? ConnectionDatabase(connectionString)
+            ?? throw new CliException("Name the database with -d <database>.");
+        try
+        {
+            await run(connectionString, database, file);
+        }
+        catch (BacpacException ex)
+        {
+            stderr.WriteLine($"lazytsql: {ex.Message}");
+            return 1;
+        }
+
+        stdout.WriteLine(string.Format(System.Globalization.CultureInfo.InvariantCulture, done, database, file));
+        return 0;
+    }
+
+    private static string? ConnectionDatabase(string connectionString)
+    {
+        var builder = new System.Data.Common.DbConnectionStringBuilder { ConnectionString = connectionString };
+        return new[] { "Database", "Initial Catalog" }
+            .Select(key => builder.TryGetValue(key, out var value) ? value?.ToString() : null)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
     }
 
     public int Connections(CliArguments args)

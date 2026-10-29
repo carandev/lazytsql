@@ -12,11 +12,13 @@ public sealed class HeadlessCommandsTests : IDisposable
     private readonly string _directory = Directory.CreateTempSubdirectory("lazytsql-tests-").FullName;
     private readonly StringWriter _stdout = new();
     private readonly StringWriter _stderr = new();
+    private readonly FakeBacpacTool _bacpac = new();
 
     public void Dispose() => Directory.Delete(_directory, recursive: true);
 
     private HeadlessCommands Commands() => new(
         new FakeConnector(),
+        _bacpac,
         new FileConnectionStore(Path.Combine(_directory, "connections.json")),
         _stdout,
         Stream.Null,
@@ -49,6 +51,90 @@ public sealed class HeadlessCommandsTests : IDisposable
         Assert.Contains("id | name", _stdout.ToString());
         Assert.Contains("hello", _stdout.ToString());
         Assert.Empty(_stderr.ToString());
+    }
+
+    [Fact]
+    public async Task Export_writes_the_database_to_a_bacpac_with_sqlpackage_output_on_stderr()
+    {
+        var file = Path.Combine(_directory, "shop");
+
+        var exitCode = await Commands().ExportAsync(CliArguments.Parse(["export", "-c", "Server=x;Password=p", "-d", "shop", file]), CancellationToken.None);
+
+        Assert.Equal(0, exitCode);
+        Assert.Equal(("Export", "Server=x;Password=p", "shop", $"{file}.bacpac"), _bacpac.Calls.Single());
+        Assert.Equal("Processing...\n", _stderr.ToString().ReplaceLineEndings("\n"));
+        Assert.Equal($"Exported shop to {file}.bacpac\n", _stdout.ToString().ReplaceLineEndings("\n"));
+    }
+
+    [Fact]
+    public async Task Export_defaults_to_the_database_of_the_connection()
+    {
+        await Commands().ExportAsync(CliArguments.Parse(["export", "-c", "Server=x;Database=app", "app.bacpac"]), CancellationToken.None);
+
+        Assert.Equal("app", _bacpac.Calls.Single().Database);
+    }
+
+    [Fact]
+    public async Task Import_creates_the_database_from_an_existing_file()
+    {
+        var file = Path.Combine(_directory, "shop.bacpac");
+        File.WriteAllText(file, "");
+
+        var exitCode = await Commands().ImportAsync(CliArguments.Parse(["import", "-c", "Server=x;", "-d", "shop_copy", file]), CancellationToken.None);
+
+        Assert.Equal(0, exitCode);
+        Assert.Equal(("Import", "Server=x;", "shop_copy", file), _bacpac.Calls.Single());
+        Assert.Equal($"Imported {file} as shop_copy\n", _stdout.ToString().ReplaceLineEndings("\n"));
+    }
+
+    [Theory]
+    [InlineData(new[] { "import", "-c", "Server=x;", "-d", "shop", "missing.bacpac" }, "File not found: missing.bacpac")]
+    [InlineData(new[] { "export", "-c", "Server=x;", "shop.bacpac" }, "Name the database with -d <database>.")]
+    [InlineData(new[] { "export", "-c", "Server=x;", "-d", "shop" }, "Usage: lazytsql export [-c <conn>] [-d <db>] <file.bacpac>")]
+    [InlineData(new[] { "export", "-c", "Server=x;", "-d", "shop", "shop.bacpac", "--json" }, "export does not support --json or --csv.")]
+    public async Task Bacpac_usage_errors(string[] args, string message)
+    {
+        var commands = Commands();
+        var arguments = CliArguments.Parse(args);
+
+        var error = await Assert.ThrowsAsync<CliException>(() => args[0] == "export"
+            ? commands.ExportAsync(arguments, CancellationToken.None)
+            : commands.ImportAsync(arguments, CancellationToken.None));
+
+        Assert.Equal(message, error.Message);
+        Assert.Empty(_bacpac.Calls);
+    }
+
+    [Fact]
+    public async Task A_sqlpackage_failure_exits_with_one()
+    {
+        _bacpac.Failure = "sqlpackage export failed (exit code 1): boom";
+
+        var exitCode = await Commands().ExportAsync(CliArguments.Parse(["export", "-c", "Server=x;", "-d", "shop", "shop.bacpac"]), CancellationToken.None);
+
+        Assert.Equal(1, exitCode);
+        Assert.EndsWith("lazytsql: sqlpackage export failed (exit code 1): boom\n", _stderr.ToString().ReplaceLineEndings("\n"), StringComparison.Ordinal);
+        Assert.Empty(_stdout.ToString());
+    }
+
+    private sealed class FakeBacpacTool : IBacpacTool
+    {
+        public List<(string Action, string ConnectionString, string Database, string File)> Calls { get; } = [];
+
+        public string? Failure { get; set; }
+
+        public Task ExportAsync(string connectionString, string database, string file, Action<string> output, CancellationToken cancellationToken) =>
+            Run("Export", connectionString, database, file, output);
+
+        public Task ImportAsync(string connectionString, string database, string file, Action<string> output, CancellationToken cancellationToken) =>
+            Run("Import", connectionString, database, file, output);
+
+        private Task Run(string action, string connectionString, string database, string file, Action<string> output)
+        {
+            Calls.Add((action, connectionString, database, file));
+            output("Processing...");
+            return Failure is null ? Task.CompletedTask : Task.FromException(new BacpacException(Failure));
+        }
     }
 
     private sealed class FakeConnector : IDatabaseConnector

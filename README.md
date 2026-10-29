@@ -100,7 +100,14 @@ lazytsql schema -c dev -d app --json              # tables, views, procedures, f
 lazytsql schema -c dev -d app dbo.users --json    # columns
 lazytsql schema -c dev -d app dbo.get_users       # routine definition
 lazytsql databases -c dev
+lazytsql export -c dev -d app app.bacpac          # whole database to a .bacpac (sqlpackage progress on stderr)
+lazytsql import -c dev -d app_copy app.bacpac     # .bacpac into a new, empty database
 ```
+
+`export` and `import` run [sqlpackage](https://learn.microsoft.com/sql/tools/sqlpackage/sqlpackage)
+(`dotnet tool install -g microsoft.sqlpackage`), found on the `PATH`, in `~/.dotnet/tools` or at
+`$LAZYTSQL_SQLPACKAGE`. The connection string reaches it through a response file only you can read, removed
+afterwards, never on the command line; a password containing `"` cannot be passed that way and is refused.
 
 Options: `-d/--database`, `-m/--max-rows` (default 1000), `-t/--timeout` seconds (default 30).
 
