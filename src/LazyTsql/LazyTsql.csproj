@@ -43,6 +43,11 @@
     <Description>A lazygit-style terminal client for SQL Server: schema browser, editor with completion, results grid, CSV and .bacpac export.</Description>
     <PackageTags>sql-server;tsql;tui;terminal;cli</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Authors>Carlos Gomez</Authors>
+    <PackageProjectUrl>https://github.com/carandev/lazytsql</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/carandev/lazytsql</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>

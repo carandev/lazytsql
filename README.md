@@ -13,6 +13,7 @@ for scripts and coding agents. It ships as a single native binary you can copy t
 - [Configuration reference](#configuration-reference)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
+- [License](#license)
 
 ## Requirements
 
@@ -297,3 +298,7 @@ Every push to `main` runs `.github/workflows/release.yml`:
    `lazytsql` .NET tool on NuGet.org (one package per platform plus the one users install).
 
 Publishing to NuGet.org needs the repository secret `NUGET_API_KEY`.
+
+## License
+
+[MIT](LICENSE)
