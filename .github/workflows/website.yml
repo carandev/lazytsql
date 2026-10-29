@@ -11,6 +11,9 @@ on:
     workflows: [Release]
     types: [completed]
     branches: [main]
+  # Release notes edited by hand on GitHub show up on the changelog page.
+  release:
+    types: [edited]
   workflow_dispatch:
 
 permissions:

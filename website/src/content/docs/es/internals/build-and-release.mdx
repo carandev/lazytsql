@@ -52,8 +52,12 @@ paquetes de herramienta específicos por RID de .NET 10:
    - hace push a NuGet.org con `--skip-duplicate`: primero los paquetes de plataforma y al final el puntero, porque instalar el
      puntero requiere que exista cada paquete de plataforma;
    - escribe `SHA256SUMS` con los hashes de los archivos comprimidos, que `install.sh` e `install.ps1` verifican;
-   - crea la release de GitHub `v<version>` con los archivos comprimidos, `SHA256SUMS` y notas generadas, o los sube a ella
-     si ya existe.
+   - crea la release de GitHub `v<version>` con los archivos comprimidos y `SHA256SUMS`, o los sube a ella si ya existe.
+     Sus notas son la descripción del pull request que se mergeó en ese commit, escrita a mano en cada uno (un push sin
+     pull request recibe la lista que genera GitHub).
+
+La página del [historial de versiones](/lazytsql/es/changelog/) muestra esas notas: el sitio se vuelve a publicar
+después de cada release exitosa y cada vez que se editan las notas de una release en GitHub.
 
 Una publicación fallida se puede volver a ejecutar sin riesgo: NuGet omite los paquetes que ya tiene y la release se actualiza, no se
 duplica.
