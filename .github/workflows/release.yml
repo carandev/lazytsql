@@ -82,9 +82,9 @@ jobs:
         run: |
           cd publish
           if [ "${{ matrix.rid }}" = win-x64 ]; then
-            7z a "../lazytsql-$VERSION-${{ matrix.rid }}.zip" lazytsql.exe
+            7z a "../lazytsql-${{ matrix.rid }}.zip" lazytsql.exe
           else
-            tar -czf "../lazytsql-$VERSION-${{ matrix.rid }}.tar.gz" lazytsql
+            tar -czf "../lazytsql-${{ matrix.rid }}.tar.gz" lazytsql
           fi
       - uses: actions/upload-artifact@v4
         with:
