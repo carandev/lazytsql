@@ -519,6 +519,7 @@ public sealed class MainView : Runnable
         _queryCancellation?.Dispose();
         _queryCancellation = new CancellationTokenSource();
         var cancellation = _queryCancellation;
+        ReleaseResults();
         _panels[3].Title = "[4] Results · running…";
         Log("Running…");
 
@@ -551,6 +552,18 @@ public sealed class MainView : Runnable
             cancellation.Cancel();
             Log("Cancel requested.");
         }
+    }
+
+    /// <summary>
+    /// Drops the shown results before a run, so the old and the new rows are never held together. After a large result
+    /// the heap is compacted, which gives its memory back to the system instead of keeping it for the next run.
+    /// </summary>
+    private void ReleaseResults()
+    {
+        var rows = _resultSets.Sum(shown => (long)shown.Set.Rows.Count);
+        _resultSets = [];
+        ShowResultSet(0);
+        if (rows >= 100_000) GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
     }
 
     private void ShowResultSet(int index)

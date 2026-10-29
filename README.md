@@ -62,7 +62,8 @@ lazytsql -c dev migration.sql   # edit a script (created on the first save if it
 | `q` / `Ctrl+Q` | Quit after confirming (`y`/`Enter` quits, `n`/`Esc` stays; `q` only outside the editor) |
 
 Result sets show the first 1000 rows to keep memory bounded; press `m` in the results panel to fetch more, or `all`.
-The limit applies to the next run. When the batch is a single `SELECT`, the server stops once the limit is reached
+The limit applies to the next run, and running again releases the previous results first (one million rows of
+three columns take about 220 MB). When the batch is a single `SELECT`, the server stops once the limit is reached
 instead of sending the remaining rows; any other batch reads and discards them, so every statement still runs. Exporting a capped result set runs its batch again and streams every row to the
 file without holding them in memory; it asks first, because the batch's side effects run again too, and `Ctrl+K`
 cancels it (the partial file is removed).
