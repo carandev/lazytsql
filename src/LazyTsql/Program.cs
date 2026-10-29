@@ -8,7 +8,7 @@ const string Usage = """
     lazytsql - a lazygit-style SQL Server client
 
     Usage:
-      lazytsql [-c <connection>] [<file.sql>]    Open the TUI, optionally editing a script
+      lazytsql [-c <connection>] [<file.sql> | <dir>]  Open the TUI, optionally editing a script or browsing a folder of scripts
       lazytsql query  [-c <conn>] [-d <db>] (-q <sql> | -f <file> | stdin) [--json | --csv] [--max-rows N] [--timeout S]
       lazytsql schema [-c <conn>] [-d <db>] [<schema.object>] [--json]
       lazytsql databases [-c <conn>]
@@ -54,14 +54,15 @@ try
 
     return arguments.Command switch
     {
-        null => TuiApplication.Run(connector, bacpac, store, arguments.Get("-c", "--connection"), arguments.ScriptPath),
+        null => TuiApplication.Run(connector, bacpac, store, arguments.Get("-c", "--connection"), arguments.ScriptPath, arguments.DirectoryPath),
         "query" => await commands.QueryAsync(arguments, cancellation.Token),
         "schema" => await commands.SchemaAsync(arguments, cancellation.Token),
         "databases" => await commands.DatabasesAsync(arguments, cancellation.Token),
         "export" => await commands.ExportAsync(arguments, cancellation.Token),
         "import" => await commands.ImportAsync(arguments, cancellation.Token),
         "connections" => commands.Connections(arguments),
-        _ when arguments.ScriptPath is { } script => TuiApplication.Run(connector, bacpac, store, arguments.Get("-c", "--connection"), script),
+        _ when arguments.ScriptPath is not null || arguments.DirectoryPath is not null =>
+            TuiApplication.Run(connector, bacpac, store, arguments.Get("-c", "--connection"), arguments.ScriptPath, arguments.DirectoryPath),
         _ => throw new CliException($"Unknown command '{arguments.Command}'. Run 'lazytsql --help'."),
     };
 }

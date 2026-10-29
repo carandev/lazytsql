@@ -99,8 +99,8 @@ The result is a single file of about 21 MB. Native AOT only compiles for the OS 
    lazytsql -c dev
    ```
 
-3. Write a query in the editor (panel `3`) and press `F5`. The results appear in panel `4` and the server
-   messages in panel `5`.
+3. Write a query in the editor (panel `4`) and press `F5`. The results appear in panel `5` and the server
+   messages in panel `6`.
 
 4. Press `?` at any time to see the keys of the panel you are in. `q` quits.
 
@@ -110,16 +110,20 @@ The result is a single file of about 21 MB. Native AOT only compiles for the OS 
 lazytsql                        # pick or create a connection in panel [1]
 lazytsql -c dev                 # connect on start
 lazytsql -c dev migration.sql   # edit a script (created on the first save if it does not exist)
+lazytsql -c dev ./scripts       # browse a folder of scripts in panel [2]
 ```
 
-The screen has five panels: connections `[1]`, schema `[2]`, query `[3]`, results `[4]` and messages `[5]`. The footer
-always shows the keys of the focused panel or dialog.
+The screen has six panels: connections `[1]`, files `[2]`, schema `[3]`, query `[4]`, results `[5]` and messages `[6]`.
+The footer always shows the keys of the focused panel or dialog.
+
+The files panel shows the folder given on the command line, else the folder of the script being edited, else the
+working directory: its subfolders and `.sql` files, without hidden folders such as `.git`.
 
 ### Keys
 
 | Key | Where | Action |
 | --- | --- | --- |
-| `1`-`5`, `Alt+1`-`Alt+5`, `Tab` | Anywhere | Focus a panel (`Alt+` also works inside the editor) |
+| `1`-`6`, `Alt+1`-`Alt+6`, `Tab` | Anywhere | Focus a panel (`Alt+` also works inside the editor) |
 | `F5` / `Ctrl+E` | Anywhere | Run the selection, or the whole script batch by batch (`GO`, `GO n`) |
 | `Ctrl+K` | Anywhere | Cancel the running query, export or import |
 | `Ctrl+O` / `Ctrl+S` | Anywhere | Open / save a `.sql` file; the title shows `*` while there are unsaved changes |
@@ -128,6 +132,9 @@ always shows the keys of the focused panel or dialog.
 | `h` `j` `k` `l`, `g` / `G`, `Ctrl+D` / `Ctrl+U` | Outside the editor | Vim motions |
 | `Enter` | Connections | Connect |
 | `a` / `e` / `d` | Connections | Add, edit or delete a connection |
+| `Enter` | Files | Open the selected script in the editor (asks first if there are unsaved changes), or expand a folder |
+| `h` / `l` | Files | Collapse / expand a folder |
+| `r` | Files | Refresh after files change on disk; saving a new script refreshes it too |
 | `Enter`, `h` / `l` | Schema | Expand or collapse |
 | `s` | Schema | `SELECT TOP (100)` from the selected table or view |
 | `e` | Schema | Open the selected procedure or function definition in the editor |

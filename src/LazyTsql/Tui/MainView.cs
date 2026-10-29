@@ -17,11 +17,13 @@ using LazyTsql.Core.Connections;
 namespace LazyTsql.Tui;
 
 /// <summary>
-/// lazygit-style layout: numbered panels on the left (connections, schema), editor and results on the right,
+/// lazygit-style layout: numbered panels on the left (connections, files, schema), editor and results on the right,
 /// a message log at the bottom and context key hints in the status bar.
 /// </summary>
 public sealed class MainView : Runnable
 {
+    private const int ConnectionsPanel = 0, FilesPanel = 1, SchemaPanel = 2, QueryPanel = 3, ResultsPanel = 4;
+
     private readonly IDatabaseConnector _connector;
     private readonly IBacpacTool _bacpac;
     // sqlpackage opens its own connection, so it needs the connection string, not the session.
@@ -32,6 +34,7 @@ public sealed class MainView : Runnable
     private readonly ObservableCollection<string> _connectionNames = [];
     private readonly FrameView[] _panels;
     private readonly ListView _connections;
+    private readonly TreeView<FileNode> _files;
     private readonly TreeView<SchemaNode> _schema;
     private readonly SqlEditor _editor;
     private readonly TableView _results;
@@ -48,6 +51,7 @@ public sealed class MainView : Runnable
     private bool _quitConfirmed;
     private ScriptFile? _script;
     private string _savedText = string.Empty;
+    private FileNode _filesRoot = FileNode.Directory(Environment.CurrentDirectory);
 
     public MainView(IDatabaseConnector connector, IBacpacTool bacpac, FileConnectionStore store)
     {
@@ -57,6 +61,15 @@ public sealed class MainView : Runnable
 
         _connections = new ListView { Width = Dim.Fill(), Height = Dim.Fill() };
         _connections.SetSource(_connectionNames);
+
+        _files = new TreeView<FileNode>
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            AllowLetterBasedNavigation = false,
+            Style = new TreeStyle { ShowBranchLines = false, ExpandableSymbol = new System.Text.Rune('▸'), CollapseableSymbol = new System.Text.Rune('▾') },
+            TreeBuilder = new DelegateTreeBuilder<FileNode>(node => node.Children(), node => node.IsDirectory),
+        };
 
         _schema = new TreeView<SchemaNode>
         {
@@ -76,11 +89,12 @@ public sealed class MainView : Runnable
         _messages = new TextView { Width = Dim.Fill(), Height = Dim.Fill(), ReadOnly = true, WordWrap = true };
 
         var connectionsPanel = Panel("[1] Connections", _connections, 0, 0, Dim.Percent(28), Dim.Percent(20));
-        var schemaPanel = Panel("[2] Schema", _schema, 0, Pos.Bottom(connectionsPanel), Dim.Percent(28), Dim.Fill(1));
-        var editorPanel = Panel("[3] Query", _editor, Pos.Right(connectionsPanel), 0, Dim.Fill(), Dim.Percent(38));
-        var messagesPanel = Panel("[5] Messages", _messages, Pos.Right(schemaPanel), Pos.AnchorEnd(8), Dim.Fill(), 7);
-        var resultsPanel = Panel("[4] Results", _results, Pos.Right(schemaPanel), Pos.Bottom(editorPanel), Dim.Fill(), Dim.Fill(8));
-        _panels = [connectionsPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel];
+        var filesPanel = Panel("[2] Files", _files, 0, Pos.Bottom(connectionsPanel), Dim.Percent(28), Dim.Percent(30));
+        var schemaPanel = Panel("[3] Schema", _schema, 0, Pos.Bottom(filesPanel), Dim.Percent(28), Dim.Fill(1));
+        var editorPanel = Panel("[4] Query", _editor, Pos.Right(connectionsPanel), 0, Dim.Fill(), Dim.Percent(38));
+        var messagesPanel = Panel("[6] Messages", _messages, Pos.Right(schemaPanel), Pos.AnchorEnd(8), Dim.Fill(), 7);
+        var resultsPanel = Panel("[5] Results", _results, Pos.Right(schemaPanel), Pos.Bottom(editorPanel), Dim.Fill(), Dim.Fill(8));
+        _panels = [connectionsPanel, filesPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel];
 
         _hints = new Label { X = 1, Y = Pos.AnchorEnd(1), Width = Dim.Fill(1), Height = 1 };
         _hints.SetScheme(Theme.Hints);
@@ -93,7 +107,8 @@ public sealed class MainView : Runnable
         _catalog.ForeignKeysNeeded += LoadCatalogForeignKeys;
 
         SetScheme(Theme.Content);
-        Add(connectionsPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel, _hints);
+        Add(connectionsPanel, filesPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel, _hints);
+        ShowFiles(Environment.CurrentDirectory);
         Initialized += (_, _) =>
         {
             App!.Keyboard.KeyDown += OnGlobalKeyDown;
@@ -111,6 +126,15 @@ public sealed class MainView : Runnable
         _editor.Text = text;
         _savedText = _editor.Text;
         UpdateEditorTitle();
+    }
+
+    /// <summary>Shows a folder's scripts in the files panel, the folder itself expanded at the top.</summary>
+    public void ShowFiles(string directory)
+    {
+        _filesRoot = FileNode.Directory(directory);
+        _files.ClearObjects();
+        _files.AddObject(_filesRoot);
+        _files.Expand(_filesRoot);
     }
 
     public void ConnectOnStart(string connectionString, string displayName) =>
@@ -181,7 +205,7 @@ public sealed class MainView : Runnable
         else if (key == Key.O.WithCtrl) PromptOpenScript();
         else if (key == Key.Q.WithCtrl) Quit();
         // Esc first closes the completion popup; the editor handles that.
-        else if (key == Key.Esc && inEditor && !_editor.Autocomplete.Visible) FocusPanel(3);
+        else if (key == Key.Esc && inEditor && !_editor.Autocomplete.Visible) FocusPanel(ResultsPanel);
         else if (key.IsAlt && PanelIndex(key.NoAlt) is { } altPanel) FocusPanel(altPanel);
         else if (!inEditor && VimMotion(key) is { } motion) _panels[CurrentPanel()].SubViews.First().NewKeyDownEvent(motion);
         else if (inEditor || _messages.HasFocus && key != Key.Tab) handled = false;
@@ -193,6 +217,8 @@ public sealed class MainView : Runnable
         else if (_connections.HasFocus && key == Key.A) EditConnection(null);
         else if (_connections.HasFocus && key == Key.E) EditConnection(SelectedProfile());
         else if (_connections.HasFocus && key == Key.D) DeleteConnection();
+        else if (_files.HasFocus && key == Key.Enter) OpenSelectedFile();
+        else if (_files.HasFocus && key == Key.R) ReloadFiles();
         else if (_schema.HasFocus && key == Key.S) SelectTopFromTable();
         else if (_schema.HasFocus && key == Key.E) OpenDefinition();
         else if (_schema.HasFocus && key == Key.R) ReloadSchema();
@@ -232,15 +258,16 @@ public sealed class MainView : Runnable
 
     private KeyContext PanelContext() => CurrentPanel() switch
     {
-        0 => KeyContext.Connections,
-        1 => KeyContext.Schema,
-        2 => KeyContext.Query,
-        3 => KeyContext.Results,
+        ConnectionsPanel => KeyContext.Connections,
+        FilesPanel => KeyContext.Files,
+        SchemaPanel => KeyContext.Schema,
+        QueryPanel => KeyContext.Query,
+        ResultsPanel => KeyContext.Results,
         _ => KeyContext.Messages,
     };
 
     private static int? PanelIndex(Key key) =>
-        key.AsRune.Value is >= '1' and <= '5' and var digit ? digit - '1' : null;
+        key.AsRune.Value is >= '1' and <= '6' and var digit ? digit - '1' : null;
 
     private int CurrentPanel() => Math.Max(0, Array.FindIndex(_panels, p => p.HasFocus));
 
@@ -340,7 +367,7 @@ public sealed class MainView : Runnable
                 ShowDatabases(databases, session);
                 UpdateEditorTitle();
                 Log($"Connected to {displayName} (SQL Server {session.ServerVersion}), database {session.CurrentDatabase}.");
-                FocusPanel(1);
+                FocusPanel(SchemaPanel);
             });
         });
     }
@@ -507,7 +534,7 @@ public sealed class MainView : Runnable
             var definition = await session.GetDefinitionAsync(routine.Value, token);
             OnUi(() =>
             {
-                if (ReplaceEditorText(definition.Trim())) FocusPanel(2);
+                if (ReplaceEditorText(definition.Trim())) FocusPanel(QueryPanel);
             });
         });
     }
@@ -759,7 +786,7 @@ public sealed class MainView : Runnable
     {
         var file = _script is null ? string.Empty : $" · {_script.Name}{(IsScriptDirty ? "*" : string.Empty)}";
         var connection = _session is null ? string.Empty : $" · {_sessionName} › {_session.CurrentDatabase}";
-        _panels[2].Title = $"[3] Query{file}{connection}";
+        _panels[QueryPanel].Title = $"[4] Query{file}{connection}";
     }
 
     private bool IsScriptDirty => _script is not null && _editor.Text != _savedText;
@@ -782,13 +809,38 @@ public sealed class MainView : Runnable
         if (!ConfirmDiscardScript()) return;
         var directory = _script is null ? Environment.CurrentDirectory : Path.GetDirectoryName(_script.Path)!;
         if (FilePicker.Show(App!, "Open script", "Open", directory + Path.DirectorySeparatorChar, ".sql") is not { } path) return;
+        OpenScriptFile(path);
+    }
 
+    /// <summary>Enter on a script opens it; on a folder it expands or collapses.</summary>
+    private void OpenSelectedFile()
+    {
+        if (_files.SelectedObject is not { } node) return;
+        if (node.IsDirectory)
+        {
+            if (_files.IsExpanded(node)) _files.Collapse(node);
+            else _files.Expand(node);
+        }
+        else if (ConfirmDiscardScript())
+        {
+            OpenScriptFile(node.Path);
+        }
+    }
+
+    private void ReloadFiles()
+    {
+        _files.RebuildTree();
+        _files.SetNeedsDraw();
+    }
+
+    private void OpenScriptFile(string path)
+    {
         try
         {
             var (script, text) = ScriptFile.Open(path);
             OpenScript(script, text);
             Log(File.Exists(script.Path) ? $"Opened {script.Path}." : $"New file {script.Path}; Ctrl+S creates it.");
-            FocusPanel(2);
+            FocusPanel(QueryPanel);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
@@ -816,6 +868,8 @@ public sealed class MainView : Runnable
             _savedText = text;
             UpdateEditorTitle();
             Log($"Saved {script.Path}.");
+            // A script saved as a new file shows up in the files panel.
+            ReloadFiles();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {

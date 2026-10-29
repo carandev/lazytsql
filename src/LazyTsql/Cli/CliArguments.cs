@@ -39,8 +39,13 @@ public sealed class CliArguments
     }
 
     /// <summary>Script to open in the TUI: <c>lazytsql query.sql</c> or <c>lazytsql -c dev query.sql</c>.</summary>
-    public string? ScriptPath => Command is { } command
-        ? command.EndsWith(".sql", StringComparison.OrdinalIgnoreCase) ? command : null
+    public string? ScriptPath => TuiPath is { } path && !Directory.Exists(path) ? path : null;
+
+    /// <summary>Folder to show in the files panel: <c>lazytsql ./scripts</c> or <c>lazytsql -c dev ./scripts</c>.</summary>
+    public string? DirectoryPath => TuiPath is { } path && Directory.Exists(path) ? path : null;
+
+    private string? TuiPath => Command is { } command
+        ? command.EndsWith(".sql", StringComparison.OrdinalIgnoreCase) || Directory.Exists(command) ? command : null
         : Positionals.FirstOrDefault();
 
     public bool Has(string flag) => _flags.Contains(flag);
