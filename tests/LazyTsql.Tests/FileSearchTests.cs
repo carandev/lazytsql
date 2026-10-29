@@ -43,6 +43,29 @@ public sealed class FileSearchTests : IDisposable
         Assert.Equal(["", "a", "a/b"], FileSearch.Ancestors(root, match).Select(Relative).Select(path => path == "." ? "" : path));
     }
 
+    [Fact]
+    public void Linked_folders_are_not_searched_so_a_link_loop_cannot_hang_it()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        Touch("real/orders.sql");
+        Directory.CreateSymbolicLink(Path.Combine(_directory, "real", "loop"), _directory);
+        Directory.CreateSymbolicLink(Path.Combine(_directory, "linked"), Path.Combine(_directory, "real"));
+
+        var matches = FileSearch.Matches(FileNode.Directory(_directory), "orders");
+
+        Assert.Equal(["real/orders.sql"], matches.Select(Relative));
+    }
+
+    [Fact]
+    public void A_cancelled_search_stops()
+    {
+        Touch("orders.sql");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Assert.Empty(FileSearch.Matches(FileNode.Directory(_directory), "orders", cancellation.Token));
+    }
+
     [Theory]
     [InlineData(0, 1, 1)]
     [InlineData(2, 1, 0)]

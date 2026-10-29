@@ -6,8 +6,11 @@ public static class FileSearch
     // A search from a huge working directory stops here instead of walking the whole disk.
     private const int MaxVisited = 20_000;
 
-    /// <summary>Matches in the order the tree shows them: depth first, folders before scripts, ignoring case.</summary>
-    public static IReadOnlyList<FileNode> Matches(FileNode root, string query)
+    /// <summary>
+    /// Matches in the order the tree shows them: depth first, folders before scripts, ignoring case. Linked folders are
+    /// listed but not entered, so a link back to a parent cannot loop. A cancelled search returns what it found so far.
+    /// </summary>
+    public static IReadOnlyList<FileNode> Matches(FileNode root, string query, CancellationToken cancellationToken = default)
     {
         var matches = new List<FileNode>();
         if (string.IsNullOrEmpty(query)) return matches;
@@ -17,14 +20,26 @@ public static class FileSearch
         {
             foreach (var node in folder.Children())
             {
-                if (++visited > MaxVisited) return;
+                if (++visited > MaxVisited || cancellationToken.IsCancellationRequested) return;
                 if (System.IO.Path.GetFileName(node.Path).Contains(query, StringComparison.OrdinalIgnoreCase)) matches.Add(node);
-                if (node.IsDirectory) Walk(node);
+                if (node.IsDirectory && !IsLink(node.Path)) Walk(node);
             }
         }
 
-        Walk(root);
+        if (!cancellationToken.IsCancellationRequested) Walk(root);
         return matches;
+    }
+
+    private static bool IsLink(string path)
+    {
+        try
+        {
+            return new DirectoryInfo(path).LinkTarget is not null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
     }
 
     /// <summary>The folders to expand, from the root down to the one holding <paramref name="node"/>.</summary>

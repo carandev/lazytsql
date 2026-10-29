@@ -15,7 +15,17 @@ namespace LazyTsql.Tui;
 public static class FilePicker
 {
     /// <summary>Returns the chosen absolute path, or null when cancelled. A name without extension gets <paramref name="extension"/>.</summary>
-    public static string? Show(IApplication app, string title, string acceptLabel, string initialPath, string extension)
+    public static string? Show(IApplication app, string title, string acceptLabel, string initialPath, string extension) =>
+        Show(app, title, acceptLabel, initialPath, extension, folders: false);
+
+    /// <summary>
+    /// Picks a folder: the list shows only folders, Enter on one browses into it, and Enter on the path (or the accept
+    /// button) chooses the folder typed there. Returns its absolute path, or null when cancelled.
+    /// </summary>
+    public static string? ShowFolder(IApplication app, string title, string acceptLabel, string initialPath) =>
+        Show(app, title, acceptLabel, initialPath, extension: string.Empty, folders: true);
+
+    private static string? Show(IApplication app, string title, string acceptLabel, string initialPath, string extension, bool folders)
     {
         string? result = null;
         var separator = Path.DirectorySeparatorChar;
@@ -41,6 +51,7 @@ public static class FilePicker
 
             foreach (var entry in PathCompletion.Matches(field.Text, extension))
             {
+                if (folders && !entry.IsDirectory) continue;
                 names.Add(entry.IsDirectory ? entry.Name + separator : entry.Name);
                 entries.Add(entry);
             }
@@ -101,6 +112,19 @@ public static class FilePicker
             try
             {
                 var path = PathCompletion.ExpandHome(text);
+                if (folders)
+                {
+                    if (!Directory.Exists(path))
+                    {
+                        status.Text = $"✗ Not a folder: {text}";
+                        return;
+                    }
+
+                    result = Path.GetFullPath(path);
+                    app.RequestStop(dialog);
+                    return;
+                }
+
                 if (Directory.Exists(path))
                 {
                     SetPath(text.TrimEnd(separator) + separator);

@@ -49,6 +49,7 @@ public class TuiTests
     public void Files_can_be_searched_with_a_slash_like_in_vim()
     {
         Assert.Contains("/ search", KeyHelp.Footer(KeyContext.Files), StringComparison.Ordinal);
+        Assert.Contains("o open folder", KeyHelp.Footer(KeyContext.Files), StringComparison.Ordinal);
         Assert.Contains("n/N next/prev match", KeyHelp.Footer(KeyContext.Files), StringComparison.Ordinal);
         Assert.StartsWith("type to search · Enter keep · Esc cancel", KeyHelp.Footer(KeyContext.FileSearch), StringComparison.Ordinal);
     }

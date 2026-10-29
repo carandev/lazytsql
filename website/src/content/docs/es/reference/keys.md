@@ -29,6 +29,7 @@ la aplicación muestra con `?` (o `F1`).
 | | `a` / `e` / `d` | Agregar / editar / eliminar una conexión |
 | Archivos `[2]` | `Enter` | Abrir el script, o expandir/contraer una carpeta |
 | | `h` / `l` | Contraer / expandir |
+| | `o` | Abrir otra carpeta |
 | | `/` | Buscar carpetas y scripts en cualquier nivel |
 | | `n` / `N` | Coincidencia siguiente / anterior |
 | | `r` | Actualizar |

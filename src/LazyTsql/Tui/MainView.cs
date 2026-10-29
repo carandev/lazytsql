@@ -53,13 +53,15 @@ public sealed class MainView : Runnable
     private bool _quitConfirmed;
     private ScriptFile? _script;
     private string _savedText = string.Empty;
-    private FileNode _filesRoot = FileNode.Directory(Environment.CurrentDirectory);
+    // Null until a folder is given on the command line or opened with o: nothing is read from disk before that.
+    private FileNode? _filesRoot;
     private readonly SystemClipboard _clipboard = SystemClipboard.Default();
     // The / search of the files panel: the query while typing (null otherwise), its matches for n/N, and where it started.
     private string? _fileQuery;
     private IReadOnlyList<FileNode> _fileMatches = [];
     private int _fileMatch;
     private FileNode? _fileSearchStart;
+    private CancellationTokenSource? _fileSearchCancellation;
 
     public MainView(IDatabaseConnector connector, IBacpacTool bacpac, FileConnectionStore store, ActivityLog activity)
     {
@@ -98,7 +100,7 @@ public sealed class MainView : Runnable
         _messages = new TextView { Width = Dim.Fill(), Height = Dim.Fill(), ReadOnly = true, WordWrap = true };
 
         var connectionsPanel = Panel("[1] Connections", _connections, 0, 0, Dim.Percent(28), Dim.Percent(20));
-        var filesPanel = Panel("[2] Files", _files, 0, Pos.Bottom(connectionsPanel), Dim.Percent(28), Dim.Percent(30));
+        var filesPanel = Panel("[2] Files · o to open", _files, 0, Pos.Bottom(connectionsPanel), Dim.Percent(28), Dim.Percent(30));
         var schemaPanel = Panel("[3] Schema", _schema, 0, Pos.Bottom(filesPanel), Dim.Percent(28), Dim.Fill(1));
         var editorPanel = Panel("[4] Query", _editor, Pos.Right(connectionsPanel), 0, Dim.Fill(), Dim.Percent(38));
         var messagesPanel = Panel("[6] Messages", _messages, Pos.Right(schemaPanel), Pos.AnchorEnd(8), Dim.Fill(), 7);
@@ -117,7 +119,6 @@ public sealed class MainView : Runnable
 
         SetScheme(Theme.Content);
         Add(connectionsPanel, filesPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel, _hints);
-        ShowFiles(Environment.CurrentDirectory);
         Initialized += (_, _) =>
         {
             App!.Keyboard.KeyDown += OnGlobalKeyDown;
@@ -144,6 +145,8 @@ public sealed class MainView : Runnable
         _files.ClearObjects();
         _files.AddObject(_filesRoot);
         _files.Expand(_filesRoot);
+        _fileMatches = [];
+        UpdateFileSearch();
     }
 
     /// <summary>Runs the update check off the UI thread once the screen is up; a notice goes to the messages panel.</summary>
@@ -253,7 +256,8 @@ public sealed class MainView : Runnable
         else if (_connections.HasFocus && key == Key.D) DeleteConnection();
         else if (_files.HasFocus && key == Key.Enter) OpenSelectedFile();
         else if (_files.HasFocus && key == Key.R) ReloadFiles();
-        else if (_files.HasFocus && key.AsRune.Value == '/') StartFileSearch();
+        else if (_files.HasFocus && key == Key.O) OpenFolder();
+        else if (_files.HasFocus && key.AsRune.Value == '/' && _filesRoot is not null) StartFileSearch();
         else if (_files.HasFocus && key.AsRune.Value is 'n' or 'N' && _fileMatches.Count > 0) ShowFileMatch(FileSearch.Step(_fileMatch, key.AsRune.Value == 'n' ? 1 : -1, _fileMatches.Count));
         else if (_schema.HasFocus && key == Key.S) SelectTopFromTable();
         else if (_schema.HasFocus && key == Key.E) OpenDefinition();
@@ -890,6 +894,7 @@ public sealed class MainView : Runnable
     {
         if (key == Key.Esc || (key == Key.Backspace && _fileQuery!.Length == 0))
         {
+            _fileSearchCancellation?.Cancel();
             _fileQuery = null;
             _fileMatches = [];
             if (_fileSearchStart is { } start) _files.GoTo(start);
@@ -911,10 +916,24 @@ public sealed class MainView : Runnable
 
         UpdateFileSearch();
 
+        // Off the UI thread, so typing never waits for the disk; each key cancels the search of the previous one.
         void Search()
         {
-            _fileMatches = FileSearch.Matches(_filesRoot, _fileQuery!);
-            if (_fileMatches.Count > 0) ShowFileMatch(0);
+            _fileSearchCancellation?.Cancel();
+            var cancellation = _fileSearchCancellation = new CancellationTokenSource();
+            var (root, query) = (_filesRoot!, _fileQuery!);
+            _fileMatches = [];
+            _ = Task.Run(() =>
+            {
+                var matches = FileSearch.Matches(root, query, cancellation.Token);
+                OnUi(() =>
+                {
+                    if (cancellation.IsCancellationRequested || _fileQuery != query) return;
+                    _fileMatches = matches;
+                    if (matches.Count > 0) ShowFileMatch(0);
+                    else UpdateFileSearch();
+                });
+            });
         }
     }
 
@@ -923,7 +942,7 @@ public sealed class MainView : Runnable
     {
         _fileMatch = index;
         var match = _fileMatches[index];
-        foreach (var folder in FileSearch.Ancestors(_filesRoot, match)) _files.Expand(folder);
+        foreach (var folder in FileSearch.Ancestors(_filesRoot!, match)) _files.Expand(folder);
         _files.GoTo(match);
         UpdateFileSearch();
     }
@@ -933,8 +952,17 @@ public sealed class MainView : Runnable
     {
         var position = _fileMatches.Count > 0 ? $" {_fileMatch + 1}/{_fileMatches.Count}" : _fileQuery is { Length: > 0 } ? " no match" : string.Empty;
         _panels[FilesPanel].Title = _fileQuery is not null ? $"[2] Files · /{_fileQuery}{position}"
-            : _fileMatches.Count > 0 ? $"[2] Files ·{position}" : "[2] Files";
+            : _fileMatches.Count > 0 ? $"[2] Files ·{position}" : _filesRoot is null ? "[2] Files · o to open" : "[2] Files";
         UpdateHints();
+    }
+
+    /// <summary>Picks the folder the files panel shows, starting from the current one.</summary>
+    private void OpenFolder()
+    {
+        var start = _filesRoot?.Path ?? Environment.CurrentDirectory;
+        if (FilePicker.ShowFolder(App!, "Open folder", "Open", start.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar) is not { } folder) return;
+        ShowFiles(folder);
+        Log($"Showing {folder} in [2].");
     }
 
     private void ReloadFiles()

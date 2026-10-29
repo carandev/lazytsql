@@ -21,7 +21,7 @@ public static class TuiApplication
         // ANSI palette indices instead of fixed RGB, so the UI follows the terminal's color scheme.
         if (app.Driver is { } driver) driver.Force16Colors = true;
         using var view = new MainView(connector, bacpac, store, activity);
-        // The files panel shows the folder given, else the opened script's folder, else the working directory.
+        // The files panel shows the folder given, else the opened script's folder; otherwise it waits for o.
         if ((directory ?? (script is { } inFolder ? Path.GetDirectoryName(inFolder.Script.Path) : null)) is { } folder) view.ShowFiles(folder);
         if (script is { } opened) view.OpenScript(opened.Script, opened.Text);
         view.CheckForUpdatesOnStart(token => UpdateCheck.Default(Environment.GetEnvironmentVariable)
