@@ -58,6 +58,17 @@ public sealed class SqlEditor : TextView
         Autocomplete.RenderOverlay(at);
     }
 
+    /// <summary>
+    /// Terminal.Gui 2.5's TextView inserts a paste without asking to redraw unless it replaced a selection, so a paste
+    /// stayed invisible until something else redrew the editor.
+    /// </summary>
+    protected override bool OnPaste(string text)
+    {
+        if (!base.OnPaste(text)) return false;
+        SetNeedsDraw();
+        return true;
+    }
+
     protected override void OnDrawNormalColor(List<Cell> line, int idxCol, int idxRow)
     {
         _kinds ??= SqlTokenizer.Classify(Text.ReplaceLineEndings("\n").Split('\n'));
