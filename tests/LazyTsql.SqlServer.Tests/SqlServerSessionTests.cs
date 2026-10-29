@@ -229,6 +229,33 @@ public class SqlServerSessionTests
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10), $"took {stopwatch.Elapsed}");
     }
 
+    [SqlServerFact]
+    public async Task A_lone_SELECT_stops_the_server_at_the_row_limit_instead_of_reading_the_rest()
+    {
+        await using var session = await OpenAsync();
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+        // Billions of rows: reading past the limit would not finish.
+        var result = await RunAsync(session, "SELECT a.object_id, b.name FROM sys.all_objects a CROSS JOIN sys.all_objects b CROSS JOIN sys.all_objects c", maxRows: 10);
+
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10), $"took {stopwatch.Elapsed}");
+        Assert.Equal(10, result.ResultSets[0].Rows.Count);
+        Assert.True(result.ResultSets[0].IsTruncated);
+        Assert.Empty(result.Messages);
+        Assert.Equal(1, (await RunAsync(session, "SELECT 1 AS still_usable")).ResultSets[0].Rows[0][0]);
+    }
+
+    [SqlServerFact]
+    public async Task A_capped_SELECT_followed_by_another_statement_still_runs_it()
+    {
+        await using var session = await OpenAsync();
+
+        var result = await RunAsync(session, "SELECT TOP (50) object_id FROM sys.all_objects\nPRINT 'after'", maxRows: 10);
+
+        Assert.True(result.ResultSets[0].IsTruncated);
+        Assert.Equal("after", Assert.Single(result.Messages).Text);
+    }
+
     private sealed class RecordingSink : IRowSink
     {
         public IReadOnlyList<ColumnInfo> Columns { get; private set; } = [];

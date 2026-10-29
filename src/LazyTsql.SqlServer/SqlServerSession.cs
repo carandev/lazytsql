@@ -39,11 +39,20 @@ internal sealed class SqlServerSession : IDatabaseSession
         {
             await using var command = new SqlCommand(batch.Text, _connection) { CommandTimeout = options.CommandTimeoutSeconds };
             await using var reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+            var stopAtLimit = batch.IsSingleQuery;
             do
             {
                 if (reader.FieldCount > 0)
                 {
                     resultSets.Add(await ReadResultSetAsync(reader, options.MaxRows, cancellationToken));
+                    if (stopAtLimit && resultSets[^1].IsTruncated)
+                    {
+                        // Nothing follows a lone SELECT, so stopping the server skips only the rows past the limit,
+                        // which would otherwise all be read and discarded.
+                        command.Cancel();
+                        await CloseCancelledAsync(reader);
+                        return new BatchResult(batch, resultSets, messages, recordsAffected, stopwatch.Elapsed);
+                    }
                 }
             }
             while (await reader.NextResultAsync(cancellationToken));
@@ -195,6 +204,18 @@ internal sealed class SqlServerSession : IDatabaseSession
         }
 
         return new ResultSet(columns, rows, truncated);
+    }
+
+    /// <summary>Closing a reader whose command was cancelled reports the cancellation, which the caller asked for.</summary>
+    private static async Task CloseCancelledAsync(SqlDataReader reader)
+    {
+        try
+        {
+            await reader.CloseAsync();
+        }
+        catch (SqlException)
+        {
+        }
     }
 
     private static ColumnInfo[] ReadColumns(SqlDataReader reader)
