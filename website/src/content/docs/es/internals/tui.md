@@ -39,6 +39,13 @@ Los diálogos se etiquetan con su contexto, de modo que el pie de página los si
 - **Autocompletado**: una ventana emergente de autocompletado alimentada por `SqlSuggestionGenerator`, que pasa todo el texto y el cursor a
   `SqlCompletion.Suggest`. Al aceptar se reemplaza solo el prefijo escrito, y la ventana emergente no se vuelve a abrir justo después de
   aceptar.
+- **Dibujo**: el `TextView` de Terminal.Gui 2.5 sigue dibujando por debajo de la vista, línea por línea hasta el final
+  del texto, lo que hacía que cada tecla y cada guardado en un script de 20 000 líneas tardara segundos. `SqlEditor`
+  sobrescribe `OnDrawingContent` para dibujar solo las filas visibles (`EditorLayout` ubica los tabs, los glifos anchos y
+  la parte desplazada horizontalmente); ahí una tecla tarda unos 0,4 s y un guardado unos 0,15 s.
+- **Pegado**: `TextView` no redibuja después de pegar salvo que reemplace una selección, así que `SqlEditor` pide el
+  redibujo; `Ctrl+V` lee el portapapeles del sistema por su cuenta (`wl-paste`, `xclip`, `xsel`, `pbpaste`), porque
+  Terminal.Gui solo conoce `xclip`, que no ve el portapapeles de Wayland.
 - **Nombres desconocidos**: `Diagnose` se ejecuta cuando cambian el texto o el cursor; los rangos marcados se dibujan subrayados en rojo,
   con prioridad sobre los colores de sintaxis.
 

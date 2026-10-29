@@ -39,6 +39,13 @@ Dialogs tag themselves with their context, so the footer follows them.
 - **Completion**: an autocomplete popup fed by `SqlSuggestionGenerator`, which passes the whole text and cursor to
   `SqlCompletion.Suggest`. Accepting replaces only the typed prefix, and the popup does not reopen right after an
   accept.
+- **Drawing**: Terminal.Gui 2.5's `TextView` draws past the bottom of the view through every line to the end of the
+  text, which made each keystroke and save in a 20,000-line script take seconds. `SqlEditor` overrides
+  `OnDrawingContent` to draw only the visible rows (`EditorLayout` places tabs, wide glyphs and the horizontally
+  scrolled part); a keystroke there now takes about 0.4 s and a save about 0.15 s.
+- **Paste**: `TextView` does not redraw after a paste unless it replaced a selection, so `SqlEditor` asks for a redraw;
+  `Ctrl+V` reads the system clipboard itself (`wl-paste`, `xclip`, `xsel`, `pbpaste`), because Terminal.Gui only knows
+  `xclip`, which cannot see a Wayland clipboard.
 - **Unknown names**: `Diagnose` runs when the text or the cursor changes; marked ranges draw underlined in red,
   taking priority over syntax colors.
 
