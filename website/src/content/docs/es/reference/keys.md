@@ -51,7 +51,10 @@ la aplicación muestra con `?` (o `F1`).
 | | `Ctrl+V` | Pegar el portapapeles del sistema |
 | | `Tab` / `Ctrl+Space` | Aceptar / abrir el autocompletado (`Esc` lo cierra) |
 | | `Esc` | Salir del editor |
-| Resultados `[5]` | `[` / `]` | Conjunto de resultados anterior / siguiente |
+| Resultados `[5]` | `e` / `Enter` | Editar la celda seleccionada |
+| | `s` | Guardar las ediciones (muestra el script antes) |
+| | `u` / `U` | Deshacer la celda seleccionada / todas las ediciones |
+| | `[` / `]` | Conjunto de resultados anterior / siguiente |
 | | `x` | Exportar a CSV |
 | | `m` | Límite de filas |
 | | `h` `j` `k` `l` | Moverse entre celdas |
@@ -73,6 +76,9 @@ la aplicación muestra con `?` (o `F1`).
 | Formulario de conexión | `Tab` | Siguiente campo |
 | | `←` `→` | Elegir una opción |
 | | `Enter` / `Esc` | Guardar / cancelar |
+| Editar celda | `Enter` | Usar el valor escrito |
+| | `Ctrl+N` | Dejar en `NULL` |
+| | `Esc` | Cancelar |
 | Límite de filas | `Enter` / `Esc` | Aplicar / cancelar |
 | Nombre de la base de datos | `Enter` / `Esc` | Importar / cancelar |
 | Ayuda | `a` | Alternar entre las teclas de este panel y todas las teclas |
