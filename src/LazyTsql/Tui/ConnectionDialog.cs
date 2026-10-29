@@ -29,6 +29,7 @@ public static class ConnectionDialog
             Height = 20,
             BorderStyle = LineStyle.Rounded,
             Data = KeyContext.ConnectionForm,
+            HotKeySpecifier = Theme.NoHotKey,
         };
 
         var name = Field(dialog, "Name", 1, existing?.Name);
@@ -51,8 +52,7 @@ public static class ConnectionDialog
             Text = "Example: Server=localhost,1433;Database=app;User Id=sa;Password=${DB_PASSWORD};TrustServerCertificate=true",
             X = 1,
             Y = 2,
-            // '_' marks hotkeys by default and would hide the underscore in ${DB_PASSWORD}.
-            HotKeySpecifier = new System.Text.Rune(0xFFFF),
+            HotKeySpecifier = Theme.NoHotKey,
         });
 
         var fieldsPane = new View { X = 0, Y = 5, Width = Dim.Fill(), Height = 9, CanFocus = true };
@@ -85,7 +85,7 @@ public static class ConnectionDialog
         fieldsPane.Add(encrypt, trust);
         fieldsPane.Add(new Label { Text = "Tip: type ${VAR} as the password to read it from an environment variable.", X = 1, Y = 7 });
 
-        var error = new Label { Text = string.Empty, X = 1, Y = 15 };
+        var error = new Label { Text = string.Empty, X = 1, Y = 15, HotKeySpecifier = Theme.NoHotKey };
         dialog.Add(stringPane, fieldsPane, error);
 
         SqlServerConnectionFields ReadFields() => new(

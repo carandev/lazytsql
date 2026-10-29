@@ -13,6 +13,12 @@ namespace LazyTsql.Tui;
 /// </summary>
 public static class Theme
 {
+    /// <summary>
+    /// Turns off hotkeys taken from '_' in a title or label, which would hide the underscore in names such as
+    /// top_customers.sql or app_copy.
+    /// </summary>
+    public static readonly System.Text.Rune NoHotKey = new(0xFFFF);
+
     private static readonly Color Default = Color.None;
     private static readonly Color Accent = new(ColorName16.Green);
     private static readonly Color Muted = new(ColorName16.DarkGray);

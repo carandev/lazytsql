@@ -19,7 +19,7 @@ public static class FilePicker
     {
         string? result = null;
         var separator = Path.DirectorySeparatorChar;
-        var dialog = new Dialog { Title = title, Width = Dim.Percent(70), Height = Dim.Percent(70), BorderStyle = LineStyle.Rounded, Data = KeyContext.FilePicker };
+        var dialog = new Dialog { Title = title, Width = Dim.Percent(70), Height = Dim.Percent(70), BorderStyle = LineStyle.Rounded, Data = KeyContext.FilePicker, HotKeySpecifier = Theme.NoHotKey };
         var field = new TextField { Text = Display(initialPath), X = 7, Y = 1, Width = Dim.Fill(2) };
         var names = new ObservableCollection<string>();
         var entries = new List<PathEntry?>();
@@ -27,7 +27,7 @@ public static class FilePicker
         var list = new ListView { X = 1, Y = 3, Width = Dim.Fill(2), Height = Dim.Fill(2), KeystrokeNavigator = null };
         list.SetSource(names);
         // Keys are in the app footer; this line only reports errors.
-        var status = new Label { Text = string.Empty, X = 1, Y = Pos.AnchorEnd(1), Width = Dim.Fill(2) };
+        var status = new Label { Text = string.Empty, X = 1, Y = Pos.AnchorEnd(1), Width = Dim.Fill(2), HotKeySpecifier = Theme.NoHotKey };
 
         void Refresh()
         {

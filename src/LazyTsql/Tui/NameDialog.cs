@@ -12,9 +12,9 @@ public static class NameDialog
     public static string? Show(IApplication app, string title, string prompt, string initial)
     {
         string? result = null;
-        var dialog = new Dialog { Title = title, Width = 56, Height = 10, BorderStyle = LineStyle.Rounded, Data = KeyContext.Name };
+        var dialog = new Dialog { Title = title, Width = 56, Height = 10, BorderStyle = LineStyle.Rounded, Data = KeyContext.Name, HotKeySpecifier = Theme.NoHotKey };
         var field = new TextField { Text = initial, X = 1, Y = 2, Width = Dim.Fill(2) };
-        var status = new Label { Text = string.Empty, X = 1, Y = 3, Width = Dim.Fill(2) };
+        var status = new Label { Text = string.Empty, X = 1, Y = 3, Width = Dim.Fill(2), HotKeySpecifier = Theme.NoHotKey };
 
         void Accept()
         {

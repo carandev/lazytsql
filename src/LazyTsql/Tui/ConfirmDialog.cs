@@ -20,6 +20,7 @@ public static class ConfirmDialog
             Height = lines.Length + 7,
             BorderStyle = LineStyle.Rounded,
             Data = KeyContext.Confirm,
+            HotKeySpecifier = Theme.NoHotKey,
         };
         var confirm = new Button { Text = confirmLabel, IsDefault = confirmIsDefault };
         var cancel = new Button { Text = "Cancel", IsDefault = !confirmIsDefault };
@@ -48,7 +49,7 @@ public static class ConfirmDialog
             key.Handled = true;
         };
 
-        dialog.Add(new Label { Text = text, X = 1, Y = 1 });
+        dialog.Add(new Label { Text = text, X = 1, Y = 1, HotKeySpecifier = Theme.NoHotKey });
         // The dialog marks its last button as the default, so the default goes last.
         dialog.AddButton(confirmIsDefault ? cancel : confirm);
         dialog.AddButton(confirmIsDefault ? confirm : cancel);

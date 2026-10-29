@@ -187,7 +187,7 @@ public sealed class MainView : Runnable
 
     private static FrameView Panel(string title, View content, Pos x, Pos y, Dim width, Dim height)
     {
-        var frame = new FrameView { Title = title, X = x, Y = y, Width = width, Height = height, BorderStyle = LineStyle.Rounded };
+        var frame = new FrameView { Title = title, X = x, Y = y, Width = width, Height = height, BorderStyle = LineStyle.Rounded, HotKeySpecifier = Theme.NoHotKey };
         frame.Add(content);
         Theme.StylePanel(frame, content);
         return frame;
