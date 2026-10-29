@@ -3,6 +3,8 @@ title: Compilación y publicación
 description: Cómo se compilan y publican los binarios nativos y la herramienta de .NET en cada push a main.
 ---
 
+import Pipeline from '../../../../components/diagrams/Pipeline.astro';
+
 ## Native AOT
 
 `src/LazyTsql/LazyTsql.csproj` se publica con Native AOT: el código C# y las partes de .NET que usa se compilan
@@ -38,9 +40,7 @@ paquetes de herramienta específicos por RID de .NET 10:
 
 `.github/workflows/release.yml` se ejecuta en cada push a `main` (y de forma manual). La versión es `0.1.<run number>`.
 
-```text
-test ──► build (linux-x64 · linux-arm64 · win-x64 · osx-arm64) ──► publish
-```
+<Pipeline lang="es" />
 
 1. **test** (`ubuntu-24.04`): inicia SQL Server 2022 como contenedor de servicio, instala sqlpackage, compila, espera
    hasta que el servidor responde a `SELECT 1` y ejecuta todas las pruebas, incluidas las de integración y un ciclo real de exportación e

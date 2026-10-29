@@ -3,28 +3,12 @@ title: Arquitectura
 description: Los tres proyectos, los puertos entre ellos y cómo una tecla se convierte en una consulta en el servidor.
 ---
 
+import Architecture from '../../../../components/diagrams/Architecture.astro';
+
 lazytsql es una aplicación .NET 10 compilada con Native AOT. Sigue una estructura de puertos y adaptadores (hexagonal):
 el dominio no sabe nada de SQL Server ni de la terminal, y las capas externas se conectan a él mediante interfaces.
 
-```text
-┌──────────────────────────── LazyTsql (app) ─────────────────────────────┐
-│  Program.cs ── CLI (CliArguments, HeadlessCommands) ── Output writers   │
-│       │                                                                 │
-│       └────── TUI (Terminal.Gui: MainView, SqlEditor, dialogs)          │
-│  Infrastructure: connections file, scripts, activity log, update check  │
-└───────────────┬───────────────────────────────────────┬─────────────────┘
-                │ uses ports                            │ wires adapters
-┌───────────────▼──────────── LazyTsql.Core ────────────┴─────────────────┐
-│  Ports: IDatabaseConnector, IDatabaseSession, IBacpacTool, IRowSink     │
-│  Batches (GO splitting) · Execution (ScriptRunner) · Schema models      │
-│  Completion (lexer, SqlCompletion, SchemaCatalog) · Syntax highlighting │
-└───────────────▲─────────────────────────────────────────────────────────┘
-                │ implements
-┌───────────────┴──────────── LazyTsql.SqlServer ─────────────────────────┐
-│  SqlServerConnector · SqlServerSession (Microsoft.Data.SqlClient)       │
-│  SqlPackageTool (runs sqlpackage)                                       │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+<Architecture lang="es" />
 
 ## Proyectos
 

@@ -3,6 +3,8 @@ title: Build and release
 description: How the native binaries and the dotnet tool are built and published on every push to main.
 ---
 
+import Pipeline from '../../../components/diagrams/Pipeline.astro';
+
 ## Native AOT
 
 `src/LazyTsql/LazyTsql.csproj` publishes with Native AOT: the C# code and the parts of .NET it uses are compiled
@@ -38,9 +40,7 @@ lazytsql is also a [.NET tool](https://learn.microsoft.com/dotnet/core/tools/glo
 
 `.github/workflows/release.yml` runs on every push to `main` (and by hand). The version is `0.1.<run number>`.
 
-```text
-test ──► build (linux-x64 · linux-arm64 · win-x64 · osx-arm64) ──► publish
-```
+<Pipeline lang="en" />
 
 1. **test** (`ubuntu-24.04`): starts SQL Server 2022 as a service container, installs sqlpackage, builds, waits
    until the server answers `SELECT 1`, and runs every test, including the integration tests and a real `.bacpac`

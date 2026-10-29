@@ -41,6 +41,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - S36 "Que los directorios que yo cargue queden guardados y se visualicen siempre que ingrese, que haya un botón para quitarlos si hace falta"
 - S37 "Cómo cierro un archivo .sql que abrí?" — there was no way; added Ctrl+W.
 - S38 "Hay forma de hacer más grande el panel de editor? para que verticalmente sea más amplio? Se puede colocar algún atajo para crecer o disminuar cada panel"
+- S39 "Que la página también tenga historial de versiones para ver los cambios, se puede ajustar para que los gráficos sean más bonitos? [Image #4]. Agrega número de línea en el editor para identificar mejor si hay un error según el log al ejecutar"
 - Backlog (not in scope yet): "que se pueda cargar un directorio con archivos sql"; "agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta"
 
 ## Tasks
@@ -93,6 +94,8 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T47 S36 FolderStore (folders.json next to connections.json); files panel shows every saved folder; o and a CLI folder are saved, a script's folder is session-only; d removes a top-level folder after confirming; missing folders show "(not found)"; search covers every folder — inline — 5 tests (RED then GREEN) + tmux e2e across sessions
 - [x] T48 S37 Ctrl+W closes the open script (confirm when dirty) and empties the editor — inline — 1 help test (written with the code) + tmux e2e: clean close, dirty n keeps, dirty y closes and leaves the file on disk unchanged
 - [x] T49 S38 PanelLayout + Alt+↑/↓ (focused panel), Alt+←/→ (left column), +/- outside the editor, kept in <state>/layout; also fixed: the messages panel passed every key to its text view, so digits, q, ? and +/- did nothing there — inline — 5 tests (RED then GREEN) + tmux e2e: rows measured before/after, persistence across sessions, messages keys
+- [x] T50 S39 LineNumbers gutter beside the editor (follows scrolling, current line highlighted) — inline — 6 tests (RED then GREEN) + tmux check — d7b7e5d
+- [x] T51 S39 Diagrams as HTML/CSS components (Architecture, Pipeline, TuiLayout; EN/ES; 6 pages to .mdx); Changelog page (EN/ES) built from GitHub releases body_html, website.yml rebuilds after each successful Release — inline — build 54 pages, screenshots dark/light/mobile reviewed
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"

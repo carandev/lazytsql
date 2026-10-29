@@ -6,6 +6,11 @@ on:
   push:
     branches: [main]
     paths: ['website/**', '.github/workflows/website.yml']
+  # The changelog page lists the GitHub releases, so it is rebuilt after each one.
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -17,6 +22,8 @@ concurrency:
 
 jobs:
   build:
+    # After a release, only a successful one changes the changelog.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -27,6 +34,8 @@ jobs:
           cache-dependency-path: website/package-lock.json
       - name: Build
         working-directory: website
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           npm ci
           npm run build

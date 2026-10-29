@@ -3,6 +3,8 @@ title: La TUI
 description: Los seis paneles, cómo funcionan el foco y las teclas, y cómo iniciar lazytsql con una conexión, un script o una carpeta.
 ---
 
+import TuiLayout from '../../../../components/diagrams/TuiLayout.astro';
+
 ## Cómo iniciarla
 
 ```bash
@@ -16,24 +18,14 @@ Sin `-c`, lazytsql se conecta al iniciar cuando `LAZYTSQL_CONNECTION` está defi
 
 ## Diseño
 
-```text
-┌ [1] Connections ┐┌ [4] Query · file.sql · dev › shop ───────────┐
-│                 ││                                              │
-├ [2] Files ──────┤└──────────────────────────────────────────────┘
-│                 │┌ [5] Results · 5 rows ────────────────────────┐
-├ [3] Schema ─────┤│                                              │
-│                 │└──────────────────────────────────────────────┘
-│                 │┌ [6] Messages ────────────────────────────────┐
-└─────────────────┘└──────────────────────────────────────────────┘
- key hints for the focused panel                     │ global keys
-```
+<TuiLayout lang="es" />
 
 | Panel | Muestra | Título |
 | --- | --- | --- |
 | `[1]` Connections | Conexiones guardadas, ordenadas por nombre | |
-| `[2]` Files | Carpetas y archivos `.sql` de un directorio | |
+| `[2]` Files | Tus carpetas de scripts `.sql`, recordadas entre sesiones | |
 | `[3]` Schema | Bases de datos → Tables / Views / Procedures / Functions → columnas | |
-| `[4]` Query | El editor SQL | El archivo abierto (`*` cuando no está guardado), la conexión y la base de datos actual |
+| `[4]` Query | El editor SQL, con números de línea | El archivo abierto (`*` cuando no está guardado), la conexión y la base de datos actual |
 | `[5]` Results | Un conjunto de resultados a la vez | Su posición (`2/3 [ ]`) y el número de filas, `first N rows` cuando el límite de filas lo recorta |
 | `[6]` Messages | Mensajes del servidor, errores y los mensajes propios de lazytsql | `· update available` cuando hay una versión más reciente |
 

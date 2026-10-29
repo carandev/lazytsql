@@ -1,0 +1,27 @@
+---
+// The release workflow: tests, one native build per platform, then the publish job.
+interface Props { lang?: 'en' | 'es' }
+const { lang = 'en' } = Astro.props;
+const t = lang === 'es'
+  ? { test: 'Pruebas', testNote: 'SQL Server 2022 + sqlpackage', build: 'Compilación', buildNote: 'Native AOT, cada una en su sistema', publish: 'Publicación', publishNote: 'versión 0.1.<run>' }
+  : { test: 'Test', testNote: 'SQL Server 2022 + sqlpackage', build: 'Build', buildNote: 'Native AOT, each on its own OS', publish: 'Publish', publishNote: 'version 0.1.<run>' };
+---
+<figure class="pipe not-content" aria-label="release workflow">
+  <div class="step"><strong>{t.test}</strong><small>{t.testNote}</small><ul><li>dotnet test</li></ul></div>
+  <div class="arrow" aria-hidden="true">→</div>
+  <div class="step"><strong>{t.build}</strong><small>{t.buildNote}</small><ul><li>linux-x64</li><li>linux-arm64</li><li>win-x64</li><li>osx-arm64</li></ul></div>
+  <div class="arrow" aria-hidden="true">→</div>
+  <div class="step accent"><strong>{t.publish}</strong><small>{t.publishNote}</small><ul><li>NuGet.org</li><li>GitHub Release</li><li>SHA256SUMS</li></ul></div>
+</figure>
+
+<style>
+  .pipe { display: flex; align-items: stretch; gap: 0.5rem; margin: 1.5rem 0; }
+  .step { flex: 1; display: flex; flex-direction: column; gap: 0.3rem; border: 1px solid var(--sl-color-gray-5); border-radius: 0.75rem; padding: 0.8rem 0.9rem; background: var(--sl-color-gray-7, var(--sl-color-black)); }
+  .step.accent { border-color: var(--sl-color-accent); }
+  .step strong { color: var(--sl-color-white); }
+  .step small { color: var(--sl-color-gray-3); font-size: var(--sl-text-xs); }
+  .arrow { align-self: center; color: var(--sl-color-accent); font-size: 1.4rem; }
+  ul { display: flex; flex-wrap: wrap; gap: 0.3rem; list-style: none; padding: 0; margin: 0.2rem 0 0; }
+  li { margin: 0; padding: 0.15rem 0.5rem; border-radius: 999px; font-family: var(--__sl-font-mono); font-size: var(--sl-text-xs); background: var(--sl-color-gray-6); color: var(--sl-color-gray-1); }
+  @media (max-width: 40rem) { .pipe { flex-direction: column; } .arrow { transform: rotate(90deg); } }
+</style>

@@ -25,7 +25,7 @@ export default defineConfig({
       // The 404 page is src/content/docs/404.md.
       disable404Route: true,
       sidebar: [
-        { label: 'Start here', translations: { es: 'Empieza aquí' }, items: ['getting-started/installation', 'getting-started/quick-start'] },
+        { label: 'Start here', translations: { es: 'Empieza aquí' }, items: ['getting-started/installation', 'getting-started/quick-start', 'changelog'] },
         {
           label: 'Using lazytsql',
           translations: { es: 'Uso de lazytsql' },

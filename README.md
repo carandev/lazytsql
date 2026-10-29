@@ -162,7 +162,7 @@ database, the schema tree shows only that database; otherwise it lists every dat
 
 ### Writing queries
 
-The editor highlights T-SQL and completes names from the connected database while you type:
+The editor highlights T-SQL, numbers its lines and completes names from the connected database while you type:
 
 | You type | It suggests |
 | --- | --- |

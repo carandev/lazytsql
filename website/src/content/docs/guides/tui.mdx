@@ -3,6 +3,8 @@ title: The TUI
 description: The six panels, how focus and keys work, and how to start lazytsql on a connection, a script or a folder.
 ---
 
+import TuiLayout from '../../../components/diagrams/TuiLayout.astro';
+
 ## Starting it
 
 ```bash
@@ -16,24 +18,14 @@ Without `-c`, lazytsql connects on start when `LAZYTSQL_CONNECTION` is set.
 
 ## Layout
 
-```text
-┌ [1] Connections ┐┌ [4] Query · file.sql · dev › shop ───────────┐
-│                 ││                                              │
-├ [2] Files ──────┤└──────────────────────────────────────────────┘
-│                 │┌ [5] Results · 5 rows ────────────────────────┐
-├ [3] Schema ─────┤│                                              │
-│                 │└──────────────────────────────────────────────┘
-│                 │┌ [6] Messages ────────────────────────────────┐
-└─────────────────┘└──────────────────────────────────────────────┘
- key hints for the focused panel                     │ global keys
-```
+<TuiLayout lang="en" />
 
 | Panel | Shows | Title |
 | --- | --- | --- |
 | `[1]` Connections | Saved connections, sorted by name | |
-| `[2]` Files | Folders and `.sql` files of one directory | |
+| `[2]` Files | Your folders of `.sql` scripts, remembered across sessions | |
 | `[3]` Schema | Databases → Tables / Views / Procedures / Functions → columns | |
-| `[4]` Query | The SQL editor | The open file (`*` when unsaved), the connection and current database |
+| `[4]` Query | The SQL editor, with line numbers | The open file (`*` when unsaved), the connection and current database |
 | `[5]` Results | One result set at a time | Its position (`2/3 [ ]`) and row count, `first N rows` when capped by the row limit |
 | `[6]` Messages | Server messages, errors and lazytsql's own messages | `· update available` when there is a newer release |
 
