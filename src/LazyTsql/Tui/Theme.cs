@@ -113,6 +113,15 @@ public static class Theme
         StyleDialogContent(dialog.SubViews);
     }
 
+    /// <summary>
+    /// Dialog buttons live outside the dialog's subviews and inherit its border colors, which look the same focused or
+    /// not; the content scheme fills the focused one with the selection color, so it is clear which one Enter presses.
+    /// </summary>
+    public static void StyleButtons(params Button[] buttons)
+    {
+        foreach (var button in buttons) button.SetScheme(Content);
+    }
+
     private static void StyleDialogContent(IEnumerable<View> views)
     {
         foreach (var view in views)

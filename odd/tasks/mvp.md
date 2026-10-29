@@ -34,6 +34,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - S29 "Vamos con sugerir joins a través de sinónimos"
 - S30 "Hay forma de indicar que hay una actualización disponible en el tui?" → "Sí, impleméntalo y agrégalo al PR": NuGet flat container, once a day, silent offline, LAZYTSQL_NO_UPDATE_CHECK, command per install kind.
 - S31 "me gustaría hacer una landing page para mostrar la app y que tenga una documentación detallado de cómo funciona todo a nivel técnico y todas las funcionalidades que tenga" — answer: "Astro Starlight (Recommended)", GitHub Pages.
+- S32 "Agrega para que en el explorador de archivos se pueda buscar con "/" como en neovim, los modales de confirmación deberían permitir seleccionar el botón o que sea claro que con y o n a qué botón hace referencia. Sigue sin dejarme pegar, es en un archivo .sql que abrí"
 - Backlog (not in scope yet): "que se pueda cargar un directorio con archivos sql"; "agrega en los pendientes que tenga logs detallados de lo que se hace y que eso quede guardado para consultar historial si hace falta"
 
 ## Tasks
@@ -78,6 +79,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T39 S31 website/ (Astro 7.4.4 + Starlight 0.42.7): landing with real captured TUI screens, 25 pages (start, guides, reference, internals), website.yml deploy to Pages, release.yml ignores website/ — inline (internals mapped by one read-only explorer) — build clean, 0 broken internal links, headless Chromium screenshots desktop/mobile reviewed
 - [x] T40 Found while capturing: Terminal.Gui hid "_" in titles (top_customers.sql → topcustomers.sql); Theme.NoHotKey on panels and dialogs — inline — tmux e2e title and confirm dialog
 - [x] T41 S31 Spanish site under /lazytsql/es/ (Starlight locales root=en, es): landing and getting-started inline; guides, reference and internals by three parallel writers (disjoint es/ folders) — 52 pages built, every English page has a Spanish one, 0 broken links, screenshots reviewed
+- [x] T42 S32 / search in the files panel (any depth, n/N, Enter/Esc/Backspace), confirm buttons labeled "(y)"/"(n)" with ←/→/h/l and a visible focused button in every dialog, Ctrl+V reads the system clipboard (wl-paste, xclip, xsel, pbpaste) — inline — 12 tests (RED then GREEN) + tmux e2e: Ctrl+V with wl-copy content, /ord → 3 matches with nested expand, n/N, confirm highlight follows ←/→ and Enter presses it
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"
@@ -132,3 +134,4 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - L50 2026-10-29 "Sí, impleméntalo y agrégalo al PR" — one AOT e2e run showed no notice within 5 s; rerun showed it; the check is asynchronous and depends on network latency.
 - L51 2026-10-29 "Para qué es el 3? ... qué es plan de ejecución? Además también me gustaría hacer una landing page ..." — explained checksums/attestations and execution plans; built the site. Pending user: enable Pages (Source: GitHub Actions) and private vulnerability reporting (security page links to it; currently disabled).
 - L52 2026-10-29 "Si, pero además que también esté en español" — enabled Pages (build_type workflow) and private vulnerability reporting with gh; translated the site.
+- L53 2026-10-29 Paste diagnosis: the terminal paste already worked with 675a26a (also in an opened LF/CRLF .sql); Ctrl+V did not, because Terminal.Gui reads the clipboard only with xclip, which cannot see a Wayland clipboard ("target STRING not available"). Confirm dialog: focus did move with the arrows, but buttons inherited the dialog border scheme so the focused one looked identical; ► marks the default button, not focus.

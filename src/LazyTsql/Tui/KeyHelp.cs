@@ -6,6 +6,7 @@ public enum KeyContext
     Global,
     Connections,
     Files,
+    FileSearch,
     Schema,
     Query,
     Results,
@@ -40,7 +41,19 @@ public static class KeyHelp
             ("q/Ctrl+Q", "quit"),
         ]),
         new(KeyContext.Connections, "Connections [1]", [("Enter", "connect"), ("a", "add"), ("e", "edit"), ("d", "delete")]),
-        new(KeyContext.Files, "Files [2]", [("Enter", "open/expand"), ("h", "collapse"), ("r", "refresh")]),
+        new(KeyContext.Files, "Files [2]", [
+            ("Enter", "open/expand"),
+            ("h", "collapse"),
+            ("/", "search"),
+            ("n/N", "next/prev match"),
+            ("r", "refresh"),
+        ]),
+        new(KeyContext.FileSearch, "File search", [
+            ("type", "to search"),
+            ("Enter", "keep"),
+            ("Esc", "cancel"),
+            ("Bksp", "delete"),
+        ]),
         new(KeyContext.Schema, "Schema [3]", [
             ("Enter", "expand"),
             ("h", "collapse"),
@@ -54,6 +67,7 @@ public static class KeyHelp
             ("F5", "run selection or all"),
             ("Ctrl+K", "cancel"),
             ("Ctrl+S", "save"),
+            ("Ctrl+V", "paste"),
             ("Tab/Ctrl+Space", "complete"),
             ("Esc", "leave editor"),
         ]),
@@ -71,7 +85,12 @@ public static class KeyHelp
             ("h/Bksp", "up"),
             ("Esc", "cancel"),
         ]),
-        new(KeyContext.Confirm, "Confirmation", [("y", "yes"), ("n/Esc", "no"), ("Enter", "focused button")]),
+        new(KeyContext.Confirm, "Confirmation", [
+            ("y/n", "press (y)/(n)"),
+            ("←/→", "choose"),
+            ("Enter", "press the chosen one"),
+            ("Esc", "cancel"),
+        ]),
         new(KeyContext.ConnectionForm, "Connection form", [
             ("Tab", "next field"),
             ("← →", "choose option"),
@@ -92,6 +111,7 @@ public static class KeyHelp
             KeyContext.Global or KeyContext.Connections or KeyContext.Files or KeyContext.Schema or KeyContext.Results or KeyContext.Messages =>
                 "1-6 panels · ? help · q quit",
             KeyContext.Query => "Alt+1-6 panels · F1 help · Ctrl+Q quit",
+            KeyContext.FileSearch => null,
             KeyContext.FilePicker or KeyContext.ConnectionForm or KeyContext.RowLimit or KeyContext.Name => "F1 help",
             KeyContext.Confirm => "? help",
             _ => null,

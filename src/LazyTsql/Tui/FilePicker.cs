@@ -162,6 +162,7 @@ public static class FilePicker
         dialog.AddButton(cancel);
         dialog.AddButton(accept);
         Theme.StyleDialog(dialog);
+        Theme.StyleButtons(cancel, accept);
         status.SetScheme(Theme.Hints);
         Refresh();
         dialog.Initialized += (_, _) => FocusField();

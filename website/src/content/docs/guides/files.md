@@ -22,7 +22,22 @@ such as `.git` are left out, and a folder that cannot be read shows as empty.
 | `Enter` | Open the selected script in the editor, or expand/collapse a folder |
 | `l` / `h` | Expand / collapse a folder |
 | `j` / `k` | Move |
+| `/` | Search, like vim (see below) |
+| `n` / `N` | Next / previous match of the last search |
 | `r` | Refresh after files change on disk |
 
 Opening a script asks first when the editor has unsaved changes. Saving a new script with `Ctrl+S` refreshes the
 tree, and a refresh keeps the same folders expanded.
+
+## Searching
+
+`/` searches folders and scripts **at any depth**, not only the visible ones, as in vim:
+
+1. Type part of a name; the first match is selected as you type, and the folders above it expand. The title shows
+   `/query 1/3`, or `no match`.
+2. `Enter` keeps the match; `Esc` goes back to where you were. `Backspace` deletes a character, and on an empty
+   search cancels it.
+3. `n` and `N` then move to the next and previous match, wrapping around.
+
+The search ignores case and hidden folders, and stops after 20,000 entries so a search from a huge directory stays
+fast.

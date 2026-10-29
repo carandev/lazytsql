@@ -140,12 +140,14 @@ working directory: its subfolders and `.sql` files, without hidden folders such 
 | `a` / `e` / `d` | Connections | Add, edit or delete a connection |
 | `Enter` | Files | Open the selected script in the editor (asks first if there are unsaved changes), or expand a folder |
 | `h` / `l` | Files | Collapse / expand a folder |
+| `/`, then `n` / `N` | Files | Search folders and scripts at any depth, like vim: type to jump, `Enter` keeps the match, `Esc` goes back; `n`/`N` move to the next/previous match |
 | `r` | Files | Refresh after files change on disk; saving a new script refreshes it too |
 | `Enter`, `h` / `l` | Schema | Expand or collapse |
 | `s` | Schema | `SELECT TOP (100)` from the selected table or view |
 | `e` | Schema | Open the selected procedure or function definition in the editor |
 | `r` | Schema | Reload the schema and the completion names |
 | `x` / `i` | Schema | Export the selected database to a `.bacpac` / import a `.bacpac` as a new database |
+| `Ctrl+V` | Query, text fields | Paste the system clipboard (the terminal's own paste, usually `Ctrl+Shift+V`, works too) |
 | `Tab` / `Ctrl+Space` | Query | Accept / open the completion list (`Esc` closes it) |
 | `Esc` | Query | Leave the editor |
 | `[` / `]` | Results | Previous / next result set |
@@ -306,6 +308,7 @@ The UI keeps the terminal's background and uses its 16 ANSI colors, so it follow
 | `Globalization Invariant Mode is not supported` or ICU errors on Linux | Install ICU: `sudo apt install libicu-dev` (Debian/Ubuntu) or `sudo dnf install libicu` (Fedora). |
 | `The certificate chain was issued by an authority that is not trusted` | Add `TrustServerCertificate=true` to the connection string (development servers with self-signed certificates). |
 | `sqlpackage not found` | `dotnet tool install -g microsoft.sqlpackage`, or set `LAZYTSQL_SQLPACKAGE` to its path. |
+| `Ctrl+V` pastes nothing on Linux | lazytsql reads the clipboard with `wl-paste` (Wayland), `xclip` or `xsel`; install one of them (`wl-clipboard` on Wayland), or use the terminal's paste (`Ctrl+Shift+V`). |
 | Import fails with `contains one or more user objects` | Import into a new database name; sqlpackage only imports into an empty database. |
 
 Integrated (Windows) and Microsoft Entra ID authentication are not yet verified in the native binary.

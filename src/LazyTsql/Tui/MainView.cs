@@ -54,6 +54,12 @@ public sealed class MainView : Runnable
     private ScriptFile? _script;
     private string _savedText = string.Empty;
     private FileNode _filesRoot = FileNode.Directory(Environment.CurrentDirectory);
+    private readonly SystemClipboard _clipboard = SystemClipboard.Default();
+    // The / search of the files panel: the query while typing (null otherwise), its matches for n/N, and where it started.
+    private string? _fileQuery;
+    private IReadOnlyList<FileNode> _fileMatches = [];
+    private int _fileMatch;
+    private FileNode? _fileSearchStart;
 
     public MainView(IDatabaseConnector connector, IBacpacTool bacpac, FileConnectionStore store, ActivityLog activity)
     {
@@ -195,6 +201,12 @@ public sealed class MainView : Runnable
 
     private void OnGlobalKeyDown(object? sender, Key key)
     {
+        if (key == Key.V.WithCtrl && PasteFromClipboard())
+        {
+            key.Handled = true;
+            return;
+        }
+
         // Dialogs own the keyboard while they are open; only help is answered for them here.
         if (App?.TopRunnableView is View { Data: KeyContext dialog } top && top != this)
         {
@@ -209,6 +221,13 @@ public sealed class MainView : Runnable
         }
 
         if (App?.TopRunnableView != this) return;
+
+        if (_fileQuery is not null && _files.HasFocus)
+        {
+            key.Handled = true;
+            SearchFilesKey(key);
+            return;
+        }
 
         var inEditor = _editor.HasFocus;
         var handled = true;
@@ -234,6 +253,8 @@ public sealed class MainView : Runnable
         else if (_connections.HasFocus && key == Key.D) DeleteConnection();
         else if (_files.HasFocus && key == Key.Enter) OpenSelectedFile();
         else if (_files.HasFocus && key == Key.R) ReloadFiles();
+        else if (_files.HasFocus && key.AsRune.Value == '/') StartFileSearch();
+        else if (_files.HasFocus && key.AsRune.Value is 'n' or 'N' && _fileMatches.Count > 0) ShowFileMatch(FileSearch.Step(_fileMatch, key.AsRune.Value == 'n' ? 1 : -1, _fileMatches.Count));
         else if (_schema.HasFocus && key == Key.S) SelectTopFromTable();
         else if (_schema.HasFocus && key == Key.E) OpenDefinition();
         else if (_schema.HasFocus && key == Key.R) ReloadSchema();
@@ -274,7 +295,7 @@ public sealed class MainView : Runnable
     private KeyContext PanelContext() => CurrentPanel() switch
     {
         ConnectionsPanel => KeyContext.Connections,
-        FilesPanel => KeyContext.Files,
+        FilesPanel => _fileQuery is null ? KeyContext.Files : KeyContext.FileSearch,
         SchemaPanel => KeyContext.Schema,
         QueryPanel => KeyContext.Query,
         ResultsPanel => KeyContext.Results,
@@ -841,6 +862,79 @@ public sealed class MainView : Runnable
         {
             OpenScriptFile(node.Path);
         }
+    }
+
+    /// <summary>
+    /// Ctrl+V in a text input pastes the system clipboard through the same path as a terminal paste. Terminal.Gui reads
+    /// the clipboard only with xclip, which cannot see a Wayland session's clipboard; when no tool can read it, the key
+    /// is left to Terminal.Gui (which handles Windows itself).
+    /// </summary>
+    private bool PasteFromClipboard()
+    {
+        if (App?.Navigation?.GetFocused() is not (TextView { ReadOnly: false } or TextField)) return false;
+        if (_clipboard.Read() is not { Length: > 0 } text) return false;
+        App.RaisePasteEvent(text);
+        return true;
+    }
+
+    private void StartFileSearch()
+    {
+        _fileQuery = string.Empty;
+        _fileMatches = [];
+        _fileSearchStart = _files.SelectedObject;
+        UpdateFileSearch();
+    }
+
+    /// <summary>Keys while typing a / search: text extends the query, Enter keeps the match, Esc goes back.</summary>
+    private void SearchFilesKey(Key key)
+    {
+        if (key == Key.Esc || (key == Key.Backspace && _fileQuery!.Length == 0))
+        {
+            _fileQuery = null;
+            _fileMatches = [];
+            if (_fileSearchStart is { } start) _files.GoTo(start);
+        }
+        else if (key == Key.Enter)
+        {
+            _fileQuery = null;
+        }
+        else if (key == Key.Backspace)
+        {
+            _fileQuery = _fileQuery![..^1];
+            Search();
+        }
+        else if (!key.IsCtrl && !key.IsAlt && key.AsRune.Value >= ' ')
+        {
+            _fileQuery += key.AsRune.ToString();
+            Search();
+        }
+
+        UpdateFileSearch();
+
+        void Search()
+        {
+            _fileMatches = FileSearch.Matches(_filesRoot, _fileQuery!);
+            if (_fileMatches.Count > 0) ShowFileMatch(0);
+        }
+    }
+
+    /// <summary>Selects a match, expanding the folders above it.</summary>
+    private void ShowFileMatch(int index)
+    {
+        _fileMatch = index;
+        var match = _fileMatches[index];
+        foreach (var folder in FileSearch.Ancestors(_filesRoot, match)) _files.Expand(folder);
+        _files.GoTo(match);
+        UpdateFileSearch();
+    }
+
+    /// <summary>The files panel title shows the query while typing and the match position while n/N can move.</summary>
+    private void UpdateFileSearch()
+    {
+        var position = _fileMatches.Count > 0 ? $" {_fileMatch + 1}/{_fileMatches.Count}" : _fileQuery is { Length: > 0 } ? " no match" : string.Empty;
+        _panels[FilesPanel].Title = _fileQuery is not null ? $"[2] Files · /{_fileQuery}{position}"
+            : _fileMatches.Count > 0 ? $"[2] Files ·{position}" : "[2] Files";
+        UpdateHints();
     }
 
     private void ReloadFiles()

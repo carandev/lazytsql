@@ -10,6 +10,7 @@ description: Common errors and how to fix them.
 | `The certificate chain was issued by an authority that is not trusted` | The server uses a self-signed certificate. For a development server, add `TrustServerCertificate=true` to the connection string; for anything else, install the server's certificate authority instead. |
 | `Environment variable 'X' referenced in the connection string is not set` | The connection string references `${X}`; export it before running lazytsql. |
 | `sqlpackage not found` | `dotnet tool install -g microsoft.sqlpackage`, or set `LAZYTSQL_SQLPACKAGE` to its path. |
+| `Ctrl+V` pastes nothing on Linux | lazytsql reads the clipboard with `wl-paste` (Wayland), `xclip` or `xsel`; install one of them (`wl-clipboard` on Wayland), or use the terminal's paste (`Ctrl+Shift+V`). |
 | Import fails with `contains one or more user objects` | Import into a new database name; sqlpackage only imports into an empty database. |
 | `sqlpackage cannot read a connection string or file path containing a double quote` | sqlpackage's response file cannot hold `"`; change that password or path. |
 | macOS says the binary "cannot be opened" | It was downloaded with a browser: `xattr -d com.apple.quarantine /usr/local/bin/lazytsql`. |

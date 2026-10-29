@@ -53,6 +53,7 @@ public static class NameDialog
         dialog.AddButton(cancel);
         dialog.AddButton(accept);
         Theme.StyleDialog(dialog);
+        Theme.StyleButtons(cancel, accept);
         status.SetScheme(Theme.Hints);
         dialog.Initialized += (_, _) =>
         {

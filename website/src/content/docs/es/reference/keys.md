@@ -29,7 +29,12 @@ la aplicación muestra con `?` (o `F1`).
 | | `a` / `e` / `d` | Agregar / editar / eliminar una conexión |
 | Archivos `[2]` | `Enter` | Abrir el script, o expandir/contraer una carpeta |
 | | `h` / `l` | Contraer / expandir |
+| | `/` | Buscar carpetas y scripts en cualquier nivel |
+| | `n` / `N` | Coincidencia siguiente / anterior |
 | | `r` | Actualizar |
+| Búsqueda de archivos | *texto* | Busca mientras escribes; se selecciona la primera coincidencia |
+| | `Enter` / `Esc` | Quedarse en la coincidencia / volver a donde estabas |
+| | `Backspace` | Borrar un carácter (con la búsqueda vacía, cancela) |
 | Esquema `[3]` | `Enter`, `l` / `h` | Expandir / contraer |
 | | `s` | `SELECT TOP (100)` de la tabla o vista seleccionada |
 | | `e` | Abrir la definición del procedimiento o función seleccionado |
@@ -38,6 +43,7 @@ la aplicación muestra con `?` (o `F1`).
 | Consulta `[4]` | `F5` | Ejecutar la selección o todo |
 | | `Ctrl+K` | Cancelar |
 | | `Ctrl+S` | Guardar |
+| | `Ctrl+V` | Pegar el portapapeles del sistema |
 | | `Tab` / `Ctrl+Space` | Aceptar / abrir el autocompletado (`Esc` lo cierra) |
 | | `Esc` | Salir del editor |
 | Resultados `[5]` | `[` / `]` | Conjunto de resultados anterior / siguiente |
@@ -55,9 +61,10 @@ la aplicación muestra con `?` (o `F1`).
 | | `Enter` / `l` | Abrir una carpeta o elegir un archivo |
 | | `h` / `Backspace` | Subir una carpeta |
 | | `Esc` | Cancelar |
-| Confirmación | `y` | Sí |
-| | `n` / `Esc` | No |
-| | `Enter` | El botón enfocado |
+| Confirmación | `y` / `n` | Presionar el botón marcado con `(y)` / `(n)` |
+| | `←` `→` (o `h` `l`) | Elegir un botón; el elegido se resalta |
+| | `Enter` | Presionar el botón elegido |
+| | `Esc` | Cancelar |
 | Formulario de conexión | `Tab` | Siguiente campo |
 | | `←` `→` | Elegir una opción |
 | | `Enter` / `Esc` | Guardar / cancelar |

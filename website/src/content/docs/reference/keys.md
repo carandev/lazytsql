@@ -29,7 +29,12 @@ with `?` (or `F1`).
 | | `a` / `e` / `d` | Add / edit / delete a connection |
 | Files `[2]` | `Enter` | Open the script, or expand/collapse a folder |
 | | `h` / `l` | Collapse / expand |
+| | `/` | Search folders and scripts at any depth |
+| | `n` / `N` | Next / previous match |
 | | `r` | Refresh |
+| File search | *text* | Search as you type; the first match is selected |
+| | `Enter` / `Esc` | Keep the match / go back to where you were |
+| | `Backspace` | Delete a character (on an empty search, cancel) |
 | Schema `[3]` | `Enter`, `l` / `h` | Expand / collapse |
 | | `s` | `SELECT TOP (100)` from the selected table or view |
 | | `e` | Open the selected procedure or function definition |
@@ -38,6 +43,7 @@ with `?` (or `F1`).
 | Query `[4]` | `F5` | Run the selection or everything |
 | | `Ctrl+K` | Cancel |
 | | `Ctrl+S` | Save |
+| | `Ctrl+V` | Paste the system clipboard |
 | | `Tab` / `Ctrl+Space` | Accept / open completion (`Esc` closes it) |
 | | `Esc` | Leave the editor |
 | Results `[5]` | `[` / `]` | Previous / next result set |
@@ -55,9 +61,10 @@ with `?` (or `F1`).
 | | `Enter` / `l` | Open a folder or pick a file |
 | | `h` / `Backspace` | Go up a folder |
 | | `Esc` | Cancel |
-| Confirmation | `y` | Yes |
-| | `n` / `Esc` | No |
-| | `Enter` | The focused button |
+| Confirmation | `y` / `n` | Press the button marked `(y)` / `(n)` |
+| | `←` `→` (or `h` `l`) | Choose a button; the chosen one is highlighted |
+| | `Enter` | Press the chosen button |
+| | `Esc` | Cancel |
 | Connection form | `Tab` | Next field |
 | | `←` `→` | Choose an option |
 | | `Enter` / `Esc` | Save / cancel |
