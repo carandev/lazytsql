@@ -70,5 +70,5 @@ npm run dev       # http://localhost:4321/lazytsql/
 npm run build     # static site in website/dist
 ```
 
-Pages are Markdown files in `website/src/content/docs/`. The screens on the landing page are real lazytsql output,
+Pages are Markdown files in `website/src/content/docs/`, with the Spanish translation of each one at the same path under `es/`. The screens on the landing page are real lazytsql output,
 captured from a terminal with `tmux capture-pane -e` and converted to HTML.

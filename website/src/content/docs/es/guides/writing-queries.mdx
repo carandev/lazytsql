@@ -1,0 +1,98 @@
+---
+title: Escribir consultas
+description: Resaltado de sintaxis, autocompletado desde la base de datos conectada, joins a partir de claves foráneas, nombres desconocidos, ejecución de scripts y apertura de archivos.
+---
+
+import CompletionScreen from '../../../../components/CompletionScreen.astro';
+
+El editor (panel `4`) resalta T-SQL y autocompleta nombres de la base de datos a la que estás conectado.
+
+<CompletionScreen />
+
+## Autocompletado
+
+La lista se abre mientras escribes; `Tab` acepta, `Esc` la cierra y `Ctrl+Space` la vuelve a abrir.
+
+| Escribes | Sugiere |
+| --- | --- |
+| `FROM cu`, `JOIN cu` | Tablas, vistas, funciones y sinónimos, además de bases de datos |
+| `JOIN ` | Tablas relacionadas por una clave foránea, con un alias y la condición: `orders o ON o.customer_id = c.id` |
+| `ON ` | La condición de clave foránea entre la tabla recién unida y las anteriores |
+| `EXEC get` | Procedimientos |
+| `sales.` | Los objetos de ese esquema |
+| `c.` (un alias o una tabla) | Sus columnas, con su tipo |
+| `em` en otro lugar | Columnas de las tablas de la sentencia, sus alias y palabras clave |
+| `archive.` / `archive.dbo.` | Esquemas / objetos de otra base de datos |
+
+Detalles que hacen que encaje:
+
+- **`dbo` se omite** cuando no hace falta: `customers`, no `dbo.customers`, a menos que otro esquema tenga un objeto
+  con el mismo nombre.
+- **Un nombre escrito completo se sigue ofreciendo**, en primer lugar, para que lo confirmes con `Tab`.
+- **Las palabras clave siguen tus mayúsculas y minúsculas**: escribir `sel` sugiere `select`, escribir `SEL` sugiere `SELECT`.
+- **Los nombres van entre corchetes solo cuando hace falta**: `[order details]`, `[select]`.
+- No se sugiere nada dentro de cadenas y comentarios.
+
+### Joins a partir de claves foráneas
+
+Después de `JOIN`, lazytsql revisa las tablas que ya están en la sentencia y sugiere todas las tablas relacionadas con ellas por una
+clave foránea, en cualquier dirección, con la condición completa:
+
+```sql
+SELECT *
+FROM customers c
+JOIN |                     -- orders o ON o.customer_id = c.id
+```
+
+- El alias son las iniciales del nombre de la tabla (`order_lines` → `ol`), numerado cuando ya está en uso (`c2`).
+- Una clave compuesta une todas las columnas: `ON s.order_id = l.order_id AND s.line = l.line`.
+- Después de `ON` con un prefijo vacío, sugiere solo la condición para la tabla que acabas de unir.
+- Una tabla de otra base de datos se escribe con su base de datos: `archive.dbo.customers`.
+
+### Sinónimos
+
+Un sinónimo se comporta como la tabla o vista a la que apunta, en esta base de datos o en otra del mismo servidor: `c.`
+autocompleta las columnas de esa tabla, `JOIN ` sugiere sus claves foráneas y sus columnas desconocidas se subrayan. Un sinónimo
+de un objeto en un servidor vinculado se autocompleta solo por nombre.
+
+### Cuándo se cargan los nombres
+
+Los nombres se cargan en segundo plano la primera vez que se necesitan, sin cambiar tu base de datos actual: los objetos
+de una base de datos cuando la referencias por primera vez, las columnas de una tabla cuando escribes su alias por primera vez, y las claves
+foráneas de una base de datos en el primer `JOIN`. `r` en el panel de esquema recarga todo.
+
+## Nombres desconocidos
+
+Las tablas y los nombres `alias.column` que la base de datos no tiene se subrayan en rojo cuando sales de la palabra. Para evitar
+falsas alarmas, estos nunca se marcan:
+
+- tablas temporales (`#t`, `##t`), CTE, y tablas, vistas y sinónimos que crea el propio script;
+- el destino de `CREATE`/`ALTER`/`DROP TABLE` y de `SELECT ... INTO`;
+- las vistas de `sys` e `INFORMATION_SCHEMA`, y los nombres en servidores vinculados (cuatro partes);
+- los nombres de una base de datos que aún no se ha cargado, o la palabra que estás escribiendo.
+
+## Ejecución
+
+`F5` (o `Ctrl+E`) ejecuta la selección si la hay; de lo contrario, todo el script. El script se divide en lotes
+en las líneas `GO`, como hacen SSMS y sqlcmd:
+
+- `GO 5` ejecuta el lote cinco veces.
+- `GO` dentro de una cadena, un comentario o un nombre entre corchetes no divide.
+- La ejecución se detiene en el primer lote con un error (severidad mayor que 10), como `sqlcmd -b`.
+- Los mensajes de error muestran la línea de tu script, no la del lote.
+
+`Ctrl+K` cancela. Las consultas en la TUI no tienen tiempo de espera; cancélalas en su lugar.
+
+Cómo funciona esto por dentro se explica en [cómo se ejecutan los scripts](/lazytsql/es/internals/execution/).
+
+## SQL generado
+
+En el panel de esquema, `s` reemplaza el editor con `SELECT TOP (100) * FROM [db].[schema].[table];` y lo ejecuta, y
+`e` abre la definición de un procedimiento o función. Ambos preguntan primero cuando el archivo abierto tiene cambios sin guardar, y ambos
+desvinculan el editor del archivo, que queda como estaba guardado.
+
+## Archivos
+
+`Ctrl+O` abre un archivo `.sql` y `Ctrl+S` lo guarda, pidiendo una ruta la primera vez. El título muestra el nombre del archivo
+y `*` mientras haya cambios sin guardar. Guardar conserva la codificación y los finales de línea del archivo, así que los scripts de SSMS
+(UTF-16 o UTF-8 con BOM, CRLF) se guardan sin cambios. Para explorar una carpeta completa, consulta [archivos](/lazytsql/es/guides/files/).

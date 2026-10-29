@@ -1,0 +1,102 @@
+---
+title: lazytsql
+description: Un cliente de terminal al estilo lazygit para SQL Server. Explora el esquema, escribe T-SQL con autocompletado desde tu base de datos, ejecútalo y exporta los resultados, todo desde el teclado.
+template: splash
+hero:
+  tagline: Un cliente de terminal al estilo lazygit para SQL Server. Explora el esquema, escribe T-SQL con autocompletado desde tu propia base de datos, ejecútalo y exporta los resultados, todo desde el teclado. Un solo binario nativo, sin runtime.
+  actions:
+    - text: Instalar
+      link: /lazytsql/es/getting-started/installation/
+      icon: right-arrow
+    - text: Inicio rápido
+      link: /lazytsql/es/getting-started/quick-start/
+      variant: minimal
+    - text: Ver en GitHub
+      link: https://github.com/carandev/lazytsql
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+import Screen from '../../../components/Screen.astro';
+
+<Screen />
+
+## Por qué lazytsql
+
+<CardGrid>
+  <Card title="Autocompletado desde tu base de datos" icon="pencil">
+    Tablas, vistas, columnas, procedimientos y sinónimos salen del servidor al que estás conectado. Después de
+    `JOIN` sugiere las tablas relacionadas con la condición de la clave foránea ya escrita.
+  </Card>
+  <Card title="Primero el teclado" icon="seti:shell">
+    Seis paneles numerados como en lazygit, movimientos de vim y una barra inferior que siempre muestra las teclas
+    del panel en el que estás. `?` las lista todas.
+  </Card>
+  <Card title="Modo headless para scripts y agentes" icon="setting">
+    `lazytsql query --json` devuelve los lotes, los mensajes con el número de línea del script y los conjuntos de
+    resultados en JSON, con códigos de salida que distinguen errores de SQL de errores de uso.
+  </Card>
+  <Card title="Un solo binario nativo" icon="rocket">
+    Native AOT: unos 21 MB, arranca al instante y no necesita el runtime de .NET. Cópialo al servidor donde está la
+    base de datos y ejecútalo ahí.
+  </Card>
+  <Card title="Seguro con resultados grandes" icon="warning">
+    Cada conjunto de resultados trae 1000 filas por defecto; un `SELECT` solo se detiene en el servidor al llegar al
+    límite. Exportar a CSV escribe cada fila en disco en vez de guardarla en memoria.
+  </Card>
+  <Card title="Respaldos e historial" icon="document">
+    Exporta e importa bases de datos completas como `.bacpac`, explora una carpeta de scripts y guarda un registro
+    diario privado de cada script que ejecutaste.
+  </Card>
+</CardGrid>
+
+## Instalación
+
+<Tabs syncKey="install">
+  <TabItem label="Herramienta de .NET">
+    ```bash
+    dotnet tool install -g lazytsql
+    ```
+    Instala el binario nativo para linux-x64, linux-arm64, win-x64 u osx-arm64. Necesita el SDK de .NET 10.
+  </TabItem>
+  <TabItem label="Linux">
+    ```bash
+    curl -fsSL https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-linux-x64.tar.gz | tar -xz
+    sudo mv lazytsql /usr/local/bin/
+    ```
+  </TabItem>
+  <TabItem label="macOS">
+    ```bash
+    curl -fsSL https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-osx-arm64.tar.gz | tar -xz
+    sudo mv lazytsql /usr/local/bin/
+    ```
+  </TabItem>
+  <TabItem label="Windows">
+    ```powershell
+    Invoke-WebRequest https://github.com/carandev/lazytsql/releases/latest/download/lazytsql-win-x64.zip -OutFile lazytsql.zip
+    Expand-Archive lazytsql.zip -DestinationPath "$env:LOCALAPPDATA\lazytsql"
+    ```
+  </TabItem>
+</Tabs>
+
+Después conéctate:
+
+```bash
+lazytsql -c 'Server=localhost,1433;Database=app;User Id=sa;Password=${DB_PASSWORD};TrustServerCertificate=true'
+```
+
+Todas las opciones están en la [guía de instalación](/lazytsql/es/getting-started/installation/).
+
+## Aprende más
+
+<CardGrid>
+  <Card title="Úsalo" icon="open-book">
+    [La TUI](/lazytsql/es/guides/tui/), [escribir consultas](/lazytsql/es/guides/writing-queries/),
+    [resultados y exportación](/lazytsql/es/guides/results/) y [modo headless](/lazytsql/es/guides/headless/).
+  </Card>
+  <Card title="Entiéndelo" icon="information">
+    [Arquitectura](/lazytsql/es/internals/architecture/), [cómo se ejecutan los scripts](/lazytsql/es/internals/execution/),
+    [el motor de autocompletado](/lazytsql/es/internals/completion/) y [seguridad](/lazytsql/es/internals/security/).
+  </Card>
+</CardGrid>

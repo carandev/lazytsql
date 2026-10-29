@@ -77,6 +77,7 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - [x] T38 S30 UpdateCheck (cache in $XDG_STATE_HOME/lazytsql/latest-version, shared StateDirectory with ActivityLog) + notice in the messages panel — inline — 7 tests (RED then GREEN) + AOT e2e against NuGet.org: 0.1.1 no notice, 0.1.0 notice with release URL, opt-out silent
 - [x] T39 S31 website/ (Astro 7.4.4 + Starlight 0.42.7): landing with real captured TUI screens, 25 pages (start, guides, reference, internals), website.yml deploy to Pages, release.yml ignores website/ — inline (internals mapped by one read-only explorer) — build clean, 0 broken internal links, headless Chromium screenshots desktop/mobile reviewed
 - [x] T40 Found while capturing: Terminal.Gui hid "_" in titles (top_customers.sql → topcustomers.sql); Theme.NoHotKey on panels and dialogs — inline — tmux e2e title and confirm dialog
+- [x] T41 S31 Spanish site under /lazytsql/es/ (Starlight locales root=en, es): landing and getting-started inline; guides, reference and internals by three parallel writers (disjoint es/ folders) — 52 pages built, every English page has a Spanish one, 0 broken links, screenshots reviewed
 
 ## Log
 - L1 2026-10-28 "Me gustaría crear algo como "lazysql" que sea tan extenso como datagrip pero en una tui dentro de la terminal, así facilita el desarrollo agéntico y en terminal con herdr por ejemplo y también facilita tener un cliente de sql en el servidor donde está desplegada la bd"
@@ -130,3 +131,4 @@ Branch: feat/mvp · Delivery: ask-on-risk · Test runner: `dotnet test`
 - L49 2026-10-29 "Vamos con sugerir joins a través de sinónimos" — Resolve is shared, so column completion and unknown-column marks now follow synonyms too; pinned with tests.
 - L50 2026-10-29 "Sí, impleméntalo y agrégalo al PR" — one AOT e2e run showed no notice within 5 s; rerun showed it; the check is asynchronous and depends on network latency.
 - L51 2026-10-29 "Para qué es el 3? ... qué es plan de ejecución? Además también me gustaría hacer una landing page ..." — explained checksums/attestations and execution plans; built the site. Pending user: enable Pages (Source: GitHub Actions) and private vulnerability reporting (security page links to it; currently disabled).
+- L52 2026-10-29 "Si, pero además que también esté en español" — enabled Pages (build_type workflow) and private vulnerability reporting with gh; translated the site.
