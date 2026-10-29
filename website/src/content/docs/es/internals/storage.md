@@ -22,6 +22,12 @@ description: Cómo guarda lazytsql las conexiones, los scripts, el registro de a
 - Se serializa con un contexto de `System.Text.Json` generado en código fuente, algo que Native AOT necesita.
 - `${VAR}` se expande al conectar, nunca al guardar.
 
+## Carpetas
+
+`folders.json`, junto a `connections.json`, es un arreglo JSON con las rutas absolutas que muestra el panel de
+archivos, en el orden en que se agregaron. Las rutas se normalizan (absolutas, sin separador final) para que una
+carpeta nunca aparezca dos veces, y el archivo se reemplaza de forma atómica como el de conexiones.
+
 ## Scripts
 
 `ScriptFile` lee un script detectando su codificación a partir de la marca de orden de bytes (UTF-8 sin BOM cuando no hay ninguna)

@@ -6,15 +6,22 @@ description: Explora una carpeta de scripts .sql y ábrelos en el editor.
 El panel de archivos (`2`) muestra una carpeta de scripts como un árbol, así que las consultas, migraciones o reportes de un proyecto están a una
 tecla de distancia.
 
-## Qué carpeta
+## Tus carpetas
 
-1. La carpeta indicada en la línea de comandos: `lazytsql -c dev ./scripts`.
-2. Si no, la carpeta del script indicado en la línea de comandos: `lazytsql -c dev scripts/report.sql`.
-3. Si no, el panel queda vacío, sin leer nada del disco, hasta que presionas `o`.
+El panel muestra las carpetas que agregas, cada una como un árbol, y **las recuerda**: aparecen cada vez que abres
+lazytsql, hasta que las quitas.
 
-`o` abre un selector de carpetas en cualquier momento: escribe o navega hasta una carpeta (`Enter` sobre una carpeta de
-la lista entra en ella) y presiona `Enter` en la ruta, o *Open*, para mostrarla en el panel. Abrir solo la carpeta en la
-que trabajas mantiene pequeños el árbol y la búsqueda.
+- `o` agrega una carpeta: escríbela o navega hasta ella en el selector (`Enter` sobre una carpeta de la lista entra en
+  ella) y presiona `Enter` en la ruta, o *Add*.
+- Una carpeta indicada en la línea de comandos también se agrega y se recuerda: `lazytsql -c dev ./scripts`.
+- La carpeta de un script indicado en la línea de comandos (`lazytsql -c dev scripts/report.sql`) se muestra solo en esa
+  sesión.
+- `d` sobre una carpeta del primer nivel la quita del panel, después de confirmar. La carpeta y sus archivos siguen en
+  el disco.
+- Una carpeta recordada que se movió o se borró aparece como `nombre/ (not found)`, para que puedas quitarla.
+
+Sin carpetas, el panel queda vacío y no lee nada del disco. Agregar solo las carpetas en las que trabajas mantiene
+pequeños los árboles y la búsqueda. La lista se guarda en `~/.config/lazytsql/folders.json`.
 
 El árbol muestra primero las subcarpetas y luego los archivos `.sql` (sin importar mayúsculas: también `.SQL`), cada grupo ordenado por nombre. Las carpetas ocultas
 como `.git` se omiten, y una carpeta que no se puede leer aparece vacía.
@@ -28,7 +35,8 @@ como `.git` se omiten, y una carpeta que no se puede leer aparece vacía.
 | `j` / `k` | Moverse |
 | `/` | Buscar, como en vim (ver abajo) |
 | `n` / `N` | Coincidencia siguiente / anterior de la última búsqueda |
-| `o` | Abrir otra carpeta |
+| `o` | Agregar una carpeta (se recuerda) |
+| `d` | Quitar del panel la carpeta del primer nivel seleccionada |
 | `r` | Actualizar después de que los archivos cambien en el disco |
 
 Abrir un script pregunta primero cuando el editor tiene cambios sin guardar. Guardar un script nuevo con `Ctrl+S` actualiza el
@@ -44,6 +52,6 @@ Abrir un script pregunta primero cuando el editor tiene cambios sin guardar. Gua
    vacía, la cancela.
 3. Después, `n` y `N` van a la coincidencia siguiente y anterior, y vuelven a empezar al llegar al final.
 
-La búsqueda corre en segundo plano, así que escribir nunca espera al disco, y cada tecla cancela la búsqueda anterior.
+La búsqueda cubre todas las carpetas del panel. Corre en segundo plano, así que escribir nunca espera al disco, y cada tecla cancela la búsqueda anterior.
 No distingue mayúsculas ni minúsculas, omite las carpetas ocultas, no sigue enlaces a otras carpetas y se detiene
 después de 20 000 entradas.

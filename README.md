@@ -115,9 +115,10 @@ lazytsql -c dev ./scripts       # browse a folder of scripts in panel [2]
 The screen has six panels: connections `[1]`, files `[2]`, schema `[3]`, query `[4]`, results `[5]` and messages `[6]`.
 The footer always shows the keys of the focused panel or dialog.
 
-The files panel shows the folder given on the command line, or the folder of the script given there; otherwise it
-stays empty until you press `o` in it and pick a folder. It lists subfolders and `.sql` files, without hidden folders
-such as `.git`.
+The files panel shows the folders you add with `o` (or give on the command line) and remembers them across sessions,
+in `~/.config/lazytsql/folders.json`; `d` removes one from the panel, not from disk. A script given on the command
+line shows its folder for that session only. Each tree lists subfolders and `.sql` files, without hidden folders such
+as `.git`.
 
 ### Keys
 
@@ -134,7 +135,7 @@ such as `.git`.
 | `a` / `e` / `d` | Connections | Add, edit or delete a connection |
 | `Enter` | Files | Open the selected script in the editor (asks first if there are unsaved changes), or expand a folder |
 | `h` / `l` | Files | Collapse / expand a folder |
-| `o` | Files | Open another folder in the panel (a folder picker; `Enter` on the path opens it) |
+| `o` / `d` | Files | Add a folder, remembered across sessions / remove the selected top-level folder from the panel |
 | `/`, then `n` / `N` | Files | Search folders and scripts at any depth, like vim: type to jump, `Enter` keeps the match, `Esc` goes back; `n`/`N` move to the next/previous match |
 | `r` | Files | Refresh after files change on disk; saving a new script refreshes it too |
 | `Enter`, `h` / `l` | Schema | Expand or collapse |
@@ -286,6 +287,7 @@ cat ~/.local/state/lazytsql/logs/2026-10-28.log
 | Setting | Purpose |
 | --- | --- |
 | `$XDG_CONFIG_HOME/lazytsql/connections.json` (default `~/.config/lazytsql/connections.json`) | Saved connections, created with owner-only permissions |
+| `$XDG_CONFIG_HOME/lazytsql/folders.json` | The folders shown in the files panel |
 | `${VAR}` inside a connection string | Replaced by that environment variable when connecting, so secrets stay out of the file |
 | `LAZYTSQL_CONNECTION` | Connection used when `-c` is not given |
 | `LAZYTSQL_SQLPACKAGE` | Path to sqlpackage when it is not on the `PATH` or in `~/.dotnet/tools` |

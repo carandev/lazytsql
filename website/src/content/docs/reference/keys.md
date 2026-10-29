@@ -29,7 +29,8 @@ with `?` (or `F1`).
 | | `a` / `e` / `d` | Add / edit / delete a connection |
 | Files `[2]` | `Enter` | Open the script, or expand/collapse a folder |
 | | `h` / `l` | Collapse / expand |
-| | `o` | Open another folder |
+| | `o` | Add a folder (remembered across sessions) |
+| | `d` | Remove the selected top-level folder from the panel |
 | | `/` | Search folders and scripts at any depth |
 | | `n` / `N` | Next / previous match |
 | | `r` | Refresh |

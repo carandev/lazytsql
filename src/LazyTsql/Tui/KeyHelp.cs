@@ -44,7 +44,8 @@ public static class KeyHelp
         new(KeyContext.Files, "Files [2]", [
             ("Enter", "open/expand"),
             ("h", "collapse"),
-            ("o", "open folder"),
+            ("o", "add folder"),
+            ("d", "remove folder"),
             ("/", "search"),
             ("n/N", "next/prev match"),
             ("r", "refresh"),

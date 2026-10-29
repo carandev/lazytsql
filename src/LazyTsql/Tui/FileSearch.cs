@@ -42,6 +42,11 @@ public static class FileSearch
         }
     }
 
+    /// <summary>The shown folder that holds <paramref name="node"/>: the deepest one whose path contains it.</summary>
+    public static FileNode? RootOf(IEnumerable<FileNode> roots, FileNode node) =>
+        roots.Where(root => node.Path.StartsWith(root.Path.TrimEnd(System.IO.Path.DirectorySeparatorChar) + System.IO.Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            .MaxBy(root => root.Path.Length);
+
     /// <summary>The folders to expand, from the root down to the one holding <paramref name="node"/>.</summary>
     public static IReadOnlyList<FileNode> Ancestors(FileNode root, FileNode node)
     {

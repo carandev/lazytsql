@@ -8,7 +8,10 @@ public sealed record FileNode(string Path, bool IsDirectory)
 {
     public static FileNode Directory(string path) => new(System.IO.Path.GetFullPath(path), IsDirectory: true);
 
-    public string Label => IsDirectory ? $"{System.IO.Path.GetFileName(Path.TrimEnd(System.IO.Path.DirectorySeparatorChar))}/" : System.IO.Path.GetFileName(Path);
+    /// <summary>The name, with a slash for folders; a saved folder that was moved or deleted says so.</summary>
+    public string Label => IsDirectory
+        ? $"{System.IO.Path.GetFileName(Path.TrimEnd(System.IO.Path.DirectorySeparatorChar))}/{(System.IO.Directory.Exists(Path) ? string.Empty : " (not found)")}"
+        : System.IO.Path.GetFileName(Path);
 
     /// <summary>Folders first, then scripts, each by name; hidden folders such as <c>.git</c> are left out.</summary>
     public IReadOnlyList<FileNode> Children()

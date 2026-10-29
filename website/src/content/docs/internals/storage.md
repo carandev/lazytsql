@@ -22,6 +22,12 @@ description: How lazytsql stores connections, scripts, the activity log and the 
 - Serialized with a `System.Text.Json` source-generated context, which Native AOT needs.
 - `${VAR}` is expanded when connecting, never when saving.
 
+## Folders
+
+`folders.json`, next to `connections.json`, is a JSON array of the absolute paths shown in the files panel, in the
+order they were added. Paths are normalized (absolute, no trailing separator) so the same folder is never listed twice,
+and the file is replaced atomically like the connections file.
+
 ## Scripts
 
 `ScriptFile` reads a script detecting its encoding from the byte order mark (UTF-8 without BOM when there is none)

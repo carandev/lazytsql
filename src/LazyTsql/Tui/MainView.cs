@@ -53,8 +53,9 @@ public sealed class MainView : Runnable
     private bool _quitConfirmed;
     private ScriptFile? _script;
     private string _savedText = string.Empty;
-    // Null until a folder is given on the command line or opened with o: nothing is read from disk before that.
-    private FileNode? _filesRoot;
+    // The folders the files panel shows: the saved ones, plus a script's folder for this session only.
+    private readonly List<FileNode> _fileRoots = [];
+    private readonly FolderStore _folders;
     private readonly SystemClipboard _clipboard = SystemClipboard.Default();
     // The / search of the files panel: the query while typing (null otherwise), its matches for n/N, and where it started.
     private string? _fileQuery;
@@ -63,9 +64,10 @@ public sealed class MainView : Runnable
     private FileNode? _fileSearchStart;
     private CancellationTokenSource? _fileSearchCancellation;
 
-    public MainView(IDatabaseConnector connector, IBacpacTool bacpac, FileConnectionStore store, ActivityLog activity)
+    public MainView(IDatabaseConnector connector, IBacpacTool bacpac, FileConnectionStore store, ActivityLog activity, FolderStore folders)
     {
         _activity = activity;
+        _folders = folders;
         _connector = connector;
         _bacpac = bacpac;
         _store = store;
@@ -100,7 +102,7 @@ public sealed class MainView : Runnable
         _messages = new TextView { Width = Dim.Fill(), Height = Dim.Fill(), ReadOnly = true, WordWrap = true };
 
         var connectionsPanel = Panel("[1] Connections", _connections, 0, 0, Dim.Percent(28), Dim.Percent(20));
-        var filesPanel = Panel("[2] Files · o to open", _files, 0, Pos.Bottom(connectionsPanel), Dim.Percent(28), Dim.Percent(30));
+        var filesPanel = Panel("[2] Files · o to add", _files, 0, Pos.Bottom(connectionsPanel), Dim.Percent(28), Dim.Percent(30));
         var schemaPanel = Panel("[3] Schema", _schema, 0, Pos.Bottom(filesPanel), Dim.Percent(28), Dim.Fill(1));
         var editorPanel = Panel("[4] Query", _editor, Pos.Right(connectionsPanel), 0, Dim.Fill(), Dim.Percent(38));
         var messagesPanel = Panel("[6] Messages", _messages, Pos.Right(schemaPanel), Pos.AnchorEnd(8), Dim.Fill(), 7);
@@ -139,14 +141,75 @@ public sealed class MainView : Runnable
     }
 
     /// <summary>Shows a folder's scripts in the files panel, the folder itself expanded at the top.</summary>
-    public void ShowFiles(string directory)
+    /// <summary>Shows the folders saved in earlier sessions.</summary>
+    public void ShowSavedFolders()
     {
-        _filesRoot = FileNode.Directory(directory);
-        _files.ClearObjects();
-        _files.AddObject(_filesRoot);
-        _files.Expand(_filesRoot);
+        try
+        {
+            foreach (var folder in _folders.Load()) AddFolder(folder, save: false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            Log($"Could not read {_folders.Path}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Adds a folder to the files panel, expanded and selected; <paramref name="save"/> keeps it for the next sessions.
+    /// A folder already shown is only selected.
+    /// </summary>
+    public void AddFolder(string directory, bool save)
+    {
+        var node = FileNode.Directory(FolderStore.Normalize(directory));
+        if (!_fileRoots.Contains(node))
+        {
+            _fileRoots.Add(node);
+            _files.AddObject(node);
+            _files.Expand(node);
+        }
+
+        if (save)
+        {
+            try
+            {
+                _folders.Add(node.Path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            {
+                Log($"✗ Could not save the folder list in {_folders.Path}: {ex.Message}");
+            }
+        }
+
+        // Before the screen is laid out the tree has no height, and scrolling to the folder would hide the ones above it.
+        if (IsInitialized) _files.GoTo(node);
         _fileMatches = [];
         UpdateFileSearch();
+    }
+
+    /// <summary>d on a folder at the top of the files panel removes it from the panel and the saved list, not from disk.</summary>
+    private void RemoveFolder()
+    {
+        if (_files.SelectedObject is not { } node || !_fileRoots.Contains(node))
+        {
+            Log("Select a folder at the top level of [2] to remove it.");
+            return;
+        }
+
+        if (!ConfirmDialog.Show(App!, "Remove folder", $"Remove {node.Path} from the files panel?\nThe folder and its files stay on disk.", "Remove", confirmIsDefault: false)) return;
+        try
+        {
+            _folders.Remove(node.Path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            Log($"✗ Could not save the folder list in {_folders.Path}: {ex.Message}");
+        }
+
+        _fileRoots.Remove(node);
+        _files.Remove(node);
+        _fileMatches = [];
+        UpdateFileSearch();
+        Log($"Removed {node.Path} from [2].");
     }
 
     /// <summary>Runs the update check off the UI thread once the screen is up; a notice goes to the messages panel.</summary>
@@ -260,7 +323,8 @@ public sealed class MainView : Runnable
         else if (_files.HasFocus && key == Key.Enter) OpenSelectedFile();
         else if (_files.HasFocus && key == Key.R) ReloadFiles();
         else if (_files.HasFocus && key == Key.O) OpenFolder();
-        else if (_files.HasFocus && key.AsRune.Value == '/' && _filesRoot is not null) StartFileSearch();
+        else if (_files.HasFocus && key == Key.D) RemoveFolder();
+        else if (_files.HasFocus && key.AsRune.Value == '/' && _fileRoots.Count > 0) StartFileSearch();
         else if (_files.HasFocus && key.AsRune.Value is 'n' or 'N' && _fileMatches.Count > 0) ShowFileMatch(FileSearch.Step(_fileMatch, key.AsRune.Value == 'n' ? 1 : -1, _fileMatches.Count));
         else if (_schema.HasFocus && key == Key.S) SelectTopFromTable();
         else if (_schema.HasFocus && key == Key.E) OpenDefinition();
@@ -924,11 +988,11 @@ public sealed class MainView : Runnable
         {
             _fileSearchCancellation?.Cancel();
             var cancellation = _fileSearchCancellation = new CancellationTokenSource();
-            var (root, query) = (_filesRoot!, _fileQuery!);
+            var (roots, query) = (_fileRoots.ToList(), _fileQuery!);
             _fileMatches = [];
             _ = Task.Run(() =>
             {
-                var matches = FileSearch.Matches(root, query, cancellation.Token);
+                IReadOnlyList<FileNode> matches = [.. roots.SelectMany(root => FileSearch.Matches(root, query, cancellation.Token))];
                 OnUi(() =>
                 {
                     if (cancellation.IsCancellationRequested || _fileQuery != query) return;
@@ -945,7 +1009,11 @@ public sealed class MainView : Runnable
     {
         _fileMatch = index;
         var match = _fileMatches[index];
-        foreach (var folder in FileSearch.Ancestors(_filesRoot!, match)) _files.Expand(folder);
+        if (FileSearch.RootOf(_fileRoots, match) is { } root)
+        {
+            foreach (var folder in FileSearch.Ancestors(root, match)) _files.Expand(folder);
+        }
+
         _files.GoTo(match);
         UpdateFileSearch();
     }
@@ -955,17 +1023,17 @@ public sealed class MainView : Runnable
     {
         var position = _fileMatches.Count > 0 ? $" {_fileMatch + 1}/{_fileMatches.Count}" : _fileQuery is { Length: > 0 } ? " no match" : string.Empty;
         _panels[FilesPanel].Title = _fileQuery is not null ? $"[2] Files · /{_fileQuery}{position}"
-            : _fileMatches.Count > 0 ? $"[2] Files ·{position}" : _filesRoot is null ? "[2] Files · o to open" : "[2] Files";
+            : _fileMatches.Count > 0 ? $"[2] Files ·{position}" : _fileRoots.Count == 0 ? "[2] Files · o to add" : "[2] Files";
         UpdateHints();
     }
 
-    /// <summary>Picks the folder the files panel shows, starting from the current one.</summary>
+    /// <summary>Picks a folder to add to the files panel, starting from the selected one.</summary>
     private void OpenFolder()
     {
-        var start = _filesRoot?.Path ?? Environment.CurrentDirectory;
-        if (FilePicker.ShowFolder(App!, "Open folder", "Open", start.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar) is not { } folder) return;
-        ShowFiles(folder);
-        Log($"Showing {folder} in [2].");
+        var start = (_files.SelectedObject is { IsDirectory: true } selected ? selected.Path : null) ?? _fileRoots.FirstOrDefault()?.Path ?? Environment.CurrentDirectory;
+        if (FilePicker.ShowFolder(App!, "Add folder", "Add", start.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar) is not { } folder) return;
+        AddFolder(folder, save: true);
+        Log($"Added {folder} to [2]; it stays there in the next sessions until you remove it with d.");
     }
 
     private void ReloadFiles()
