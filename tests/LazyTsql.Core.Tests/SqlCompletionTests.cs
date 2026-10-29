@@ -278,4 +278,16 @@ public class SqlCompletionTests
 
         Assert.Equal(["shop"], requests);
     }
+
+    [Fact]
+    public void Synonyms_are_suggested_after_FROM()
+    {
+        var catalog = Catalog();
+        catalog.SetObjects("shop", [.. catalog.Objects("shop")!, new DbObject("dbo", "clients", DbObjectKind.Synonym)]);
+
+        var result = Suggest("SELECT * FROM cli|", catalog);
+
+        Assert.Equal(["clients"], Texts(result));
+        Assert.Equal(CompletionKind.Synonym, result.Items[0].Kind);
+    }
 }

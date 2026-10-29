@@ -418,7 +418,7 @@ public sealed class MainView : Runnable
         if (session is null) return;
         RunInBackground(async token =>
         {
-            var objects = await session.GetObjectsAsync(database, token);
+            IReadOnlyList<DbObject> objects = [.. await session.GetObjectsAsync(database, token), .. await session.GetSynonymsAsync(database, token)];
             OnUi(() =>
             {
                 // A reconnect while loading starts a new catalog; these names belong to the old connection.

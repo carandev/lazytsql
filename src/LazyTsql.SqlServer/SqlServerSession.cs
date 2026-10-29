@@ -149,6 +149,17 @@ internal sealed class SqlServerSession : IDatabaseSession
             cancellationToken,
             new SqlParameter("@name", SqlDbType.NVarChar, 512) { Value = table.QualifiedName });
 
+    public Task<IReadOnlyList<DbObject>> GetSynonymsAsync(string database, CancellationToken cancellationToken) =>
+        QueryAsync(
+            InDatabase(database, """
+            SELECT s.name, o.name
+            FROM sys.synonyms o
+            JOIN sys.schemas s ON s.schema_id = o.schema_id
+            ORDER BY s.name, o.name
+            """),
+            r => new DbObject(r.GetString(0), r.GetString(1), DbObjectKind.Synonym),
+            cancellationToken);
+
     public async Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(string database, CancellationToken cancellationToken)
     {
         var rows = await QueryAsync(

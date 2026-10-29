@@ -151,7 +151,7 @@ public class SqlServerSessionTests
     }
 
     [SqlServerFact]
-    public async Task Reads_foreign_keys_of_another_database_with_their_columns_in_key_order()
+    public async Task Reads_foreign_keys_and_synonyms_of_another_database()
     {
         await using var session = await OpenAsync();
         var database = $"lazytsql_{Guid.NewGuid():N}]'x";
@@ -166,10 +166,14 @@ public class SqlServerSessionTests
                     FOREIGN KEY (order_id, line) REFERENCES dbo.lines (order_id, line));'
                 """);
 
+            await RunAsync(session, $"EXEC {quoted}.sys.sp_executesql N'CREATE SYNONYM dbo.deliveries FOR dbo.shipments'");
+
             var key = Assert.Single(await session.GetForeignKeysAsync(database, CancellationToken.None));
+            var synonym = Assert.Single(await session.GetSynonymsAsync(database, CancellationToken.None));
 
             Assert.Equal(("dbo", "shipments", "dbo", "lines"), (key.FromSchema, key.FromTable, key.ToSchema, key.ToTable));
             Assert.Equal([new KeyColumn("order_id", "order_id"), new KeyColumn("line", "line")], key.Columns);
+            Assert.Equal(new DbObject("dbo", "deliveries", DbObjectKind.Synonym), synonym);
             Assert.Equal("master", session.CurrentDatabase);
         }
         finally

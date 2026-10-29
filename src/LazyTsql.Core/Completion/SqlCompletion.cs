@@ -11,6 +11,7 @@ public enum CompletionKind
     Table,
     View,
     Function,
+    Synonym,
     Procedure,
     Schema,
     Database,
@@ -433,6 +434,7 @@ public static class SqlCompletion
         DbObjectKind.Table => CompletionKind.Table,
         DbObjectKind.View => CompletionKind.View,
         DbObjectKind.Procedure => CompletionKind.Procedure,
+        DbObjectKind.Synonym => CompletionKind.Synonym,
         _ => CompletionKind.Function,
     };
 

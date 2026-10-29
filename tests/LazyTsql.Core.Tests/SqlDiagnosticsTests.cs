@@ -69,6 +69,10 @@ public class SqlDiagnosticsTests
         Assert.Empty(Diagnose("UPDATE c SET name = '' FROM customers c"));
         Assert.Empty(Diagnose("SELECT * FROM linked.db.dbo.t; SELECT * FROM nodb.dbo.t; SELECT x.y FROM (SELECT 1 AS z) x"));
         Assert.Empty(Diagnose("SELECT * FROM archive.dbo.anything"));
+
+        var withSynonym = Catalog();
+        withSynonym.SetObjects("shop", [.. withSynonym.Objects("shop")!, new DbObject("dbo", "clients", DbObjectKind.Synonym)]);
+        Assert.Empty(Diagnose("SELECT c.anything FROM clients c", withSynonym));
     }
 
     [Fact]

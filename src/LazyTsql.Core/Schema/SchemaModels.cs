@@ -6,6 +6,7 @@ public enum DbObjectKind
     View,
     Procedure,
     Function,
+    Synonym,
 }
 
 public sealed record DbObject(string Schema, string Name, DbObjectKind Kind)
