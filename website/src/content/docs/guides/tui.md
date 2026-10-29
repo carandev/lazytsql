@@ -46,7 +46,7 @@ Without `-c`, lazytsql connects on start when `LAZYTSQL_CONNECTION` is set.
 - The bottom line always shows the keys of the focused panel or open dialog, followed by the global keys that still
   work there. `?` (or `F1` inside the editor) opens the help for the current panel; `a` in the help switches to every
   key.
-- `q` quits outside the editor, `Ctrl+Q` anywhere. Quitting always asks, and warns when the open script has unsaved
+- `q` and `Esc` quit outside the editor (inside it, `Esc` leaves it), `Ctrl+Q` anywhere. Quitting always asks, and warns when the open script has unsaved
   changes.
 
 Every key is listed in the [key reference](/lazytsql/reference/keys/).

@@ -46,7 +46,7 @@ Sin `-c`, lazytsql se conecta al iniciar cuando `LAZYTSQL_CONNECTION` está defi
 - La línea inferior siempre muestra las teclas del panel enfocado o del diálogo abierto, seguidas de las teclas globales que
   siguen funcionando ahí. `?` (o `F1` dentro del editor) abre la ayuda del panel actual; `a` en la ayuda cambia a todas
   las teclas.
-- `q` sale fuera del editor, `Ctrl+Q` en cualquier lugar. Salir siempre pide confirmación y avisa cuando el script abierto tiene cambios
+- `q` y `Esc` salen fuera del editor (dentro de él, `Esc` sale del editor), `Ctrl+Q` en cualquier lugar. Salir siempre pide confirmación y avisa cuando el script abierto tiene cambios
   sin guardar.
 
 Todas las teclas están en la [referencia de teclas](/lazytsql/es/reference/keys/).

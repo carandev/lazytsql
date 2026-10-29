@@ -19,7 +19,7 @@ with `?` (or `F1`).
 | `Ctrl+K` | Cancel the running query, export or import |
 | `Ctrl+O` / `Ctrl+S` | Open / save a `.sql` file |
 | `?` / `F1` | Help for the focused panel (`F1` inside the editor) |
-| `q` / `Ctrl+Q` | Quit after confirming (`q` only outside the editor) |
+| `q` / `Esc` / `Ctrl+Q` | Quit after confirming (`q` and `Esc` only outside the editor) |
 
 ## Panels
 

@@ -38,7 +38,7 @@ public static class KeyHelp
             ("F5/Ctrl+E", "run query"),
             ("Ctrl+O/Ctrl+S", "open/save .sql"),
             ("?/F1", "help"),
-            ("q/Ctrl+Q", "quit"),
+            ("q/Esc/Ctrl+Q", "quit"),
         ]),
         new(KeyContext.Connections, "Connections [1]", [("Enter", "connect"), ("a", "add"), ("e", "edit"), ("d", "delete")]),
         new(KeyContext.Files, "Files [2]", [

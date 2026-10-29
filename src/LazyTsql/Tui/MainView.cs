@@ -243,6 +243,9 @@ public sealed class MainView : Runnable
         else if (key == Key.Q.WithCtrl) Quit();
         // Esc first closes the completion popup; the editor handles that.
         else if (key == Key.Esc && inEditor && !_editor.Autocomplete.Visible) FocusPanel(ResultsPanel);
+        // Esc is also Terminal.Gui's quit key. Left to it, the confirmation opens inside a stop that was already vetoed,
+        // and confirming did not quit; asking here, like q does, quits on the first confirmation.
+        else if (key == Key.Esc && !inEditor) Quit();
         else if (key.IsAlt && PanelIndex(key.NoAlt) is { } altPanel) FocusPanel(altPanel);
         else if (!inEditor && VimMotion(key) is { } motion) _panels[CurrentPanel()].SubViews.First().NewKeyDownEvent(motion);
         else if (inEditor || _messages.HasFocus && key != Key.Tab) handled = false;

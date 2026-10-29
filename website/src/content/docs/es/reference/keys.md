@@ -19,7 +19,7 @@ la aplicación muestra con `?` (o `F1`).
 | `Ctrl+K` | Cancelar la consulta, exportación o importación en curso |
 | `Ctrl+O` / `Ctrl+S` | Abrir / guardar un archivo `.sql` |
 | `?` / `F1` | Ayuda del panel enfocado (`F1` dentro del editor) |
-| `q` / `Ctrl+Q` | Salir tras confirmar (`q` solo fuera del editor) |
+| `q` / `Esc` / `Ctrl+Q` | Salir tras confirmar (`q` y `Esc` solo fuera del editor) |
 
 ## Paneles
 

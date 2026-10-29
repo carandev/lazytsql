@@ -128,7 +128,7 @@ such as `.git`.
 | `Ctrl+K` | Anywhere | Cancel the running query, export or import |
 | `Ctrl+O` / `Ctrl+S` | Anywhere | Open / save a `.sql` file; the title shows `*` while there are unsaved changes |
 | `?` / `F1` | Anywhere | Keys of the focused panel; `a` in the help switches to every key |
-| `q` / `Ctrl+Q` | Anywhere | Quit after confirming (`q` only outside the editor) |
+| `q` / `Esc` / `Ctrl+Q` | Anywhere | Quit after confirming (`q` and `Esc` only outside the editor, where `Esc` leaves it) |
 | `h` `j` `k` `l`, `g` / `G`, `Ctrl+D` / `Ctrl+U` | Outside the editor | Vim motions |
 | `Enter` | Connections | Connect |
 | `a` / `e` / `d` | Connections | Add, edit or delete a connection |
