@@ -126,7 +126,7 @@ as `.git`.
 | --- | --- | --- |
 | `1`-`6`, `Alt+1`-`Alt+6`, `Tab` | Anywhere | Focus a panel (`Alt+` also works inside the editor) |
 | `F5` / `Ctrl+E` | Anywhere | Run the selection, or the whole script batch by batch (`GO`, `GO n`) |
-| `Ctrl+K` | Anywhere | Cancel the running query, export or import |
+| `Ctrl+K` | Anywhere | Cancel the running query, export or import, and everything queued after it |
 | `Ctrl+O` / `Ctrl+S` | Anywhere | Open / save a `.sql` file; the title shows `*` while there are unsaved changes |
 | `Ctrl+W` | Anywhere | Close the open `.sql` file (asks first if it has unsaved changes) and empty the editor |
 | `?` / `F1` | Anywhere | Keys of the focused panel; `a` in the help switches to every key |

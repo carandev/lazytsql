@@ -51,8 +51,10 @@ Dialogs tag themselves with their context, so the footer follows them.
 
 ## Background work
 
-Database work runs in `RunInBackground`: `Task.Run`, then a `SemaphoreSlim(1, 1)` so operations on the single
-connection run one at a time, in order. Results come back to the UI thread with `App.Invoke`. Errors are logged as
+Database work runs in `RunInBackground` through `OperationQueue`: a `SemaphoreSlim(1, 1)` whose place is taken on the
+UI thread, so operations on the single connection run one at a time, in the order they were asked. Cancellable ones
+share one `CancellationTokenSource`; `Ctrl+K` cancels it, stopping the running operation and the waiting ones, and
+replaces it so later operations run as usual. Results come back to the UI thread with `App.Invoke`. Errors are logged as
 `✗ message`, and cancellations as `Cancelled.`.
 
 The update check runs on its own task, outside the semaphore, because it does not use the connection.

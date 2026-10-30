@@ -53,7 +53,10 @@ Todas las teclas están en la [referencia de teclas](/lazytsql/es/reference/keys
 ## Trabajo en segundo plano
 
 Las consultas, la carga del esquema, las exportaciones y las importaciones se ejecutan en segundo plano, así que la pantalla sigue respondiendo. Comparten
-la única conexión, por lo que se ejecutan de una en una, en orden. `Ctrl+K` cancela la consulta, exportación o importación en curso.
+la única conexión, por lo que se ejecutan de una en una, en el orden en que las pediste: ninguna se descarta porque pidas
+otra. Una que tiene que esperar muestra `Queued: …` y se ejecuta en la conexión que esté activa cuando llegue su turno,
+así que una consulta pedida después de un cambio de conexión se ejecuta en la conexión nueva. `Ctrl+K` cancela la
+consulta, exportación o importación en curso, y todo lo que espera en cola detrás.
 
 ## Colores
 
