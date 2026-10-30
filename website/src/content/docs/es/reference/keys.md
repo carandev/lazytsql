@@ -56,6 +56,7 @@ la aplicación muestra con `?` (o `F1`).
 | | `s` | Guardar las ediciones (muestra el script antes) |
 | | `u` / `U` | Deshacer la celda seleccionada / todas las ediciones |
 | | `[` / `]` | Conjunto de resultados anterior / siguiente |
+| | `y` | Copiar la celda seleccionada, o las celdas seleccionadas con `Shift`+flechas (`Ctrl+A` para todas) |
 | | `x` | Exportar a CSV, o copiarlo (`Alt+C` en el diálogo) |
 | | `m` | Límite de filas |
 | | `h` `j` `k` `l` | Moverse entre celdas |

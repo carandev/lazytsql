@@ -78,6 +78,14 @@ Lo que ocurre al llegar al límite depende del lote:
 Volver a ejecutar libera primero los resultados anteriores. Como referencia, un millón de filas de tres columnas ocupa unos
 220 MB.
 
+## Copiar valores
+
+`y` en el panel de resultados copia el valor completo de la celda seleccionada, saltos de línea incluidos.
+
+- Para copiar varias celdas, selecciónalas con `Shift`+flechas; `Ctrl+A` las selecciona todas.
+- Se copian como filas separadas por tabuladores, así que se pegan en una hoja de cálculo como celdas. No se copia el encabezado.
+- `NULL` se copia vacío, y las ediciones pendientes con su valor nuevo.
+
 ## Exportar a CSV
 
 `x` en el panel de resultados exporta el conjunto de resultados actual a un archivo CSV:

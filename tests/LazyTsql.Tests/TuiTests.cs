@@ -126,6 +126,7 @@ public class TuiTests
         foreach (var title in new[] { "Global", "Connections [1]", "Files [2]", "Schema [3]", "Query [4]", "Results [5]", "Messages [6]", "File picker", "Confirmation", "Connection form", "Edit cell" })
             Assert.Contains(all, line => line.Contains(title, StringComparison.Ordinal));
         Assert.Contains(all, line => line.Contains("export/copy CSV", StringComparison.Ordinal));
+        Assert.Contains(all, line => line.Contains("copy cell(s)", StringComparison.Ordinal));
         Assert.Contains(all, line => line.Contains("pick suggestion", StringComparison.Ordinal));
         Assert.Contains(all, line => line.Contains("show only", StringComparison.Ordinal));
         Assert.All(all, line => Assert.True(line.Length <= 74, $"too wide: '{line}'"));
