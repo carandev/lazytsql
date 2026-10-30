@@ -82,6 +82,7 @@ public static class KeyHelp
             ("s", "save edits"),
             ("u/U", "undo cell/all"),
             ("[/]", "prev/next set"),
+            ("y", "copy cell(s)"),
             ("x", "export/copy CSV"),
             ("m", "row limit"),
             ("h j k l", "move"),

@@ -78,6 +78,14 @@ What happens at the limit depends on the batch:
 Running again releases the previous results first. As a reference, one million rows of three columns take about
 220 MB.
 
+## Copying values
+
+`y` in the results panel copies the selected cell's whole value, line breaks included.
+
+- To copy several cells, select them with `Shift`+arrows; `Ctrl+A` selects them all.
+- They are copied as tab-separated rows, so they paste into a spreadsheet as cells. No header is copied.
+- `NULL` is copied as empty, and pending edits as their new value.
+
 ## Exporting to CSV
 
 `x` in the results panel exports the current result set to a CSV file:

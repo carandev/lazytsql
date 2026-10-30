@@ -56,6 +56,7 @@ with `?` (or `F1`).
 | | `s` | Save the edits (shows the script first) |
 | | `u` / `U` | Undo the selected cell / every edit |
 | | `[` / `]` | Previous / next result set |
+| | `y` | Copy the selected cell, or the cells selected with `Shift`+arrows (`Ctrl+A` for all) |
 | | `x` | Export to CSV, or copy it (`Alt+C` in the dialog) |
 | | `m` | Row limit |
 | | `h` `j` `k` `l` | Move between cells |

@@ -359,6 +359,7 @@ public sealed class MainView : Runnable
         else if (_results.HasFocus && key.AsRune.Value == ']') ShowResultSet(_resultIndex + 1);
         else if (_results.HasFocus && key.AsRune.Value == '[') ShowResultSet(_resultIndex - 1);
         else if (_results.HasFocus && key == Key.X) ExportResultSet();
+        else if (_results.HasFocus && key.AsRune.Value == 'y') CopyCells();
         else if (_results.HasFocus && key == Key.M) ChangeRowLimit();
         else handled = false;
 
@@ -1086,11 +1087,23 @@ public sealed class MainView : Runnable
         }, _queryCancellation.Token);
     }
 
-    /// <summary>Puts the CSV on the system clipboard, or Terminal.Gui's where no tool is known (Windows); returns the log line.</summary>
-    private string CopyCsv(string csv, long rows) =>
-        _clipboard.Write(csv) || App?.Clipboard?.TrySetClipboardData(csv) == true
-            ? $"Copied {rows} rows to the clipboard as CSV."
-            : "✗ Could not copy: no clipboard tool found. Install wl-clipboard, xclip or xsel.";
+    private string CopyCsv(string csv, long rows) => Copy(csv) ? $"Copied {rows} rows to the clipboard as CSV." : CopyFailed;
+
+    /// <summary>Copies the selected cell, or the cells selected with Shift+arrows as tab-separated rows, showing pending edits.</summary>
+    private void CopyCells()
+    {
+        if (_resultSets.ElementAtOrDefault(_resultIndex) is not { } shown || shown.Set.Rows.Count == 0) return;
+        var cells = _results.GetAllSelectedCells().Select(cell => (Row: cell.Y, Column: cell.X))
+            .Where(cell => cell.Row < shown.Set.Rows.Count && cell.Column < shown.Set.Columns.Count).ToList();
+        if (cells.Count == 0) return;
+        var text = Output.CellCopy.Text(cells, (row, column) => shown.Edits is { } edits ? edits.Value(row, column) : shown.Set.Rows[row][column]);
+        Log(!Copy(text) ? CopyFailed : cells.Count == 1 ? "Copied the cell to the clipboard." : $"Copied {cells.Count} cells to the clipboard.");
+    }
+
+    /// <summary>Puts the text on the system clipboard, or Terminal.Gui's where no tool is known (Windows).</summary>
+    private bool Copy(string text) => _clipboard.Write(text) || App?.Clipboard?.TrySetClipboardData(text) == true;
+
+    private const string CopyFailed = "✗ Could not copy: no clipboard tool found. Install wl-clipboard, xclip or xsel.";
 
     /// <summary>Exports the database of the selected schema node (or the current one) with sqlpackage.</summary>
     private void ExportBacpac()
