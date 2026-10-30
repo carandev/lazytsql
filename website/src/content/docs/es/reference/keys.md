@@ -18,7 +18,7 @@ la aplicación muestra con `?` (o `F1`).
 | `Alt+→` / `Alt+←` | Ensanchar / angostar la columna izquierda |
 | `Ctrl+D` / `Ctrl+U` | Avanzar / retroceder una página |
 | `F5` / `Ctrl+E` | Ejecutar la selección, o todo el script lote por lote |
-| `Ctrl+K` | Cancelar la consulta, exportación o importación en curso |
+| `Ctrl+K` | Cancelar la consulta, exportación o importación en curso, y todo lo que espera en cola detrás |
 | `Ctrl+O` / `Ctrl+S` | Abrir / guardar un archivo `.sql` |
 | `Ctrl+W` | Cerrar el archivo `.sql` abierto (pregunta primero si tiene cambios sin guardar) |
 | `?` / `F1` | Ayuda del panel enfocado (`F1` dentro del editor) |

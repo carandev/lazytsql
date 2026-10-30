@@ -51,8 +51,10 @@ Los diálogos se etiquetan con su contexto, de modo que el pie de página los si
 
 ## Trabajo en segundo plano
 
-El trabajo con la base de datos se ejecuta en `RunInBackground`: `Task.Run` y luego un `SemaphoreSlim(1, 1)`, para que las operaciones sobre la única
-conexión se ejecuten una a la vez y en orden. Los resultados vuelven al hilo de la interfaz con `App.Invoke`. Los errores se registran como
+El trabajo con la base de datos se ejecuta en `RunInBackground` a través de `OperationQueue`: un `SemaphoreSlim(1, 1)` cuyo turno se toma en el
+hilo de la interfaz, para que las operaciones sobre la única conexión se ejecuten una a la vez y en el orden en que se pidieron. Las cancelables
+comparten un `CancellationTokenSource`; `Ctrl+K` lo cancela, lo que detiene la operación en curso y las que esperan, y lo reemplaza para que las
+siguientes se ejecuten con normalidad. Los resultados vuelven al hilo de la interfaz con `App.Invoke`. Los errores se registran como
 `✗ message`, y las cancelaciones como `Cancelled.`.
 
 La comprobación de actualizaciones se ejecuta en su propia tarea, fuera del semáforo, porque no usa la conexión.

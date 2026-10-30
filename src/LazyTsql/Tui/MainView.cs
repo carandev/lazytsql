@@ -32,7 +32,7 @@ public sealed class MainView : Runnable
     private readonly FileConnectionStore _store;
     private readonly ActivityLog _activity;
     private bool _activityFailed;
-    private readonly SemaphoreSlim _sessionGate = new(1, 1);
+    private readonly OperationQueue _operations = new();
     private readonly SchemaCatalog _catalog = new();
     private readonly ObservableCollection<string> _connectionNames = [];
     private readonly FrameView[] _panels;
@@ -47,7 +47,6 @@ public sealed class MainView : Runnable
     private IReadOnlyList<ConnectionProfile> _profiles = [];
     private IDatabaseSession? _session;
     private string? _sessionName;
-    private CancellationTokenSource? _queryCancellation;
     private List<ShownResult> _resultSets = [];
     private int _maxRows = new QueryOptions().MaxRows;
     private int _resultIndex;
@@ -242,9 +241,8 @@ public sealed class MainView : Runnable
     {
         if (disposing)
         {
-            _queryCancellation?.Cancel();
+            _operations.Dispose();
             _session?.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            _sessionGate.Dispose();
         }
 
         base.Dispose(disposing);
@@ -532,11 +530,21 @@ public sealed class MainView : Runnable
 
     private void Connect(string connectionString, string displayName)
     {
-        Log($"Connecting to {displayName}…");
         RunInBackground(async token =>
         {
+            OnUi(() => Log($"Connecting to {displayName}…"));
             var session = await _connector.OpenAsync(connectionString, token);
-            var databases = await SchemaDatabasesAsync(session, token);
+            IReadOnlyList<string> databases;
+            try
+            {
+                databases = await SchemaDatabasesAsync(session, token);
+            }
+            catch
+            {
+                await session.DisposeAsync();
+                throw;
+            }
+
             var previous = _session;
             _session = session;
             _sessionName = displayName;
@@ -551,7 +559,7 @@ public sealed class MainView : Runnable
                 Log($"Connected to {displayName} (SQL Server {session.ServerVersion}), database {session.CurrentDatabase}.");
                 FocusPanel(SchemaPanel);
             });
-        });
+        }, cancellable: true, queued: $"connecting to {displayName}");
     }
 
     /// <summary>A connection scoped to a database shows only that one; otherwise every accessible database.</summary>
@@ -739,20 +747,23 @@ public sealed class MainView : Runnable
 
         if (PendingEdits > 0 && !ConfirmDialog.Show(App!, "Unsaved edits", $"Run the query and discard {Count(PendingEdits, "unsaved change")} to the results?", "Discard", confirmIsDefault: false)) return;
 
-        _queryCancellation?.Dispose();
-        _queryCancellation = new CancellationTokenSource();
-        var cancellation = _queryCancellation;
         ReleaseResults();
-        _panels[ResultsPanel].Title = "[5] Results · running…";
-        WriteActivity($"Running on {_sessionName} › {_session.CurrentDatabase}:\n{script}");
-        Log("Running…");
+        _panels[ResultsPanel].Title = _operations.IsBusy ? "[5] Results · queued…" : "[5] Results · running…";
 
-        RunInBackground(async _ =>
+        RunInBackground(async token =>
         {
+            // The connection and database are the ones it runs on, which an operation queued before it may have changed.
             var session = RequireSession();
+            var target = $"{_sessionName} › {session.CurrentDatabase}";
+            OnUi(() =>
+            {
+                _panels[ResultsPanel].Title = "[5] Results · running…";
+                WriteActivity($"Running on {target}:\n{script}");
+                Log("Running…");
+            });
             var resultSets = new List<ShownResult>();
             var total = TimeSpan.Zero;
-            await foreach (var result in ScriptRunner.RunAsync(session, script, new QueryOptions(_maxRows), cancellation.Token))
+            await foreach (var result in ScriptRunner.RunAsync(session, script, new QueryOptions(_maxRows), token))
             {
                 resultSets.AddRange(result.ResultSets.Select((set, i) => new ShownResult(set, session, result.Batch, i, session.CurrentDatabase)));
                 total += result.Elapsed;
@@ -766,16 +777,12 @@ public sealed class MainView : Runnable
                 UpdateEditorTitle();
                 Log($"Done in {total.TotalMilliseconds:0} ms.");
             });
-        }, cancellation.Token, onError: () => _panels[ResultsPanel].Title = "[5] Results");
+        }, cancellable: true, onError: () => _panels[ResultsPanel].Title = "[5] Results", queued: "the query");
     }
 
     private void CancelQuery()
     {
-        if (_queryCancellation is { IsCancellationRequested: false } cancellation)
-        {
-            cancellation.Cancel();
-            Log("Cancel requested.");
-        }
+        if (_operations.Cancel()) Log("Cancel requested.");
     }
 
     /// <summary>
@@ -1029,11 +1036,9 @@ public sealed class MainView : Runnable
             return;
         }
 
-        _queryCancellation?.Dispose();
-        _queryCancellation = new CancellationTokenSource();
-        Log("Exporting every row… (Ctrl+K cancels)");
         RunInBackground(async token =>
         {
+            OnUi(() => Log("Exporting every row… (Ctrl+K cancels)"));
             try
             {
                 long count;
@@ -1052,7 +1057,7 @@ public sealed class MainView : Runnable
                 if (ex is OperationCanceledException || token.IsCancellationRequested) throw new OperationCanceledException(token);
                 OnUi(() => Log($"✗ Export failed: {ex.Message}"));
             }
-        }, _queryCancellation.Token);
+        }, cancellable: true, queued: "the export");
     }
 
     /// <summary>Copies the result as CSV, the same text an export writes but without the byte order mark.</summary>
@@ -1066,11 +1071,9 @@ public sealed class MainView : Runnable
             return;
         }
 
-        _queryCancellation?.Dispose();
-        _queryCancellation = new CancellationTokenSource();
-        Log("Copying every row… (Ctrl+K cancels)");
         RunInBackground(async token =>
         {
+            OnUi(() => Log("Copying every row… (Ctrl+K cancels)"));
             try
             {
                 var text = new StringWriter();
@@ -1084,7 +1087,7 @@ public sealed class MainView : Runnable
                 if (ex is OperationCanceledException || token.IsCancellationRequested) throw new OperationCanceledException(token);
                 OnUi(() => Log($"✗ Copy failed: {ex.Message}"));
             }
-        }, _queryCancellation.Token);
+        }, cancellable: true, queued: "the copy");
     }
 
     private string CopyCsv(string csv, long rows) => Copy(csv) ? $"Copied {rows} rows to the clipboard as CSV." : CopyFailed;
@@ -1155,11 +1158,9 @@ public sealed class MainView : Runnable
     /// <summary>Runs sqlpackage in the background with its output in Messages; Ctrl+K cancels it.</summary>
     private void RunSqlPackage(string starting, string done, Func<CancellationToken, Task> run, string? onCancel)
     {
-        _queryCancellation?.Dispose();
-        _queryCancellation = new CancellationTokenSource();
-        Log($"{starting} (Ctrl+K cancels)");
         RunInBackground(async token =>
         {
+            OnUi(() => Log($"{starting} (Ctrl+K cancels)"));
             try
             {
                 await run(token);
@@ -1174,7 +1175,7 @@ public sealed class MainView : Runnable
                 OnUi(() => Log(onCancel));
                 throw;
             }
-        }, _queryCancellation.Token);
+        }, cancellable: true, queued: "sqlpackage");
     }
 
     // The BOM lets Excel detect UTF-8, so accents and ñ survive opening the file.
@@ -1428,14 +1429,20 @@ public sealed class MainView : Runnable
     private void OnUi(Action action) => App?.Invoke(action);
 
     /// <summary>Runs database work off the UI thread, one operation at a time since a session has a single connection.</summary>
-    private void RunInBackground(Func<CancellationToken, Task> work, CancellationToken token = default, Action? onError = null)
+    /// <summary>
+    /// Queues work on the connection after the operations asked before it. A <paramref name="cancellable"/> one stops on
+    /// Ctrl+K, waiting or running; one with a <paramref name="queued"/> label says so when it has to wait.
+    /// </summary>
+    private void RunInBackground(Func<CancellationToken, Task> work, bool cancellable = false, Action? onError = null, string? queued = null)
     {
-        _ = Task.Run(async () =>
+        if (queued is not null && _operations.IsBusy) Log($"Queued: {queued} starts when the current operation ends (Ctrl+K cancels).");
+        _ = Run();
+
+        async Task Run()
         {
-            await _sessionGate.WaitAsync(token);
             try
             {
-                await work(token);
+                await _operations.Run(work, cancellable).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -1445,11 +1452,7 @@ public sealed class MainView : Runnable
                     Log(ex is OperationCanceledException ? "Cancelled." : $"✗ {ex.Message}");
                 });
             }
-            finally
-            {
-                _sessionGate.Release();
-            }
-        }, CancellationToken.None);
+        }
     }
 
     /// <summary>A result set with the session and batch that produced it, so an export can fetch every row again.</summary>

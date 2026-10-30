@@ -18,7 +18,7 @@ with `?` (or `F1`).
 | `Alt+↓` / `Alt+↑` | Make the focused panel taller / shorter (`+` / `-` outside the editor) |
 | `Alt+→` / `Alt+←` | Widen / narrow the left column |
 | `F5` / `Ctrl+E` | Run the selection, or the whole script batch by batch |
-| `Ctrl+K` | Cancel the running query, export or import |
+| `Ctrl+K` | Cancel the running query, export or import, and everything queued after it |
 | `Ctrl+O` / `Ctrl+S` | Open / save a `.sql` file |
 | `Ctrl+W` | Close the open `.sql` file (asks first if it has unsaved changes) |
 | `?` / `F1` | Help for the focused panel (`F1` inside the editor) |

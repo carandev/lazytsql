@@ -53,7 +53,10 @@ Every key is listed in the [key reference](/lazytsql/reference/keys/).
 ## Working in the background
 
 Queries, schema loading, exports and imports run in the background, so the screen stays responsive. They share the
-one connection, so they run one at a time, in order. `Ctrl+K` cancels the running query, export or import.
+one connection, so they run one at a time, in the order you asked for them: nothing is dropped because you asked for
+something else. One that has to wait says `Queued: …` and runs on the connection that is current when its turn comes,
+so a query asked after a connection change runs on the new connection. `Ctrl+K` cancels the running query, export or
+import, and everything queued after it.
 
 ## Colors
 
