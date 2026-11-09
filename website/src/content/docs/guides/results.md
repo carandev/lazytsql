@@ -1,6 +1,6 @@
 ---
 title: Results and export
-description: Result sets, editing cells, the row limit, memory, and exporting every row to CSV.
+description: Result sets, editing cells, the row limit, memory, and exporting every row to CSV or Excel.
 ---
 
 ## Result sets
@@ -98,5 +98,16 @@ Running again releases the previous results first. As a reference, one million r
 - **Copy** (`Alt+C`) in the same dialog puts the CSV on the clipboard instead of a file, without the BOM. A capped
   result set is copied the same way, by running its batch again. On Linux it uses `wl-copy`, `xclip` or `xsel`.
 - If you connected somewhere else since the run, the export is refused: run the query again.
+
+## Exporting to Excel
+
+In the same dialog, name the file `.xlsx` (for example `results.xlsx`) to write an Excel workbook instead of CSV:
+
+- One sheet with a bold, frozen header row.
+- Numbers, dates and bits become typed cells, so Excel can sum and sort them; `NULL` is an empty cell.
+- Integers and decimals with more than 15 significant digits stay text, because Excel would round them.
+- Capped result sets stream every row the same way as CSV, and `Ctrl+K` removes the partial file.
+- A sheet holds at most 1,048,575 rows besides the header: a larger result fails without leaving a file; export it to
+  CSV instead.
 
 From the command line, `--csv` writes rows to stdout; see [headless mode](/lazytsql/guides/headless/).

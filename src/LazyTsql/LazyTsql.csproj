@@ -40,7 +40,7 @@
     <ToolCommandName>lazytsql</ToolCommandName>
     <PackageId>lazytsql</PackageId>
     <ToolPackageRuntimeIdentifiers>linux-x64;linux-arm64;win-x64;osx-arm64;any</ToolPackageRuntimeIdentifiers>
-    <Description>A lazygit-style terminal client for SQL Server: schema browser, editor with completion, results grid, CSV and .bacpac export.</Description>
+    <Description>A lazygit-style terminal client for SQL Server: schema browser, editor with completion, results grid, CSV, Excel and .bacpac export.</Description>
     <PackageTags>sql-server;tsql;tui;terminal;cli</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
