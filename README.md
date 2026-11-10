@@ -154,7 +154,7 @@ as `.git`.
 | `u` / `U` | Results | Undo the edit of the selected cell / every edit |
 | `[` / `]` | Results | Previous / next result set |
 | `y` | Results | Copy the selected cell; select several with `Shift`+arrows (`Ctrl+A` for all) to copy them as tab-separated rows |
-| `x` | Results | Export the current result set to CSV with every row, or copy it (`Alt+C` in the dialog) |
+| `x` | Results | Export the current result set to CSV or Excel (`.xlsx`) with every row, or copy it as CSV (`Alt+C` in the dialog) |
 | `m` | Results | Row limit: how many rows each result set fetches, or `all` |
 
 ### Connections
@@ -201,6 +201,10 @@ reached; any other batch reads and discards the remaining rows, so every stateme
 by running its batch again and streaming every row to the file; it asks first, because the batch's side effects run
 again too. `Ctrl+K` cancels and removes the partial file. **Copy** (`Alt+C`) in the same dialog puts the CSV on the
 clipboard instead, without the BOM.
+
+Name the file `.xlsx` to export an Excel workbook instead: one sheet with a bold, frozen header row. Numbers, dates and
+bits become typed cells and `NULL` an empty cell; integers and decimals with more than 15 digits stay text, so Excel does
+not round them. A sheet holds at most 1,048,575 rows: larger results fail and need CSV.
 
 `y` copies the selected cell's value. To copy several, select them with `Shift`+arrows (`Ctrl+A` selects all):
 they are copied as tab-separated rows, which paste into a spreadsheet. `NULL` is copied as empty.

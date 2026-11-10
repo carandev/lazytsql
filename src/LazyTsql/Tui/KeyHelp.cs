@@ -83,7 +83,7 @@ public static class KeyHelp
             ("u/U", "undo cell/all"),
             ("[/]", "prev/next set"),
             ("y", "copy cell(s)"),
-            ("x", "export/copy CSV"),
+            ("x", "export CSV/xlsx, copy"),
             ("m", "row limit"),
             ("h j k l", "move"),
         ]),

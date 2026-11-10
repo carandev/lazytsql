@@ -1,6 +1,6 @@
 ---
 title: Resultados y exportación
-description: Conjuntos de resultados, la edición de celdas, el límite de filas, la memoria y la exportación de todas las filas a CSV.
+description: Conjuntos de resultados, la edición de celdas, el límite de filas, la memoria y la exportación de todas las filas a CSV o Excel.
 ---
 
 ## Conjuntos de resultados
@@ -98,5 +98,17 @@ Volver a ejecutar libera primero los resultados anteriores. Como referencia, un 
 - **Copy** (`Alt+C`) en el mismo diálogo copia el CSV al portapapeles en vez de a un archivo, sin BOM. Un conjunto de
   resultados recortado se copia igual, volviendo a ejecutar su lote. En Linux usa `wl-copy`, `xclip` o `xsel`.
 - Si te conectaste a otro lugar después de la ejecución, la exportación se rechaza: vuelve a ejecutar la consulta.
+
+## Exportar a Excel
+
+En el mismo diálogo, nombra el archivo `.xlsx` (por ejemplo `results.xlsx`) para escribir un libro de Excel en vez de CSV:
+
+- Una hoja con la fila de encabezado en negrita e inmovilizada.
+- Los números, fechas y bits se escriben como celdas con tipo, para que Excel pueda sumarlos y ordenarlos; `NULL` es una
+  celda vacía.
+- Los enteros y decimales con más de 15 dígitos significativos se dejan como texto, porque Excel los redondearía.
+- Los conjuntos de resultados recortados envían cada fila igual que con CSV, y `Ctrl+K` elimina el archivo parcial.
+- Una hoja admite como máximo 1.048.575 filas además del encabezado: un resultado más grande falla sin dejar archivo;
+  expórtalo a CSV.
 
 Desde la línea de comandos, `--csv` escribe las filas en stdout; consulta [modo headless](/lazytsql/es/guides/headless/).

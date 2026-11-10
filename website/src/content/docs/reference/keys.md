@@ -57,7 +57,7 @@ with `?` (or `F1`).
 | | `u` / `U` | Undo the selected cell / every edit |
 | | `[` / `]` | Previous / next result set |
 | | `y` | Copy the selected cell, or the cells selected with `Shift`+arrows (`Ctrl+A` for all) |
-| | `x` | Export to CSV, or copy it (`Alt+C` in the dialog) |
+| | `x` | Export to CSV or Excel (name the file `.xlsx`), or copy it as CSV (`Alt+C` in the dialog) |
 | | `m` | Row limit |
 | | `h` `j` `k` `l` | Move between cells |
 | Messages `[6]` | `j` / `k` | Scroll |

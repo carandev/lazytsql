@@ -1012,7 +1012,7 @@ public sealed class MainView : Runnable
         }
 
         var suggested = Path.Combine(Environment.CurrentDirectory, $"results-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
-        var choice = FilePicker.ShowWithOther(App!, "Export CSV", "Export", "Copy", suggested, ".csv");
+        var choice = FilePicker.ShowWithOther(App!, "Export CSV (or name it .xlsx for Excel)", "Export", "Copy", suggested, ".csv");
         if (choice.Other)
         {
             CopyResultSet(shown);
@@ -1020,16 +1020,29 @@ public sealed class MainView : Runnable
         }
 
         if (choice.Path is not { } path) return;
+        var excel = path.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase);
 
         if (!shown.Set.IsTruncated)
         {
             try
             {
-                using (var writer = CsvFile(path)) Output.CsvResultWriter.Write(writer, shown.Set);
+                if (excel)
+                {
+                    using var file = File.Create(path);
+                    Output.XlsxResultWriter.Write(file, shown.Set);
+                }
+                else
+                {
+                    using var writer = CsvFile(path);
+                    Output.CsvResultWriter.Write(writer, shown.Set);
+                }
+
                 Log($"Exported {shown.Set.Rows.Count} rows to {path}.");
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
             {
+                // An Excel export that stopped at the sheet's row limit would look complete.
+                if (excel) DeletePartial(path);
                 Log($"✗ Export failed: {ex.Message}");
             }
 
@@ -1042,8 +1055,15 @@ public sealed class MainView : Runnable
             try
             {
                 long count;
-                await using (var writer = CsvFile(path))
+                if (excel)
                 {
+                    await using var file = File.Create(path);
+                    using var sink = new Output.XlsxRowWriter(file);
+                    count = await shown.Session.StreamResultSetAsync(shown.Batch, shown.Index, sink, new QueryOptions(), token);
+                }
+                else
+                {
+                    await using var writer = CsvFile(path);
                     count = await shown.Session.StreamResultSetAsync(shown.Batch, shown.Index, new Output.CsvRowWriter(writer), new QueryOptions(), token);
                 }
 
@@ -1052,7 +1072,7 @@ public sealed class MainView : Runnable
             catch (Exception ex)
             {
                 // A partial file would look like a complete export.
-                try { File.Delete(path); } catch (Exception ex2) when (ex2 is IOException or UnauthorizedAccessException) { }
+                DeletePartial(path);
                 // Cancelling stops the command on the server, which SqlClient may report as an error.
                 if (ex is OperationCanceledException || token.IsCancellationRequested) throw new OperationCanceledException(token);
                 OnUi(() => Log($"✗ Export failed: {ex.Message}"));
@@ -1176,6 +1196,11 @@ public sealed class MainView : Runnable
                 throw;
             }
         }, cancellable: true, queued: "sqlpackage");
+    }
+
+    private static void DeletePartial(string path)
+    {
+        try { File.Delete(path); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
     // The BOM lets Excel detect UTF-8, so accents and ñ survive opening the file.
