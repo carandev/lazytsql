@@ -29,6 +29,9 @@ public sealed class OperationQueue : IDisposable
                 await entered;
                 try
                 {
+                    // A cancelled operation can still get the gate: the running one releases it on cancel, sometimes
+                    // before the waiting one's own cancellation lands. It must not run then.
+                    token.ThrowIfCancellationRequested();
                     await work(token);
                 }
                 finally
