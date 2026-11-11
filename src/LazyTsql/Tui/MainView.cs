@@ -62,6 +62,12 @@ public sealed class MainView : Runnable
     private readonly string _layoutPath = Path.Combine(StateDirectory.Resolve(Environment.GetEnvironmentVariable), "layout");
     private PanelLayout _layout = new();
     private readonly SystemClipboard _clipboard = SystemClipboard.Default();
+    private readonly PasteRecovery _pasteRecovery = new();
+    // Keys held by the paste recovery and given back, replayed one per UI turn so a dialog one opens gets the rest.
+    private readonly Queue<Key> _replay = new();
+    private readonly HashSet<Key> _replaying = new(ReferenceEqualityComparer.Instance);
+    private bool _draining, _recoveryArmed;
+    private DateTime _recoveryDeadline;
     // The / search of the files panel: the query while typing (null otherwise), its matches for n/N, and where it started.
     private string? _fileQuery;
     private IReadOnlyList<FileNode> _fileMatches = [];
@@ -134,6 +140,8 @@ public sealed class MainView : Runnable
         Initialized += (_, _) =>
         {
             App!.Keyboard.KeyDown += OnGlobalKeyDown;
+            if (App.Driver?.GetInputProcessor() is { } input) input.AnsiSequenceSwallowed += OnSequenceSwallowed;
+            KeySequenceGuard.Skipped += OnSequenceSkipped;
             // The footer follows dialogs too; update after the session stack has changed.
             App.SessionBegun += (_, _) => OnUi(UpdateHints);
             App.SessionEnded += (_, _) => OnUi(UpdateHints);
@@ -241,6 +249,7 @@ public sealed class MainView : Runnable
     {
         if (disposing)
         {
+            KeySequenceGuard.Skipped -= OnSequenceSkipped;
             _operations.Dispose();
             _session?.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
@@ -278,6 +287,12 @@ public sealed class MainView : Runnable
 
     private void OnGlobalKeyDown(object? sender, Key key)
     {
+        if (!_replaying.Contains(key) && RecoverPaste(key))
+        {
+            key.Handled = true;
+            return;
+        }
+
         if (key == Key.V.WithCtrl && PasteFromClipboard())
         {
             key.Handled = true;
@@ -1292,6 +1307,99 @@ public sealed class MainView : Runnable
         if (_clipboard.Read() is not { Length: > 0 } text) return false;
         App.RaisePasteEvent(text);
         return true;
+    }
+
+    /// <summary>
+    /// Feeds a key to the <see cref="PasteRecovery"/>; true when it took the key, to replay later or as pasted text. While
+    /// earlier keys wait to be replayed, later ones queue behind them so the order is kept.
+    /// </summary>
+    private bool RecoverPaste(Key key)
+    {
+        if (_replay.Count > 0)
+        {
+            _replay.Enqueue(key);
+            return true;
+        }
+
+        var outcome = _pasteRecovery.Feed(key);
+        if (!outcome.Held && outcome.Release.Count == 0 && outcome.Paste is null) return false;
+        ApplyRecovery(outcome, outcome.Held ? null : key);
+        return true;
+    }
+
+    private void OnSequenceSwallowed(object? sender, string sequence)
+    {
+        _pasteRecovery.Swallowed(sequence);
+        ArmRecovery();
+    }
+
+    private void OnSequenceSkipped() => ApplyRecovery(_pasteRecovery.End(), null);
+
+    private void ApplyRecovery(PasteRecovery.Outcome outcome, Key? pass)
+    {
+        if (outcome.Paste is { Length: > 0 } text) App?.RaisePasteEvent(text);
+        foreach (var key in outcome.Release) _replay.Enqueue(key);
+        if (pass is not null) _replay.Enqueue(pass);
+        if (_replay.Count > 0 && !_draining)
+        {
+            _draining = true;
+            QueueDrain();
+        }
+
+        ArmRecovery();
+    }
+
+    private void DrainReplay()
+    {
+        if (!_replay.TryDequeue(out var held))
+        {
+            _draining = false;
+            return;
+        }
+
+        // Queued before the replay, so a dialog this key opens runs the next one inside its own loop.
+        QueueDrain();
+        var key = new Key(held) { Handled = false };
+        _replaying.Add(key);
+        try
+        {
+            App?.Keyboard.RaiseKeyDownEvent(key);
+        }
+        finally
+        {
+            _replaying.Remove(key);
+        }
+    }
+
+    /// <summary>On the next UI turn: Invoke runs right away on the UI thread, which replayed the keys backwards.</summary>
+    private void QueueDrain() => App?.AddTimeout(TimeSpan.Zero, () =>
+    {
+        DrainReplay();
+        return false;
+    });
+
+    /// <summary>One timer at a time follows the recovery's wait; each key that extends it moves the deadline.</summary>
+    private void ArmRecovery()
+    {
+        if (_pasteRecovery.Wait is not { } wait || App is null) return;
+        _recoveryDeadline = DateTime.UtcNow + wait;
+        if (_recoveryArmed) return;
+        _recoveryArmed = true;
+        App.AddTimeout(wait, CheckRecovery);
+    }
+
+    private bool CheckRecovery()
+    {
+        var left = _recoveryDeadline - DateTime.UtcNow;
+        if (_pasteRecovery.Wait is not null && left > TimeSpan.Zero)
+        {
+            App?.AddTimeout(left, CheckRecovery);
+            return false;
+        }
+
+        _recoveryArmed = false;
+        ApplyRecovery(_pasteRecovery.Expire(), null);
+        return false;
     }
 
     private void StartFileSearch()
