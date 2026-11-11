@@ -10,7 +10,15 @@ namespace LazyTsql.Tui;
 /// </summary>
 public static class KeySequenceGuard
 {
-    public static void Run(IApplication app, IRunnable view) => app.Run(view, IsUnknownKeySequence);
+    public static void Run(IApplication app, IRunnable view) => app.Run(view, error =>
+    {
+        if (!IsUnknownKeySequence(error)) return false;
+        Skipped?.Invoke();
+        return true;
+    });
+
+    /// <summary>Raised on the UI thread after a sequence is skipped; inside a recovered paste it is the paste's end.</summary>
+    public static event Action? Skipped;
 
     /// <summary>
     /// The parser's copy of the missing key throws first; the frame under it is the pattern's GetKey, or the parser's

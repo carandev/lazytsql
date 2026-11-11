@@ -72,7 +72,7 @@ public static class KeyHelp
             ("F5", "run selection or all"),
             ("Ctrl+K", "cancel"),
             ("Ctrl+S", "save"),
-            ("Ctrl+V", "paste"),
+            ("Ctrl+C/X/V", "copy/cut/paste"),
             ("Tab/Ctrl+Space", "complete"),
             ("↑/↓", "pick suggestion"),
             ("Esc", "leave editor"),

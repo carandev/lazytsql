@@ -19,7 +19,12 @@ public static class TuiApplication
         using var app = Application.Create();
         app.Init();
         // ANSI palette indices instead of fixed RGB, so the UI follows the terminal's color scheme.
-        if (app.Driver is { } driver) driver.Force16Colors = true;
+        if (app.Driver is { } driver)
+        {
+            driver.Force16Colors = true;
+            driver.Clipboard = new TerminalClipboard(SystemClipboard.Default(), driver.Clipboard);
+        }
+
         using var view = new MainView(connector, bacpac, store, activity, FolderStore.Default());
         // The files panel shows the saved folders; a folder given here is saved too, and a script's folder shows for
         // this session only.

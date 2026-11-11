@@ -146,6 +146,7 @@ as `.git`.
 | `e` | Schema | Open the selected procedure or function definition in the editor |
 | `r` | Schema | Reload the schema and the completion names |
 | `x` / `i` | Schema | Export the selected database to a `.bacpac` / import a `.bacpac` as a new database |
+| `Ctrl+C` / `Ctrl+X` | Query, text fields | Copy / cut the selection (the current line when nothing is selected) to the system clipboard |
 | `Ctrl+V` | Query, text fields | Paste the system clipboard (the terminal's own paste, usually `Ctrl+Shift+V`, works too) |
 | `Tab` / `Ctrl+Space` | Query | Accept / open the completion list (`Esc` closes it); `↑` / `↓` pick a suggestion |
 | `Esc` | Query | Leave the editor |
@@ -335,7 +336,8 @@ The UI keeps the terminal's background and uses its 16 ANSI colors, so it follow
 | `Globalization Invariant Mode is not supported` or ICU errors on Linux | Install ICU: `sudo apt install libicu-dev` (Debian/Ubuntu) or `sudo dnf install libicu` (Fedora). |
 | `The certificate chain was issued by an authority that is not trusted` | Add `TrustServerCertificate=true` to the connection string (development servers with self-signed certificates). |
 | `sqlpackage not found` | `dotnet tool install -g microsoft.sqlpackage`, or set `LAZYTSQL_SQLPACKAGE` to its path. |
-| `Ctrl+V` pastes nothing on Linux | lazytsql reads the clipboard with `wl-paste` (Wayland), `xclip` or `xsel`; install one of them (`wl-clipboard` on Wayland), or use the terminal's paste (`Ctrl+Shift+V`). |
+| `Ctrl+C` copies or `Ctrl+V` pastes nothing on Linux | lazytsql uses the clipboard with `wl-copy`/`wl-paste` (Wayland), `xclip` or `xsel`; install one of them (`wl-clipboard` on Wayland), or use the terminal's paste (`Ctrl+Shift+V`). |
+| A terminal paste ran as shortcuts | Some terminals and multiplexers split the paste's start marker; lazytsql waits briefly after `Esc` to recover it, so a paste that still runs as keys means the split was longer. Use `Ctrl+V` instead. |
 | Import fails with `contains one or more user objects` | Import into a new database name; sqlpackage only imports into an empty database. |
 
 Integrated (Windows) and Microsoft Entra ID authentication are not yet verified in the native binary.
