@@ -180,8 +180,8 @@ The editor highlights T-SQL, numbers its lines and completes names from the conn
 | `em` elsewhere | Columns of the statement's tables, their aliases and keywords |
 | `archive.` / `archive.dbo.` | Schemas / objects of another database |
 
-Tables and `alias.column` names the database does not have are underlined in red once you leave the word. Temporary
-tables, CTEs, tables the script creates and system views are never marked. Names load in the background the first
+Tables and `alias.column` names the database does not have are underlined in red once you leave the word and pause
+typing. Temporary tables, CTEs, tables the script creates and system views are never marked. Names load in the background the first
 time they are needed, without changing the current database; `r` in the schema panel reloads them.
 
 A synonym behaves like the table or view it points to, in this database or another one on the same server: `c.`

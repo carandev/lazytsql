@@ -12,7 +12,7 @@ y autocompleta nombres de la base de datos a la que estás conectado.
 
 ## Autocompletado
 
-La lista se abre mientras escribes; `↑` y `↓` se mueven por ella, `Tab` acepta el nombre seleccionado, `Esc` la cierra y `Ctrl+Space` la vuelve a abrir.
+La lista se abre mientras escribes o borras; `↑` y `↓` se mueven por ella, `Tab` acepta el nombre seleccionado, `Esc` la cierra y `Ctrl+Space` la vuelve a abrir donde está el cursor. Mover el cursor la cierra y nunca la abre, así que `↑` y `↓` siguen moviéndose por el script.
 
 | Escribes | Sugiere |
 | --- | --- |
@@ -64,7 +64,8 @@ foráneas de una base de datos en el primer `JOIN`. `r` en el panel de esquema r
 
 ## Nombres desconocidos
 
-Las tablas y los nombres `alias.column` que la base de datos no tiene se subrayan en rojo cuando sales de la palabra. Para evitar
+Las tablas y los nombres `alias.column` que la base de datos no tiene se subrayan en rojo cuando sales de la palabra y dejas de escribir un momento; se buscan
+en segundo plano, así que escribir nunca las espera. Para evitar
 falsas alarmas, estos nunca se marcan:
 
 - tablas temporales (`#t`, `##t`), CTE, y tablas, vistas y sinónimos que crea el propio script;

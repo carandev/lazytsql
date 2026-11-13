@@ -11,20 +11,62 @@ using Terminal.Gui.Views;
 namespace LazyTsql.Tui;
 
 /// <summary>
-/// Query editor with T-SQL highlighting and completion. The script is re-tokenized on the first draw after an edit.
+/// Query editor with T-SQL highlighting and completion. The script's lines are read once per edit and re-tokenized on
+/// the first draw after it; highlighting, unknown-name marks and completion all share them. Unknown names are found off
+/// the UI thread once the editor is still, so typing never waits for them.
 /// </summary>
 public sealed class SqlEditor : TextView
 {
+    // Terminal.Gui 2.5 runs these without raising ContentsChanged, so every cache keyed on edits missed them.
+    private static readonly Command[] SilentEdits = [Command.KillWordRight, Command.KillWordLeft, Command.CutToStartOfLine, Command.CutToEndOfLine];
+
+    private readonly DiagnosticsWorker _worker;
+    private string[]? _lines;
     private SqlTokenKind[][]? _kinds;
     private Func<(SchemaCatalog Catalog, string Database)?>? _source;
-    private IReadOnlyList<Diagnostic>? _diagnostics;
-    private (int Row, int Column) _diagnosedAt;
+    private IReadOnlyList<Diagnostic> _diagnostics = [];
+
+    // What the marks were last asked for; a catalog load bumps the generation so they are asked for again.
+    private (string[] Lines, (int Row, int Column)? Cursor, string Database, int Generation)? _diagnosedFor;
+    private int _catalogGeneration;
 
     public SqlEditor()
     {
-        ContentsChanged += (_, _) => (_kinds, _diagnostics) = (null, null);
+        PostToUi = action => App?.Invoke(action);
+        _worker = new DiagnosticsWorker(action => PostToUi(action));
+        ContentsChanged += (_, _) => OnEdited();
         // TextView attaches it to itself in EndInit, once the view is in the tree.
         Autocomplete = new PrefixAutocomplete();
+    }
+
+    /// <summary>How long the editor must be still before unknown names are looked for.</summary>
+    internal TimeSpan DiagnosticsDelay { get; set; } = TimeSpan.FromMilliseconds(150);
+
+    /// <summary>Runs a background result on the UI thread; tests replace it.</summary>
+    internal Action<Action> PostToUi { get; set; }
+
+    /// <summary>The unknown names shown now.</summary>
+    internal IReadOnlyList<Diagnostic> UnknownNames => _diagnostics;
+
+    /// <summary>The last background search for unknown names.</summary>
+    internal Task PendingDiagnostics => _worker.Pending;
+
+    /// <summary>The script split into lines, read from the editor once per edit.</summary>
+    internal IReadOnlyList<string> ScriptLines => ReadLines();
+
+    private string[] ReadLines() => _lines ??= Text.ReplaceLineEndings("\n").Split('\n');
+
+    /// <summary>
+    /// After an edit the old marks stay until the new ones arrive, except on the edited row, whose columns moved; when
+    /// rows were added or removed every mark moved, so none stay.
+    /// </summary>
+    private void OnEdited()
+    {
+        var rows = _lines?.Length;
+        (_lines, _kinds) = (null, null);
+        var row = CurrentRow;
+        _diagnostics = rows == Lines ? [.. _diagnostics.Where(d => d.Row != row)] : [];
+        (Autocomplete as PrefixAutocomplete)?.Edited();
     }
 
     /// <summary>Turns on completion from <paramref name="source"/>: the catalog and current database, or null when offline.</summary>
@@ -45,11 +87,16 @@ public sealed class SqlEditor : TextView
     /// </summary>
     public void RefreshCompletion()
     {
-        _diagnostics = null;
+        _catalogGeneration++;
+        (Autocomplete.SuggestionGenerator as SqlSuggestionGenerator)?.Forget();
         SetNeedsDraw();
         if (!HasFocus || SelectedLength > 0) return;
+        ShowSuggestions();
+    }
 
-        // Mirrors what TextView does after each edit, the only time it updates the popup.
+    /// <summary>Mirrors what TextView does after each edit, the only time it updates the popup.</summary>
+    private void ShowSuggestions()
+    {
         var line = GetCurrentLine();
         Autocomplete.Context = new AutocompleteContext(line, Math.Min(CurrentColumn, line.Count), false);
         Autocomplete.GenerateSuggestions(Autocomplete.Context);
@@ -65,9 +112,31 @@ public sealed class SqlEditor : TextView
     /// </summary>
     protected override bool OnKeyDown(Key key)
     {
-        if (!base.OnKeyDown(key)) return false;
+        // Terminal.Gui 2.5 does not reopen a closed popup on its Reopen key, so the editor does.
+        if (key == Autocomplete.Reopen && _source is not null && SelectedLength == 0)
+        {
+            (Autocomplete as PrefixAutocomplete)?.OpenHere();
+            ShowSuggestions();
+            return true;
+        }
+
+        if (!base.OnKeyDown(key)) return IsSilentEdit(key) && CutAndReport(key);
         if (key == Key.CursorDown || key == Key.CursorUp) App?.TopRunnableView?.SetNeedsDraw();
         return true;
+    }
+
+    private bool IsSilentEdit(Key key) => KeyBindings.TryGet(key, out var binding) && binding.Commands.Length == 1 && SilentEdits.Contains(binding.Commands[0]);
+
+    /// <summary>
+    /// Runs a word or line cut in place of the key binding and raises ContentsChanged when it changed the text, which
+    /// Terminal.Gui 2.5 does not do for these commands.
+    /// </summary>
+    private bool CutAndReport(Key key)
+    {
+        var before = Text;
+        var handled = InvokeCommand(KeyBindings.GetCommands(key)[0]) == true;
+        if (Text != before) OnContentsChanged();
+        return handled;
     }
 
     /// <summary>
@@ -88,6 +157,7 @@ public sealed class SqlEditor : TextView
     /// </summary>
     protected override bool OnDrawingContent(DrawContext? context)
     {
+        ScheduleDiagnostics();
         SetAttributeForRole(Enabled ? VisualRole.Editable : VisualRole.Disabled);
         var (right, bottom) = (Viewport.Width, Viewport.Height);
         var row = 0;
@@ -152,23 +222,56 @@ public sealed class SqlEditor : TextView
 
     protected override void OnDrawNormalColor(List<Cell> line, int idxCol, int idxRow)
     {
-        _kinds ??= SqlTokenizer.Classify(Text.ReplaceLineEndings("\n").Split('\n'));
+        _kinds ??= SqlTokenizer.Classify(ScriptLines);
         var kinds = idxRow < _kinds.Length ? _kinds[idxRow] : [];
-        if (UnknownNames().Any(d => d.Row == idxRow && d.Start <= idxCol && idxCol < d.End)) SetAttribute(Theme.UnknownName);
+        if (IsUnknownName(idxRow, idxCol)) SetAttribute(Theme.UnknownName);
         else if (idxCol < kinds.Length && Theme.Syntax(kinds[idxCol]) is { } attribute) SetAttribute(attribute);
         else base.OnDrawNormalColor(line, idxCol, idxRow);
     }
 
-    /// <summary>Names the catalog does not have; recomputed after an edit, a cursor move or a catalog load.</summary>
-    private IReadOnlyList<Diagnostic> UnknownNames()
+    private bool IsUnknownName(int row, int column)
     {
-        var at = (CurrentRow, CurrentColumn);
-        if (_diagnostics is not null && _diagnosedAt == at) return _diagnostics;
-        _diagnosedAt = at;
-        _diagnostics = _source?.Invoke() is var (catalog, database)
-            ? SqlCompletion.Diagnose(Text.ReplaceLineEndings("\n").Split('\n'), catalog, database, HasFocus ? at : null)
-            : [];
-        return _diagnostics;
+        foreach (var diagnostic in _diagnostics)
+        {
+            if (diagnostic.Row == row && diagnostic.Start <= column && column < diagnostic.End) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Asks the worker for the names the catalog does not have, after an edit, a cursor move (the name being typed is
+    /// not marked) or a catalog load; the marks are drawn when they arrive.
+    /// </summary>
+    internal void ScheduleDiagnostics()
+    {
+        if (_source?.Invoke() is not var (catalog, database))
+        {
+            _worker.Cancel();
+            (_diagnostics, _diagnosedFor) = ([], null);
+            return;
+        }
+
+        var lines = ReadLines();
+        (int Row, int Column)? cursor = HasFocus ? (CurrentRow, CurrentColumn) : null;
+        if (_diagnosedFor is { } last && ReferenceEquals(last.Lines, lines) && last.Cursor == cursor && last.Database == database
+            && last.Generation == _catalogGeneration)
+        {
+            return;
+        }
+
+        _diagnosedFor = (lines, cursor, database, _catalogGeneration);
+        _worker.Schedule(lines, catalog, database, cursor, DiagnosticsDelay, diagnostics =>
+        {
+            _diagnostics = diagnostics;
+            SetNeedsDraw();
+        });
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _worker.Cancel();
+        base.Dispose(disposing);
     }
 
     /// <summary>
@@ -180,6 +283,21 @@ public sealed class SqlEditor : TextView
         // Where the cursor was left by the last accepted suggestion. A name typed in full is suggested, so without this
         // the popup would reopen right after accepting it, offering the same name.
         private (int Row, int Column)? _accepted;
+
+        // Where suggestions may show: where the last edit left the cursor, or where Ctrl+Space asked for them. TextView
+        // asks for suggestions on every cursor move too, which opened the popup on any word the arrows reached and then
+        // took ↑/↓ for the list; like other editors, moving shows none.
+        private (int Row, int Column)? _openAt;
+        private bool _edited;
+
+        public void Edited() => _edited = true;
+
+        public void OpenHere()
+        {
+            _accepted = null;
+            _edited = false;
+            if (HostControl is TextView editor) _openAt = (editor.CurrentRow, editor.CurrentColumn);
+        }
 
         protected override bool InsertSelection(Suggestion accepted)
         {
@@ -193,14 +311,31 @@ public sealed class SqlEditor : TextView
 
         public override void GenerateSuggestions(AutocompleteContext context)
         {
-            if (HostControl is TextView editor && _accepted is { } at
-                && (at == (-1, -1) || at == (editor.CurrentRow, editor.CurrentColumn)))
+            if (HostControl is not TextView editor)
             {
+                base.GenerateSuggestions(context);
+                return;
+            }
+
+            var cursor = (editor.CurrentRow, editor.CurrentColumn);
+            if (_accepted is { } at && (at == (-1, -1) || at == cursor))
+            {
+                // Accepting inserts text, which is an edit, but not one that should reopen the list.
+                (_edited, _openAt) = (false, null);
                 ClearSuggestions();
                 return;
             }
 
             _accepted = null;
+            if (_edited) (_openAt, _edited) = (cursor, false);
+            if (_openAt != cursor)
+            {
+                // Once the cursor left, coming back is still a move: only an edit or Ctrl+Space reopens the list.
+                _openAt = null;
+                ClearSuggestions();
+                return;
+            }
+
             base.GenerateSuggestions(context);
         }
     }

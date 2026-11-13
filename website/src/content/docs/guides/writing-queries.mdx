@@ -12,7 +12,7 @@ completes names from the database you are connected to.
 
 ## Completion
 
-The list opens while you type; `↑` and `↓` move through it, `Tab` accepts the selected name, `Esc` closes it and `Ctrl+Space` opens it again.
+The list opens while you type or delete; `↑` and `↓` move through it, `Tab` accepts the selected name, `Esc` closes it and `Ctrl+Space` opens it again where the cursor is. Moving the cursor closes it and never opens it, so `↑` and `↓` keep moving through the script.
 
 | You type | It suggests |
 | --- | --- |
@@ -64,7 +64,8 @@ keys of a database on the first `JOIN`. `r` in the schema panel reloads everythi
 
 ## Unknown names
 
-Tables and `alias.column` names the database does not have are underlined in red once you leave the word. To avoid
+Tables and `alias.column` names the database does not have are underlined in red once you leave the word and stop typing for a moment; they are
+looked for in the background, so typing never waits for them. To avoid
 false alarms, these are never marked:
 
 - temporary tables (`#t`, `##t`), CTEs, and tables, views and synonyms the script itself creates;

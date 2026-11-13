@@ -91,7 +91,7 @@ public static class SqlCompletion
             var objects = catalog.Objects(database) ?? [];
             foreach (var item in objects)
             {
-                if (item.Kind != DbObjectKind.Procedure) candidates.Add(new(Qualified(item, objects), KindOf(item)), item.Name, $"{item.Schema}.{item.Name}");
+                if (item.Kind != DbObjectKind.Procedure && candidates.Matches(item)) candidates.Add(new(Qualified(item, catalog, database), KindOf(item)), item.Name, $"{item.Schema}.{item.Name}");
             }
 
             foreach (var name in catalog.Databases) candidates.Add(new(Quote(name), CompletionKind.Database), name);
@@ -101,7 +101,7 @@ public static class SqlCompletion
             var objects = catalog.Objects(database) ?? [];
             foreach (var item in objects)
             {
-                if (item.Kind == DbObjectKind.Procedure) candidates.Add(new(Qualified(item, objects), CompletionKind.Procedure), item.Name, $"{item.Schema}.{item.Name}");
+                if (item.Kind == DbObjectKind.Procedure && candidates.Matches(item)) candidates.Add(new(Qualified(item, catalog, database), CompletionKind.Procedure), item.Name, $"{item.Schema}.{item.Name}");
             }
         }
         else
@@ -182,12 +182,11 @@ public static class SqlCompletion
         foreach (var reference in before)
         {
             if (Resolve(reference.Parts, catalog, database) is not var (owner, table)) continue;
-            var objects = catalog.Objects(owner) ?? [];
             foreach (var (schema, name, pairs) in Links(table, catalog.ForeignKeys(owner) ?? []))
             {
                 var alias = Alias(name, used);
-                var target = objects.FirstOrDefault(item => Same(item.Schema, schema) && Same(item.Name, name)) ?? new DbObject(schema, name, DbObjectKind.Table);
-                var display = Same(owner, database) ? Qualified(target, objects) : $"{Quote(owner)}.{Quote(schema)}.{Quote(name)}";
+                var target = catalog.ObjectsNamed(owner, name).FirstOrDefault(item => Same(item.Schema, schema)) ?? new DbObject(schema, name, DbObjectKind.Table);
+                var display = Same(owner, database) ? Qualified(target, catalog, owner) : $"{Quote(owner)}.{Quote(schema)}.{Quote(name)}";
                 var condition = Condition(alias, pairs.Select(p => (p.Theirs, p.Mine)), Quote(reference.Alias ?? reference.Name));
                 candidates.Add(new($"{display} {alias} ON {condition}", CompletionKind.Join), name, $"{schema}.{name}");
             }
@@ -268,8 +267,8 @@ public static class SqlCompletion
                 var last = tokens[reference.Position + 2 * (reference.Parts.Count - 1)];
                 if (Typing(last) || !Checked(reference, references, tokens, known, catalog, database)) continue;
                 var (owner, schema) = (reference.Parts.Count == 3 ? reference.Parts[0] : database, reference.Parts.Count >= 2 ? reference.Parts[^2] : null);
-                if (catalog.Objects(owner) is not { } objects) continue;
-                if (objects.Any(item => Same(item.Name, reference.Name) && (schema is null || Same(item.Schema, schema)))) continue;
+                if (catalog.Objects(owner) is null) continue;
+                if (catalog.ObjectsNamed(owner, reference.Name).Any(item => schema is null || Same(item.Schema, schema))) continue;
                 var span = first.Row == last.Row ? first.Start : last.Start;
                 diagnostics.Add(new(last.Row, span, last.End, $"Unknown table or view: {string.Join('.', reference.Parts)}"));
             }
@@ -362,10 +361,10 @@ public static class SqlCompletion
         var name = parts[^1];
         var schema = parts.Count >= 2 ? parts[^2] : null;
         var owner = parts.Count >= 3 ? parts[^3] : database;
-        if (catalog.Objects(owner) is not { } objects) return null;
-        var matches = objects
+        if (catalog.Objects(owner) is null) return null;
+        var matches = catalog.ObjectsNamed(owner, name)
             .Where(item => (item.Kind is DbObjectKind.Table or DbObjectKind.View || synonyms && item.Target is not null)
-                && Same(item.Name, name) && (schema is null || Same(item.Schema, schema)))
+                && (schema is null || Same(item.Schema, schema)))
             .ToList();
         var match = matches.FirstOrDefault(item => Same(item.Schema, "dbo")) ?? matches.FirstOrDefault();
         if (match?.Target is not { } target) return match is null ? null : (owner, match);
@@ -448,8 +447,8 @@ public static class SqlCompletion
     /// The name to insert. An unqualified name resolves in the user's default schema and then in dbo, so a dbo object
     /// whose name no other schema uses needs no schema; anything else keeps it.
     /// </summary>
-    private static string Qualified(DbObject item, IReadOnlyList<DbObject> objects) =>
-        Same(item.Schema, "dbo") && objects.Count(other => Same(other.Name, item.Name)) == 1
+    private static string Qualified(DbObject item, SchemaCatalog catalog, string database) =>
+        Same(item.Schema, "dbo") && catalog.ObjectsNamed(database, item.Name).Count() == 1
             ? Quote(item.Name)
             : $"{Quote(item.Schema)}.{Quote(item.Name)}";
 
@@ -485,6 +484,20 @@ public static class SqlCompletion
             if (!matchOn.Any(name => name.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)) || !_seen.Add(item.Text)) return;
             _items.Add(item);
             if (exact) _exact.Add(item);
+        }
+
+        /// <summary>
+        /// Whether the prefix matches the object's name or schema.name, checked before building its suggestion so a
+        /// large catalog skips the work for the objects that will not be shown.
+        /// </summary>
+        public bool Matches(DbObject item)
+        {
+            if (item.Name.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)) return true;
+            var schema = item.Schema.AsSpan();
+            var prefix = Prefix.AsSpan();
+            if (prefix.Length <= schema.Length) return schema.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+            return prefix.StartsWith(schema, StringComparison.OrdinalIgnoreCase) && prefix[schema.Length] == '.'
+                && item.Name.AsSpan().StartsWith(prefix[(schema.Length + 1)..], StringComparison.OrdinalIgnoreCase);
         }
 
         public IReadOnlyList<CompletionItem> Ordered() =>
