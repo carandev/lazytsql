@@ -99,9 +99,11 @@ public class TuiTests
     }
 
     [Fact]
-    public void Help_lists_how_to_close_a_script()
+    public void Help_lists_the_query_tab_keys()
     {
-        Assert.Contains(KeyHelp.Render(KeyContext.Query).Concat(KeyHelp.Render(context: null)), line => line.Contains("Ctrl+W", StringComparison.Ordinal) && line.Contains("close .sql", StringComparison.Ordinal));
+        var help = KeyHelp.Render(KeyContext.Query).Concat(KeyHelp.Render(context: null)).ToList();
+        Assert.Contains(help, line => line.Contains("Ctrl+T/Ctrl+W", StringComparison.Ordinal) && line.Contains("new/close query tab", StringComparison.Ordinal));
+        Assert.Contains(help, line => line.Contains("Alt+PgDn/PgUp", StringComparison.Ordinal) && line.Contains("next/prev query tab", StringComparison.Ordinal));
     }
 
     [Fact]

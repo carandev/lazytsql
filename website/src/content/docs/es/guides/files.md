@@ -39,7 +39,7 @@ como `.git` se omiten, y una carpeta que no se puede leer aparece vacía.
 | `d` | Quitar del panel la carpeta del primer nivel seleccionada |
 | `r` | Actualizar después de que los archivos cambien en el disco |
 
-Abrir un script pregunta primero cuando el editor tiene cambios sin guardar. Guardar un script nuevo con `Ctrl+S` actualiza el
+Un script se abre en su propia pestaña de consulta, o cambia a su pestaña si ya está abierto. Guardar un script nuevo con `Ctrl+S` actualiza el
 árbol, y una actualización mantiene expandidas las mismas carpetas.
 
 ## Búsqueda

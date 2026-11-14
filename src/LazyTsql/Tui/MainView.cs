@@ -53,8 +53,8 @@ public sealed class MainView : Runnable
     private bool _quitConfirmed;
     // Set while result edits are being saved, so the changes being saved cannot change underneath.
     private bool _savingEdits;
-    private ScriptFile? _script;
-    private string _savedText = string.Empty;
+    // The queries open in the editor; the editor shows the current one and keeps the others' text here.
+    private readonly QueryTabs _tabs;
     // The folders the files panel shows: the saved ones, plus a script's folder for this session only.
     private readonly List<FileNode> _fileRoots = [];
     private readonly FolderStore _folders;
@@ -105,6 +105,7 @@ public sealed class MainView : Runnable
         };
 
         _editor = new SqlEditor { Width = Dim.Fill(), Height = Dim.Fill(), Text = "SELECT @@VERSION;" };
+        _tabs = new QueryTabs(_editor.Text);
         _results = new TableView { Width = Dim.Fill(), Height = Dim.Fill(), FullRowSelect = false };
         _results.Style.ExpandLastColumn = false;
         _results.Style.ShowHorizontalHeaderOverline = false;
@@ -150,12 +151,12 @@ public sealed class MainView : Runnable
         };
     }
 
+    /// <summary>Shows a script in its tab: the one it is already open in, an untouched untitled one, or a new one.</summary>
     public void OpenScript(ScriptFile script, string text)
     {
-        _script = script;
-        _editor.Text = text;
-        _savedText = _editor.Text;
-        UpdateEditorTitle();
+        StoreTab();
+        _tabs.Open(script, text);
+        ShowTab();
     }
 
     /// <summary>Shows a folder's scripts in the files panel, the folder itself expanded at the top.</summary>
@@ -268,9 +269,11 @@ public sealed class MainView : Runnable
 
     private void Quit()
     {
-        var dirty = IsScriptDirty || PendingEdits > 0;
+        StoreTab();
+        var scripts = _tabs.Dirty.Select(tab => tab.Name).ToList();
+        var dirty = scripts.Count > 0 || PendingEdits > 0;
         var question = "Quit lazytsql?";
-        if (IsScriptDirty) question += $"\nUnsaved changes in {_script!.Name} will be lost.";
+        if (scripts.Count > 0) question += $"\nUnsaved changes in {string.Join(", ", scripts)} will be lost.";
         if (PendingEdits > 0) question += $"\n{Count(PendingEdits, "unsaved change")} to the results will be lost.";
         if (_quitConfirmed || !ConfirmDialog.Show(App!, "Quit", question, "Quit", confirmIsDefault: !dirty)) return;
         _quitConfirmed = true;
@@ -329,7 +332,10 @@ public sealed class MainView : Runnable
         else if (key == Key.F1) HelpDialog.Show(App!, PanelContext());
         else if (key == Key.S.WithCtrl) SaveScript();
         else if (key == Key.O.WithCtrl) PromptOpenScript();
-        else if (key == Key.W.WithCtrl) CloseScript();
+        else if (key == Key.W.WithCtrl) CloseTab();
+        else if (key == Key.T.WithCtrl) NewTab();
+        else if (key == Key.PageDown.WithAlt) SwitchTab(+1);
+        else if (key == Key.PageUp.WithAlt) SwitchTab(-1);
         else if (key == Key.Q.WithCtrl) Quit();
         // Esc first closes the completion popup; the editor handles that.
         else if (key == Key.Esc && inEditor && !_editor.Autocomplete.Visible) FocusPanel(ResultsPanel);
@@ -726,7 +732,8 @@ public sealed class MainView : Runnable
     private void SelectTopFromTable()
     {
         if (_schema.SelectedObject is not ObjectNode { HasColumns: true } table) return;
-        if (ReplaceEditorText($"SELECT TOP (100) * FROM [{table.Database}].{table.Value.QualifiedName};")) RunQuery();
+        OpenInNewTab($"SELECT TOP (100) * FROM [{table.Database}].{table.Value.QualifiedName};");
+        RunQuery();
     }
 
     private void OpenDefinition()
@@ -739,7 +746,8 @@ public sealed class MainView : Runnable
             var definition = await session.GetDefinitionAsync(routine.Value, token);
             OnUi(() =>
             {
-                if (ReplaceEditorText(definition.Trim())) FocusPanel(QueryPanel);
+                OpenInNewTab(definition.Trim());
+                FocusPanel(QueryPanel);
             });
         });
     }
@@ -1242,41 +1250,71 @@ public sealed class MainView : Runnable
 
     private void UpdateEditorTitle()
     {
-        var file = _script is null ? string.Empty : $" · {_script.Name}{(IsScriptDirty ? "*" : string.Empty)}";
+        var tab = _tabs.Current;
+        var dirty = tab.Script is not null && _editor.Text != tab.SavedText;
+        var name = tab.Script is null && _tabs.Count == 1 ? string.Empty : $" · {tab.Name}{(dirty ? "*" : string.Empty)}";
         var connection = _session is null ? string.Empty : $" · {_sessionName} › {_session.CurrentDatabase}";
-        _panels[QueryPanel].Title = $"[4] Query{file}{connection}";
+        _panels[QueryPanel].Title = $"[4] Query{_tabs.Position}{name}{connection}";
     }
 
-    private bool IsScriptDirty => _script is not null && _editor.Text != _savedText;
-
-    private bool ConfirmDiscardScript() =>
-        !IsScriptDirty || ConfirmDialog.Show(App!, "Unsaved changes", $"Discard unsaved changes in {_script!.Name}?", "Discard", confirmIsDefault: false);
-
-    /// <summary>Generated SQL replaces the editor and detaches it from the open file, which stays as saved.</summary>
-    private bool ReplaceEditorText(string text)
+    /// <summary>Keeps the editor's text and cursor in the current tab, before another one shows or tabs are checked.</summary>
+    private void StoreTab()
     {
-        if (!ConfirmDiscardScript()) return false;
-        _script = null;
-        _editor.Text = text;
-        UpdateEditorTitle();
-        return true;
+        _tabs.Current.Text = _editor.Text;
+        _tabs.Current.Cursor = _editor.InsertionPoint;
     }
 
-    /// <summary>Ctrl+W closes the open script, asking first when it has unsaved changes, and leaves an empty editor.</summary>
-    private void CloseScript()
+    /// <summary>Puts the current tab's text and cursor in the editor.</summary>
+    private void ShowTab()
     {
-        if (_script is not { } script || !ConfirmDiscardScript()) return;
-        _script = null;
-        _editor.Text = string.Empty;
-        _savedText = string.Empty;
+        var tab = _tabs.Current;
+        if (_editor.Text != tab.Text) _editor.Text = tab.Text;
+        _editor.InsertionPoint = tab.Cursor;
         UpdateEditorTitle();
-        Log($"Closed {script.Path}.");
+        _editor.SetNeedsDraw();
+    }
+
+    /// <summary>Alt+PageDown and Alt+PageUp show the next and previous query, like ] and [ do for result sets.</summary>
+    private void SwitchTab(int step)
+    {
+        if (_tabs.Count == 1) return;
+        StoreTab();
+        _tabs.Select(_tabs.Index + step);
+        ShowTab();
+        FocusPanel(QueryPanel);
+    }
+
+    /// <summary>Ctrl+T opens an empty untitled query.</summary>
+    private void NewTab()
+    {
+        StoreTab();
+        _tabs.Add();
+        ShowTab();
+        FocusPanel(QueryPanel);
+    }
+
+    /// <summary>Generated SQL opens in a new tab, so it never replaces a query.</summary>
+    private void OpenInNewTab(string text)
+    {
+        StoreTab();
+        _tabs.Open(null, text);
+        ShowTab();
+    }
+
+    /// <summary>Ctrl+W closes the current query, asking first when it has unsaved text; the last leaves an empty one.</summary>
+    private void CloseTab()
+    {
+        StoreTab();
+        var tab = _tabs.Current;
+        if (tab.HasUnsavedText && !ConfirmDialog.Show(App!, "Unsaved changes", $"Discard unsaved changes in {tab.Name}?", "Discard", confirmIsDefault: false)) return;
+        _tabs.Close();
+        ShowTab();
+        if (tab.Script is { } script) Log($"Closed {script.Path}.");
     }
 
     private void PromptOpenScript()
     {
-        if (!ConfirmDiscardScript()) return;
-        var directory = _script is null ? Environment.CurrentDirectory : Path.GetDirectoryName(_script.Path)!;
+        var directory = _tabs.Current.Script is not { } current ? Environment.CurrentDirectory : Path.GetDirectoryName(current.Path)!;
         if (FilePicker.Show(App!, "Open script", "Open", directory + Path.DirectorySeparatorChar, ".sql") is not { } path) return;
         OpenScriptFile(path);
     }
@@ -1290,7 +1328,7 @@ public sealed class MainView : Runnable
             if (_files.IsExpanded(node)) _files.Collapse(node);
             else _files.Expand(node);
         }
-        else if (ConfirmDiscardScript())
+        else
         {
             OpenScriptFile(node.Path);
         }
@@ -1514,7 +1552,8 @@ public sealed class MainView : Runnable
     /// <summary>Saves the open script, asking for a path the first time.</summary>
     private void SaveScript()
     {
-        var script = _script;
+        var tab = _tabs.Current;
+        var script = tab.Script;
         try
         {
             if (script is null)
@@ -1527,8 +1566,9 @@ public sealed class MainView : Runnable
 
             var text = _editor.Text;
             script.Save(text);
-            _script = script;
-            _savedText = text;
+            tab.Script = script;
+            tab.Text = text;
+            tab.SavedText = text;
             UpdateEditorTitle();
             Log($"Saved {script.Path}.");
             // A script saved as a new file shows up in the files panel.

@@ -20,7 +20,8 @@ la aplicación muestra con `?` (o `F1`).
 | `F5` / `Ctrl+E` | Ejecutar la selección, o todo el script lote por lote |
 | `Ctrl+K` | Cancelar la consulta, exportación o importación en curso, y todo lo que espera en cola detrás |
 | `Ctrl+O` / `Ctrl+S` | Abrir / guardar un archivo `.sql` |
-| `Ctrl+W` | Cerrar el archivo `.sql` abierto (pregunta primero si tiene cambios sin guardar) |
+| `Ctrl+T` / `Ctrl+W` | Nueva pestaña de consulta / cerrar la actual (pregunta primero si tiene cambios sin guardar) |
+| `Alt+PageDown` / `Alt+PageUp` | Pestaña de consulta siguiente / anterior |
 | `?` / `F1` | Ayuda del panel enfocado (`F1` dentro del editor) |
 | `q` / `Esc` / `Ctrl+Q` | Salir tras confirmar (`q` y `Esc` solo fuera del editor) |
 
