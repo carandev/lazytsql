@@ -20,8 +20,8 @@ Branch: `20261114-vim-mode` (on top of the query tabs commit 4d840ac). Delivery:
 | ID | Specs | Route | Status | Evidence |
 | --- | --- | --- | --- | --- |
 | T1 | S4, S6 | inline | done | 94 VimEngineTests green; f93d67a |
-| T2 | S2, S3, S5, S7, S8 | inline | done | VimEditorTests, ExCommandTests, help test green; tmux smoke (F2, dd, i, :w path, yyp, :q E37, :wq) |
-| T3 | S3, S8 | inline | pending | |
+| T2 | S2, S3, S5, S7, S8 | inline | done | VimEditorTests, ExCommandTests, help test green; tmux smoke (F2, dd, i, :w path, yyp, :q E37, :wq); edb6c54 |
+| T3 | S3, S8 | inline | done | README, keys (en/es), new vim-mode guide (en/es); astro build not run (no node_modules) |
 
 T1: pure `VimEngine` over a buffer interface, unit tested. T2: wire it into `SqlEditor`/`MainView`, ex commands, toggle, footer. T3: help, README, website docs.
 Route evidence: T2 and T3 depend on T1, so there are no independent parallel units; no writer trigger.

@@ -131,6 +131,7 @@ as `.git`.
 | `Ctrl+T` / `Ctrl+W` | Anywhere | New query tab / close the current one (asks first if it has unsaved changes; the last tab leaves an empty editor) |
 | `Alt+PageDown` / `Alt+PageUp` | Anywhere | Next / previous query tab; the query title shows its position (`2/3`) |
 | `?` / `F1` | Anywhere | Keys of the focused panel; `a` in the help switches to every key |
+| `F2` | Anywhere | Vim mode on / off for the query editor (normal, insert and visual modes, `:` commands); kept for the next session |
 | `q` / `Esc` / `Ctrl+Q` | Anywhere | Quit after confirming (`q` and `Esc` only outside the editor, where `Esc` leaves it) |
 | `h` `j` `k` `l`, `g` / `G`, `Ctrl+D` / `Ctrl+U` | Outside the editor | Vim motions |
 | `Alt+↓` / `Alt+↑` (or `+` / `-` outside the editor) | Anywhere | Make the focused panel taller / shorter; schema and results grow by shrinking files and the query |
@@ -150,7 +151,7 @@ as `.git`.
 | `Ctrl+C` / `Ctrl+X` | Query, text fields | Copy / cut the selection (the current line when nothing is selected) to the system clipboard |
 | `Ctrl+V` | Query, text fields | Paste the system clipboard (the terminal's own paste, usually `Ctrl+Shift+V`, works too) |
 | `Tab` / `Ctrl+Space` | Query | Accept / open the completion list (`Esc` closes it); `↑` / `↓` pick a suggestion |
-| `Esc` | Query | Leave the editor |
+| `Esc` | Query | Leave the editor (in vim mode, back to normal mode; `Alt+1`-`Alt+6` leave it) |
 | `e` / `Enter` | Results | Edit the selected cell; `Ctrl+N` in the dialog sets `NULL` |
 | `s` | Results | Save the edits: shows the script that runs, then runs it once confirmed |
 | `u` / `U` | Results | Undo the edit of the selected cell / every edit |

@@ -22,6 +22,7 @@ la aplicación muestra con `?` (o `F1`).
 | `Ctrl+O` / `Ctrl+S` | Abrir / guardar un archivo `.sql` |
 | `Ctrl+T` / `Ctrl+W` | Nueva pestaña de consulta / cerrar la actual (pregunta primero si tiene cambios sin guardar) |
 | `Alt+PageDown` / `Alt+PageUp` | Pestaña de consulta siguiente / anterior |
+| `F2` | Activar / desactivar el modo vim del editor ([modo vim](/lazytsql/es/guides/vim-mode/)) |
 | `?` / `F1` | Ayuda del panel enfocado (`F1` dentro del editor) |
 | `q` / `Esc` / `Ctrl+Q` | Salir tras confirmar (`q` y `Esc` solo fuera del editor) |
 
@@ -52,7 +53,7 @@ la aplicación muestra con `?` (o `F1`).
 | | `Ctrl+V` | Pegar el portapapeles del sistema |
 | | `Tab` / `Ctrl+Space` | Aceptar / abrir el autocompletado (`Esc` lo cierra) |
 | | `↑` / `↓` | Elegir una sugerencia |
-| | `Esc` | Salir del editor |
+| | `Esc` | Salir del editor (en modo vim, volver al modo normal) |
 | Resultados `[5]` | `e` / `Enter` | Editar la celda seleccionada |
 | | `s` | Guardar las ediciones (muestra el script antes) |
 | | `u` / `U` | Deshacer la celda seleccionada / todas las ediciones |
