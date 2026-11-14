@@ -19,8 +19,8 @@ Branch: `20261114-vim-mode` (on top of the query tabs commit 4d840ac). Delivery:
 
 | ID | Specs | Route | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| T1 | S4, S6 | inline | done | 94 VimEngineTests green; commit (this one) |
-| T2 | S2, S3, S5, S7, S8 | inline | pending | |
+| T1 | S4, S6 | inline | done | 94 VimEngineTests green; f93d67a |
+| T2 | S2, S3, S5, S7, S8 | inline | done | VimEditorTests, ExCommandTests, help test green; tmux smoke (F2, dd, i, :w path, yyp, :q E37, :wq) |
 | T3 | S3, S8 | inline | pending | |
 
 T1: pure `VimEngine` over a buffer interface, unit tested. T2: wire it into `SqlEditor`/`MainView`, ex commands, toggle, footer. T3: help, README, website docs.
@@ -30,3 +30,4 @@ Route evidence: T2 and T3 depend on T1, so there are no independent parallel uni
 
 - L1 (2026-11-14) — "Podemos cambiar todo el flujo para que sean atajos de neovim y estilo neovim incluyendo los comandos con : y el modo normal, visual y edit en el editor?"
 - L2 (2026-11-14) — User chose "Modo opcional (Recommended)". Forecast ~1500 authored lines, over the 400 heuristic; kept as one PR with work-unit commits since delivery is the user's decision.
+- L3 (2026-11-14) — Terminal.Gui 2.5 `InsertText` with several lines leaves the rest of the line on the first line, and its history splits such inserts; the adapter replaces up to the row end (one edit) and keeps vim's own snapshot undo (one step per command or insert stay).

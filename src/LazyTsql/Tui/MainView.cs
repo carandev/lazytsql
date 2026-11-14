@@ -5,6 +5,7 @@ using LazyTsql.Core.Editing;
 using LazyTsql.Core.Execution;
 using LazyTsql.Core.Schema;
 using LazyTsql.Infrastructure;
+using LazyTsql.Tui.Vim;
 using Terminal.Gui.App;
 using Terminal.Gui.Drawing;
 using Terminal.Gui.Input;
@@ -60,6 +61,8 @@ public sealed class MainView : Runnable
     private readonly FolderStore _folders;
     // Panel sizes from Alt+arrows, kept in the state directory for the next session.
     private readonly string _layoutPath = Path.Combine(StateDirectory.Resolve(Environment.GetEnvironmentVariable), "layout");
+    // Whether the editor is in vim mode, kept for the next session: "vim", or anything else for the plain editor.
+    private readonly string _editorModePath = Path.Combine(StateDirectory.Resolve(Environment.GetEnvironmentVariable), "editor");
     private PanelLayout _layout = new();
     private readonly SystemClipboard _clipboard = SystemClipboard.Default();
     private readonly PasteRecovery _pasteRecovery = new();
@@ -132,6 +135,12 @@ public sealed class MainView : Runnable
         _editor.ContentsChanged += (_, _) => UpdateEditorTitle();
         _editor.EnableCompletion(() => _session is { } session ? (_catalog, session.CurrentDatabase) : null);
         _editor.Autocomplete.Scheme = Theme.Popup;
+        _editor.Vim.Changed += UpdateHints;
+        // Run after the key that typed them, outside the editor's key handling: some replace the editor's text.
+        _editor.Vim.CommandEntered += command => OnUi(() => RunVimCommand(command));
+        _editor.Vim.Yanked += text => Copy(text);
+        _editor.Vim.Error += message => Log($"✗ {message}");
+        LoadEditorMode();
         _catalog.ObjectsNeeded += LoadCatalogObjects;
         _catalog.ColumnsNeeded += LoadCatalogColumns;
         _catalog.ForeignKeysNeeded += LoadCatalogForeignKeys;
@@ -330,6 +339,7 @@ public sealed class MainView : Runnable
         if (key == Key.F5 || key == Key.E.WithCtrl) RunQuery();
         else if (key == Key.K.WithCtrl) CancelQuery();
         else if (key == Key.F1) HelpDialog.Show(App!, PanelContext());
+        else if (key == Key.F2) SetVimMode(!_editor.VimEnabled);
         else if (key == Key.S.WithCtrl) SaveScript();
         else if (key == Key.O.WithCtrl) PromptOpenScript();
         else if (key == Key.W.WithCtrl) CloseTab();
@@ -338,7 +348,8 @@ public sealed class MainView : Runnable
         else if (key == Key.PageUp.WithAlt) SwitchTab(-1);
         else if (key == Key.Q.WithCtrl) Quit();
         // Esc first closes the completion popup; the editor handles that.
-        else if (key == Key.Esc && inEditor && !_editor.Autocomplete.Visible) FocusPanel(ResultsPanel);
+        // In vim mode Esc is vim's (back to normal mode); Alt+1-6 leave the editor.
+        else if (key == Key.Esc && inEditor && !_editor.Autocomplete.Visible && !_editor.VimEnabled) FocusPanel(ResultsPanel);
         // Esc is also Terminal.Gui's quit key. Left to it, the confirmation opens inside a stop that was already vetoed,
         // and confirming did not quit; asking here, like q does, quits on the first confirmation.
         else if (key == Key.Esc && !inEditor) Quit();
@@ -454,15 +465,133 @@ public sealed class MainView : Runnable
         }
     }
 
-    private void UpdateHints() =>
-        _hints.Text = KeyHelp.Footer(App?.TopRunnableView is View { Data: KeyContext dialog } top && top != this ? dialog : PanelContext());
+    private void UpdateHints()
+    {
+        if (App?.TopRunnableView is View { Data: KeyContext dialog } top && top != this) _hints.Text = KeyHelp.Footer(dialog);
+        else _hints.Text = _editor.VimEnabled && _editor.HasFocus ? VimStatus() : KeyHelp.Footer(PanelContext());
+    }
+
+    /// <summary>Vim's bottom line: the command being typed, or the mode and the keys of an unfinished command.</summary>
+    private string VimStatus()
+    {
+        var vim = _editor.Vim;
+        if (vim.Mode == VimMode.Command) return vim.CommandLine + "▏";
+        var mode = vim.Mode switch
+        {
+            VimMode.Insert => "-- INSERT --",
+            VimMode.Visual => "-- VISUAL --",
+            VimMode.VisualLine => "-- VISUAL LINE --",
+            _ => "-- NORMAL --",
+        };
+        var pending = vim.PendingKeys.Length > 0 ? $" {vim.PendingKeys}" : string.Empty;
+        return $"{mode}{pending} │ {KeyHelp.Footer(KeyContext.Vim)}";
+    }
+
+    private void LoadEditorMode()
+    {
+        try
+        {
+            if (File.Exists(_editorModePath) && File.ReadAllText(_editorModePath).Trim() == "vim") _editor.SetVimEnabled(true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The plain editor, then.
+        }
+    }
+
+    /// <summary>F2 and :set vim/novim switch vim mode and keep the choice for the next session.</summary>
+    private void SetVimMode(bool enabled)
+    {
+        _editor.SetVimEnabled(enabled);
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_editorModePath)!);
+            File.WriteAllText(_editorModePath, enabled ? "vim" : "default");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log($"✗ Could not keep the editor mode: {ex.Message}");
+        }
+
+        Log(enabled ? "Vim mode on: Esc normal mode, i insert, v visual, : commands; F2 turns it off." : "Vim mode off.");
+        UpdateHints();
+    }
+
+    /// <summary>Runs a <c>:</c> command from vim mode.</summary>
+    private void RunVimCommand(string text)
+    {
+        if (ExCommand.Parse(text) is not { } command)
+        {
+            Log($"✗ E492: Not an editor command: {text}");
+            return;
+        }
+
+        var path = command.Argument.Length > 0 ? command.Path : null;
+        switch (command.Name)
+        {
+            case ExCommandName.Write:
+                SaveScript(path, command.Force);
+                break;
+            case ExCommandName.WriteQuit:
+                if (SaveScript(path, command.Force)) CloseTabOrQuit(force: true);
+                break;
+            case ExCommandName.Exit:
+                StoreTab();
+                if (!_tabs.Current.HasUnsavedText || SaveScript(path, command.Force)) CloseTabOrQuit(force: true);
+                break;
+            case ExCommandName.Quit:
+                CloseTabOrQuit(command.Force);
+                break;
+            case ExCommandName.QuitAll:
+                Quit();
+                break;
+            case ExCommandName.Edit when path is null:
+                Log("✗ E32: No file name");
+                break;
+            case ExCommandName.Edit or ExCommandName.TabNew when path is not null:
+                OpenScriptFile(path);
+                break;
+            case ExCommandName.TabNew:
+                NewTab();
+                break;
+            case ExCommandName.TabNext:
+                SwitchTab(+1);
+                break;
+            case ExCommandName.TabPrevious:
+                SwitchTab(-1);
+                break;
+            case ExCommandName.Set when command.Argument is "vim" or "novim":
+                SetVimMode(command.Argument == "vim");
+                break;
+            case ExCommandName.Set:
+                Log($"✗ E518: Unknown option: {command.Argument}");
+                break;
+            case ExCommandName.Run:
+                RunQuery();
+                break;
+        }
+    }
+
+    /// <summary>:q closes the tab, refusing unsaved text unless forced; on the last tab it quits, which asks first.</summary>
+    private void CloseTabOrQuit(bool force)
+    {
+        StoreTab();
+        if (!force && _tabs.Current.HasUnsavedText)
+        {
+            Log("✗ E37: No write since last change (add ! to override)");
+            return;
+        }
+
+        if (_tabs.Count == 1) Quit();
+        else DiscardTab();
+    }
 
     private KeyContext PanelContext() => CurrentPanel() switch
     {
         ConnectionsPanel => KeyContext.Connections,
         FilesPanel => _fileQuery is null ? KeyContext.Files : KeyContext.FileSearch,
         SchemaPanel => KeyContext.Schema,
-        QueryPanel => KeyContext.Query,
+        QueryPanel => _editor.VimEnabled ? KeyContext.Vim : KeyContext.Query,
         ResultsPanel => KeyContext.Results,
         _ => KeyContext.Messages,
     };
@@ -1270,6 +1399,9 @@ public sealed class MainView : Runnable
         var tab = _tabs.Current;
         if (_editor.Text != tab.Text) _editor.Text = tab.Text;
         _editor.InsertionPoint = tab.Cursor;
+        // Another text: vim starts over in normal mode, with no undo steps from the tab before.
+        _editor.ForgetVimHistory();
+        if (_editor.VimEnabled) _editor.Vim.Reset();
         UpdateEditorTitle();
         _editor.SetNeedsDraw();
     }
@@ -1307,6 +1439,12 @@ public sealed class MainView : Runnable
         StoreTab();
         var tab = _tabs.Current;
         if (tab.HasUnsavedText && !ConfirmDialog.Show(App!, "Unsaved changes", $"Discard unsaved changes in {tab.Name}?", "Discard", confirmIsDefault: false)) return;
+        DiscardTab();
+    }
+
+    private void DiscardTab()
+    {
+        var tab = _tabs.Current;
         _tabs.Close();
         ShowTab();
         if (tab.Script is { } script) Log($"Closed {script.Path}.");
@@ -1550,18 +1688,33 @@ public sealed class MainView : Runnable
     }
 
     /// <summary>Saves the open script, asking for a path the first time.</summary>
-    private void SaveScript()
+    /// <summary>
+    /// Saves the current tab, asking for a path the first time; with <paramref name="path"/> (:w path) it saves there,
+    /// refusing to replace another existing file unless <paramref name="overwrite"/>. True when it saved.
+    /// </summary>
+    private bool SaveScript(string? path = null, bool overwrite = false)
     {
         var tab = _tabs.Current;
         var script = tab.Script;
         try
         {
-            if (script is null)
+            if (path is not null)
+            {
+                var target = ScriptFile.Open(path).Script;
+                if (File.Exists(target.Path) && target.Path != script?.Path && !overwrite)
+                {
+                    Log($"✗ E13: File exists (add ! to override): {target.Path}");
+                    return false;
+                }
+
+                script = target;
+            }
+            else if (script is null)
             {
                 var suggested = Path.Combine(Environment.CurrentDirectory, "query.sql");
-                if (FilePicker.Show(App!, "Save script", "Save", suggested, ".sql") is not { } path) return;
-                script = ScriptFile.Open(path).Script;
-                if (File.Exists(script.Path) && !ConfirmDialog.Show(App!, "Save script", $"Overwrite {script.Name}?", "Overwrite", confirmIsDefault: false)) return;
+                if (FilePicker.Show(App!, "Save script", "Save", suggested, ".sql") is not { } picked) return false;
+                script = ScriptFile.Open(picked).Script;
+                if (File.Exists(script.Path) && !ConfirmDialog.Show(App!, "Save script", $"Overwrite {script.Name}?", "Overwrite", confirmIsDefault: false)) return false;
             }
 
             var text = _editor.Text;
@@ -1573,10 +1726,12 @@ public sealed class MainView : Runnable
             Log($"Saved {script.Path}.");
             // A script saved as a new file shows up in the files panel.
             ReloadFiles();
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
             Log($"✗ Could not save: {ex.Message}");
+            return false;
         }
     }
 

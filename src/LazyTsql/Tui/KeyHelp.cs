@@ -18,6 +18,7 @@ public enum KeyContext
     RowLimit,
     Name,
     Help,
+    Vim,
 }
 
 /// <summary>
@@ -42,6 +43,7 @@ public static class KeyHelp
             ("Ctrl+T/Ctrl+W", "new/close query tab"),
             ("Alt+PgDn/PgUp", "next/prev query tab"),
             ("?/F1", "help"),
+            ("F2", "vim mode on/off"),
             ("q/Esc/Ctrl+Q", "quit"),
         ]),
         new(KeyContext.Connections, "Connections [1]", [("Enter", "connect"), ("a", "add"), ("e", "edit"), ("d", "delete")]),
@@ -111,6 +113,19 @@ public static class KeyHelp
         ]),
         new(KeyContext.RowLimit, "Row limit", [("Enter", "apply"), ("Esc", "cancel")]),
         new(KeyContext.Name, "Database name", [("Enter", "import"), ("Esc", "cancel")]),
+        new(KeyContext.Vim, "Query in vim mode [F2]", [
+            ("i/a/o", "insert"),
+            ("v/V", "visual/line"),
+            ("d/c/y", "cut/change/yank"),
+            ("p/P", "paste"),
+            ("u", "undo"),
+            ("Ctrl+R", "redo"),
+            ("/ ? n N", "search"),
+            (":w :q", "save/close tab"),
+            (":e file", "open in a tab"),
+            ("gt/gT", "next/prev tab"),
+            ("Esc", "normal mode"),
+        ]),
         new(KeyContext.Help, "Help", [("a", "context/all keys"), ("j/k", "scroll"), ("Esc", "close")]),
     ];
 
@@ -122,7 +137,7 @@ public static class KeyHelp
         {
             KeyContext.Global or KeyContext.Connections or KeyContext.Files or KeyContext.Schema or KeyContext.Results or KeyContext.Messages =>
                 "1-6 panels · ? help · q quit",
-            KeyContext.Query => "Alt+1-6 panels · F1 help · Ctrl+Q quit",
+            KeyContext.Query or KeyContext.Vim => "Alt+1-6 panels · F1 help · Ctrl+Q quit",
             KeyContext.FileSearch => null,
             KeyContext.FilePicker or KeyContext.ConnectionForm or KeyContext.RowLimit or KeyContext.Name or KeyContext.CellEdit => "F1 help",
             KeyContext.Confirm => "? help",

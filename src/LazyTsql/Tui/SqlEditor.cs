@@ -15,7 +15,7 @@ namespace LazyTsql.Tui;
 /// the first draw after it; highlighting, unknown-name marks and completion all share them. Unknown names are found off
 /// the UI thread once the editor is still, so typing never waits for them.
 /// </summary>
-public sealed class SqlEditor : TextView
+public sealed partial class SqlEditor : TextView
 {
     // Terminal.Gui 2.5 runs these without raising ContentsChanged, so every cache keyed on edits missed them.
     private static readonly Command[] SilentEdits = [Command.KillWordRight, Command.KillWordLeft, Command.CutToStartOfLine, Command.CutToEndOfLine];
@@ -112,8 +112,10 @@ public sealed class SqlEditor : TextView
     /// </summary>
     protected override bool OnKeyDown(Key key)
     {
+        if (HandleVimKey(key)) return true;
+
         // Terminal.Gui 2.5 does not reopen a closed popup on its Reopen key, so the editor does.
-        if (key == Autocomplete.Reopen && _source is not null && SelectedLength == 0)
+        if (key == Autocomplete.Reopen && _source is not null && SelectedLength == 0 && !CompletionBlocked)
         {
             (Autocomplete as PrefixAutocomplete)?.OpenHere();
             ShowSuggestions();
@@ -169,7 +171,7 @@ public sealed class SqlEditor : TextView
             foreach (var glyph in EditorLayout.Visible([.. line.Select(cell => cell.Grapheme)], Viewport.X, right, TabWidth))
             {
                 var (idxCol, col) = (glyph.Index, glyph.Column);
-                if (IsSelecting && InSelection(idxCol, idxRow)) OnDrawSelectionColor(line, idxCol, idxRow);
+                if ((IsSelecting && InSelection(idxCol, idxRow)) || InVisual(idxCol, idxRow)) OnDrawSelectionColor(line, idxCol, idxRow);
                 else if (idxCol == CurrentColumn && idxRow == CurrentRow && !IsSelecting && !Used && HasFocus) OnDrawUsedColor(line, idxCol, idxRow);
                 else if (ReadOnly) OnDrawReadOnlyColor(line, idxCol, idxRow);
                 else OnDrawNormalColor(line, idxCol, idxRow);
@@ -311,6 +313,12 @@ public sealed class SqlEditor : TextView
 
         public override void GenerateSuggestions(AutocompleteContext context)
         {
+            if (HostControl is SqlEditor { CompletionBlocked: true })
+            {
+                ClearSuggestions();
+                return;
+            }
+
             if (HostControl is not TextView editor)
             {
                 base.GenerateSuggestions(context);

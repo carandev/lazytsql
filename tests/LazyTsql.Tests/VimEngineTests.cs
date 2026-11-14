@@ -337,3 +337,38 @@ public class VimEngineTests
         Assert.Equal(["a\n", "a"], yanked);
     }
 }
+
+public class ExCommandTests
+{
+    [Theory]
+    [InlineData("w", ExCommandName.Write, false, "")]
+    [InlineData("w other.sql", ExCommandName.Write, false, "other.sql")]
+    [InlineData("w! other.sql", ExCommandName.Write, true, "other.sql")]
+    [InlineData("wq", ExCommandName.WriteQuit, false, "")]
+    [InlineData("x", ExCommandName.Exit, false, "")]
+    [InlineData("q", ExCommandName.Quit, false, "")]
+    [InlineData("q!", ExCommandName.Quit, true, "")]
+    [InlineData("qa!", ExCommandName.QuitAll, true, "")]
+    [InlineData("e  dir/a.sql ", ExCommandName.Edit, false, "dir/a.sql")]
+    [InlineData("tabnew", ExCommandName.TabNew, false, "")]
+    [InlineData("tabn", ExCommandName.TabNext, false, "")]
+    [InlineData("tabp", ExCommandName.TabPrevious, false, "")]
+    [InlineData("set novim", ExCommandName.Set, false, "novim")]
+    [InlineData("run", ExCommandName.Run, false, "")]
+    public void Parses_vim_spellings_bang_and_argument(string text, ExCommandName name, bool force, string argument) =>
+        Assert.Equal(new ExCommand(name, force, argument), ExCommand.Parse(text));
+
+    [Theory]
+    [InlineData("foo")]
+    [InlineData("wfoo")]
+    [InlineData("")]
+    public void Unknown_commands_parse_to_nothing(string text) => Assert.Null(ExCommand.Parse(text));
+
+    [Fact]
+    public void A_leading_tilde_is_the_home_folder()
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        Assert.Equal(Path.Join(home, "q.sql"), ExCommand.Parse("e ~/q.sql")!.Path);
+        Assert.Equal("q.sql", ExCommand.Parse("e q.sql")!.Path);
+    }
+}
