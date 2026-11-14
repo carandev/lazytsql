@@ -13,8 +13,11 @@ Pulsa `F2` en cualquier parte, o escribe `:set vim` (`:set novim` lo apaga). laz
 siguiente sesión. El pie muestra el modo (`-- NORMAL --`, `-- INSERT --`, `-- VISUAL --`, `-- VISUAL LINE --`), las
 teclas de un comando aún sin terminar y lo que escribes después de `:`, `/` o `?`.
 
-En modo vim `Esc` es de vim, así que ya no sale del editor: usa `Alt+1`-`Alt+6` para pasar a otro panel. `F5`,
-`Ctrl+K`, `Ctrl+S`, `Ctrl+T`, `Ctrl+W` y las demás teclas globales siguen funcionando en todos los modos.
+En modo vim `Esc` es de vim, así que ya no sale del editor. Muévete entre paneles como entre ventanas de vim:
+`Ctrl+H`, `Ctrl+J`, `Ctrl+K` y `Ctrl+L` van al panel de la izquierda, de abajo, de arriba y de la derecha, desde
+cualquier panel y en cualquier modo (`Alt+1`-`Alt+6` también siguen funcionando). Como `Ctrl+K` mueve, **`Ctrl+C`
+cancela** la consulta en curso (o `:cancel`). `F5`, `Ctrl+S`, `Ctrl+T`, `Ctrl+W` y las demás teclas globales siguen
+funcionando en todos los modos.
 
 ## Modo normal
 
@@ -66,6 +69,7 @@ sale.
 | `:tabn`, `:tabp` | Pestaña siguiente / anterior |
 | `:12` | Ir a la línea 12 |
 | `:run` | Ejecutar la consulta, como `F5` |
+| `:cancel` | Cancelar la consulta en curso, como `Ctrl+C` |
 | `:set vim`, `:set novim` | Activar / desactivar el modo vim |
 
 Las rutas pueden empezar con `~` para tu carpeta personal. Un comando desconocido muestra

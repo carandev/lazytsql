@@ -355,6 +355,7 @@ public class ExCommandTests
     [InlineData("tabp", ExCommandName.TabPrevious, false, "")]
     [InlineData("set novim", ExCommandName.Set, false, "novim")]
     [InlineData("run", ExCommandName.Run, false, "")]
+    [InlineData("cancel", ExCommandName.Cancel, false, "")]
     public void Parses_vim_spellings_bang_and_argument(string text, ExCommandName name, bool force, string argument) =>
         Assert.Equal(new ExCommand(name, force, argument), ExCommand.Parse(text));
 

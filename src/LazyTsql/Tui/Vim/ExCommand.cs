@@ -13,6 +13,7 @@ public enum ExCommandName
     TabPrevious,
     Set,
     Run,
+    Cancel,
 }
 
 /// <summary>A <c>:</c> command: its name (any of vim's spellings), whether it ends in <c>!</c>, and its argument.</summary>
@@ -47,6 +48,7 @@ public sealed record ExCommand(ExCommandName Name, bool Force, string Argument)
         ["se"] = ExCommandName.Set,
         ["set"] = ExCommandName.Set,
         ["run"] = ExCommandName.Run,
+        ["cancel"] = ExCommandName.Cancel,
     };
 
     /// <summary>The command, or null for one lazytsql does not have.</summary>

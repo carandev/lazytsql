@@ -23,6 +23,7 @@ la aplicación muestra con `?` (o `F1`).
 | `Ctrl+T` / `Ctrl+W` | Nueva pestaña de consulta / cerrar la actual (pregunta primero si tiene cambios sin guardar) |
 | `Alt+PageDown` / `Alt+PageUp` | Pestaña de consulta siguiente / anterior |
 | `F2` | Activar / desactivar el modo vim del editor ([modo vim](/lazytsql/es/guides/vim-mode/)) |
+| `Ctrl+H` / `J` / `K` / `L` | En modo vim, ir al panel de la izquierda / abajo / arriba / derecha; `Ctrl+C` cancela |
 | `?` / `F1` | Ayuda del panel enfocado (`F1` dentro del editor) |
 | `q` / `Esc` / `Ctrl+Q` | Salir tras confirmar (`q` y `Esc` solo fuera del editor) |
 

@@ -124,6 +124,8 @@ public static class KeyHelp
             (":w :q", "save/close tab"),
             (":e file", "open in a tab"),
             ("gt/gT", "next/prev tab"),
+            ("C-hjkl", "move to panel"),
+            ("Ctrl+C", "cancel query"),
             ("Esc", "normal mode"),
         ]),
         new(KeyContext.Help, "Help", [("a", "context/all keys"), ("j/k", "scroll"), ("Esc", "close")]),
@@ -137,7 +139,8 @@ public static class KeyHelp
         {
             KeyContext.Global or KeyContext.Connections or KeyContext.Files or KeyContext.Schema or KeyContext.Results or KeyContext.Messages =>
                 "1-6 panels · ? help · q quit",
-            KeyContext.Query or KeyContext.Vim => "Alt+1-6 panels · F1 help · Ctrl+Q quit",
+            KeyContext.Query => "Alt+1-6 panels · F1 help · Ctrl+Q quit",
+            KeyContext.Vim => "Ctrl+hjkl panels · F1 help · Ctrl+Q quit",
             KeyContext.FileSearch => null,
             KeyContext.FilePicker or KeyContext.ConnectionForm or KeyContext.RowLimit or KeyContext.Name or KeyContext.CellEdit => "F1 help",
             KeyContext.Confirm => "? help",

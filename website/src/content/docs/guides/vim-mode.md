@@ -13,8 +13,10 @@ Press `F2` anywhere, or type `:set vim` (`:set novim` turns it off). lazytsql re
 session. The footer shows the mode (`-- NORMAL --`, `-- INSERT --`, `-- VISUAL --`, `-- VISUAL LINE --`), the keys of
 a command not finished yet, and what you type after `:`, `/` or `?`.
 
-In vim mode `Esc` belongs to vim, so it no longer leaves the editor: use `Alt+1`-`Alt+6` to move to another panel.
-`F5`, `Ctrl+K`, `Ctrl+S`, `Ctrl+T`, `Ctrl+W` and the other global keys keep working in every mode.
+In vim mode `Esc` belongs to vim, so it no longer leaves the editor. Move between panels like between vim windows:
+`Ctrl+H`, `Ctrl+J`, `Ctrl+K` and `Ctrl+L` go to the panel on the left, below, above and on the right, from any panel
+and in any mode (`Alt+1`-`Alt+6` still work too). Since `Ctrl+K` moves, **`Ctrl+C` cancels** the running query (or
+`:cancel`). `F5`, `Ctrl+S`, `Ctrl+T`, `Ctrl+W` and the other global keys keep working in every mode.
 
 ## Normal mode
 
@@ -65,6 +67,7 @@ to its other end. Then `y`, `d` or `x`, `c`, `>`, `<`, `~` or `p` act on it, and
 | `:tabn`, `:tabp` | Next / previous tab |
 | `:12` | Go to line 12 |
 | `:run` | Run the query, like `F5` |
+| `:cancel` | Cancel the running query, like `Ctrl+C` |
 | `:set vim`, `:set novim` | Turn vim mode on / off |
 
 Paths can start with `~` for your home folder. An unknown command shows `E492: Not an editor command`.

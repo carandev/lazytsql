@@ -337,7 +337,8 @@ public sealed class MainView : Runnable
         var handled = true;
 
         if (key == Key.F5 || key == Key.E.WithCtrl) RunQuery();
-        else if (key == Key.K.WithCtrl) CancelQuery();
+        else if (_editor.VimEnabled && VimPanelDirection(key) is { } direction) MoveToPanel(direction);
+        else if (key == (_editor.VimEnabled ? Key.C.WithCtrl : Key.K.WithCtrl)) CancelQuery();
         else if (key == Key.F1) HelpDialog.Show(App!, PanelContext());
         else if (key == Key.F2) SetVimMode(!_editor.VimEnabled);
         else if (key == Key.S.WithCtrl) SaveScript();
@@ -394,6 +395,24 @@ public sealed class MainView : Runnable
         else handled = false;
 
         key.Handled = handled;
+    }
+
+    /// <summary>
+    /// Ctrl+h/j/k/l in vim mode. Terminals send Ctrl+H as Ctrl+Backspace and Ctrl+J as Ctrl+Enter; terminals that tell
+    /// the keys apart send the letters.
+    /// </summary>
+    private static char? VimPanelDirection(Key key)
+    {
+        if (key == Key.Backspace.WithCtrl || key == Key.H.WithCtrl) return 'h';
+        if (key == Key.Enter.WithCtrl || key == Key.J.WithCtrl) return 'j';
+        if (key == Key.K.WithCtrl) return 'k';
+        if (key == Key.L.WithCtrl) return 'l';
+        return null;
+    }
+
+    private void MoveToPanel(char direction)
+    {
+        if (PanelNavigation.Next([.. _panels.Select(panel => panel.Frame)], CurrentPanel(), direction) is { } panel) FocusPanel(panel);
     }
 
     /// <summary>Vim motions translated to the arrow keys each view already binds, so behavior matches the arrows exactly.</summary>
@@ -468,7 +487,8 @@ public sealed class MainView : Runnable
     private void UpdateHints()
     {
         if (App?.TopRunnableView is View { Data: KeyContext dialog } top && top != this) _hints.Text = KeyHelp.Footer(dialog);
-        else _hints.Text = _editor.VimEnabled && _editor.HasFocus ? VimStatus() : KeyHelp.Footer(PanelContext());
+        // The panel, not the editor: while focus moves into the panel the editor does not have it yet.
+        else _hints.Text = _editor.VimEnabled && CurrentPanel() == QueryPanel ? VimStatus() : KeyHelp.Footer(PanelContext());
     }
 
     /// <summary>Vim's bottom line: the command being typed, or the mode and the keys of an unfinished command.</summary>
@@ -568,6 +588,9 @@ public sealed class MainView : Runnable
                 break;
             case ExCommandName.Run:
                 RunQuery();
+                break;
+            case ExCommandName.Cancel:
+                CancelQuery();
                 break;
         }
     }

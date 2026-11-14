@@ -105,7 +105,8 @@ public class TuiTests
         Assert.Contains(help, line => line.Contains("F2", StringComparison.Ordinal) && line.Contains("vim mode on/off", StringComparison.Ordinal));
         Assert.Contains(help, line => line.Contains("Query in vim mode [F2]", StringComparison.Ordinal));
         Assert.StartsWith("i/a/o insert · v/V visual/line", KeyHelp.Footer(KeyContext.Vim), StringComparison.Ordinal);
-        Assert.EndsWith("│ Alt+1-6 panels · F1 help · Ctrl+Q quit", KeyHelp.Footer(KeyContext.Vim), StringComparison.Ordinal);
+        Assert.EndsWith("│ Ctrl+hjkl panels · F1 help · Ctrl+Q quit", KeyHelp.Footer(KeyContext.Vim), StringComparison.Ordinal);
+        Assert.Contains("C-hjkl move to panel · Ctrl+C cancel query", KeyHelp.Footer(KeyContext.Vim), StringComparison.Ordinal);
     }
 
     [Fact]
