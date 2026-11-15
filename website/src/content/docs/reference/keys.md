@@ -20,7 +20,10 @@ with `?` (or `F1`).
 | `F5` / `Ctrl+E` | Run the selection, or the whole script batch by batch |
 | `Ctrl+K` | Cancel the running query, export or import, and everything queued after it |
 | `Ctrl+O` / `Ctrl+S` | Open / save a `.sql` file |
-| `Ctrl+W` | Close the open `.sql` file (asks first if it has unsaved changes) |
+| `Ctrl+T` / `Ctrl+W` | New query tab / close the current one (asks first if it has unsaved changes) |
+| `Alt+PageDown` / `Alt+PageUp` | Next / previous query tab |
+| `F2` | Vim mode on / off in the query editor ([vim mode](/lazytsql/guides/vim-mode/)) |
+| `Ctrl+H` / `J` / `K` / `L` | In vim mode, move to the panel on the left / below / above / on the right; `Ctrl+C` cancels |
 | `?` / `F1` | Help for the focused panel (`F1` inside the editor) |
 | `q` / `Esc` / `Ctrl+Q` | Quit after confirming (`q` and `Esc` only outside the editor) |
 
@@ -51,7 +54,7 @@ with `?` (or `F1`).
 | | `Ctrl+V` | Paste the system clipboard |
 | | `Tab` / `Ctrl+Space` | Accept / open completion (`Esc` closes it) |
 | | `↑` / `↓` | Pick a suggestion |
-| | `Esc` | Leave the editor |
+| | `Esc` | Leave the editor (in vim mode, back to normal mode) |
 | Results `[5]` | `e` / `Enter` | Edit the selected cell |
 | | `s` | Save the edits (shows the script first) |
 | | `u` / `U` | Undo the selected cell / every edit |

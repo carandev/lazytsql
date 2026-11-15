@@ -96,6 +96,10 @@ detach the editor from the file, which stays as it was saved.
 ## Files
 
 `Ctrl+V` pastes the system clipboard (on Linux through `wl-paste`, `xclip` or `xsel`; the terminal's own paste, usually
-`Ctrl+Shift+V`, works too). `Ctrl+O` opens a `.sql` file, `Ctrl+W` closes it (asking first when it has unsaved changes) and `Ctrl+S` saves it, asking for a path the first time. The title shows the file name
+`Ctrl+Shift+V`, works too). `Ctrl+O` opens a `.sql` file in its own tab, `Ctrl+W` closes the current tab (asking first when it has unsaved changes) and `Ctrl+S` saves it, asking for a path the first time.
+
+Each query lives in a tab, like result sets: `Ctrl+T` opens an empty one, `Alt+PageDown` and `Alt+PageUp` move to the next and previous one,
+and each keeps its text and cursor. Opening a file already open switches to its tab; `s` and `e` in the schema open
+their SQL in a new tab. The title shows the tab's position (`2/3`), the file name
 and `*` while there are unsaved changes. Saving keeps the file's encoding and line endings, so scripts from SSMS
 (UTF-16 or UTF-8 with BOM, CRLF) round-trip unchanged. To browse a whole folder, see [files](/lazytsql/guides/files/).

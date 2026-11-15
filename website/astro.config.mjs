@@ -33,6 +33,7 @@ export default defineConfig({
             'guides/tui',
             'guides/connections',
             'guides/writing-queries',
+            'guides/vim-mode',
             'guides/results',
             'guides/files',
             'guides/headless',

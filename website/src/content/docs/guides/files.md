@@ -37,7 +37,7 @@ such as `.git` are left out, and a folder that cannot be read shows as empty.
 | `d` | Remove the selected top-level folder from the panel |
 | `r` | Refresh after files change on disk |
 
-Opening a script asks first when the editor has unsaved changes. Saving a new script with `Ctrl+S` refreshes the
+A script opens in its own query tab, or switches to its tab when it is already open. Saving a new script with `Ctrl+S` refreshes the
 tree, and a refresh keeps the same folders expanded.
 
 ## Searching

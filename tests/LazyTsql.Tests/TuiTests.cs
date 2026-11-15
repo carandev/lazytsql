@@ -99,9 +99,22 @@ public class TuiTests
     }
 
     [Fact]
-    public void Help_lists_how_to_close_a_script()
+    public void Help_lists_the_vim_mode_keys_and_how_to_switch_it()
     {
-        Assert.Contains(KeyHelp.Render(KeyContext.Query).Concat(KeyHelp.Render(context: null)), line => line.Contains("Ctrl+W", StringComparison.Ordinal) && line.Contains("close .sql", StringComparison.Ordinal));
+        var help = KeyHelp.Render(context: null);
+        Assert.Contains(help, line => line.Contains("F2", StringComparison.Ordinal) && line.Contains("vim mode on/off", StringComparison.Ordinal));
+        Assert.Contains(help, line => line.Contains("Query in vim mode [F2]", StringComparison.Ordinal));
+        Assert.StartsWith("i/a/o insert · v/V visual/line", KeyHelp.Footer(KeyContext.Vim), StringComparison.Ordinal);
+        Assert.EndsWith("│ Ctrl+hjkl panels · F1 help · Ctrl+Q quit", KeyHelp.Footer(KeyContext.Vim), StringComparison.Ordinal);
+        Assert.Contains("C-hjkl move to panel · Ctrl+C cancel query", KeyHelp.Footer(KeyContext.Vim), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Help_lists_the_query_tab_keys()
+    {
+        var help = KeyHelp.Render(KeyContext.Query).Concat(KeyHelp.Render(context: null)).ToList();
+        Assert.Contains(help, line => line.Contains("Ctrl+T/Ctrl+W", StringComparison.Ordinal) && line.Contains("new/close query tab", StringComparison.Ordinal));
+        Assert.Contains(help, line => line.Contains("Alt+PgDn/PgUp", StringComparison.Ordinal) && line.Contains("next/prev query tab", StringComparison.Ordinal));
     }
 
     [Fact]
