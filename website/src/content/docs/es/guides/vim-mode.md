@@ -1,6 +1,6 @@
 ---
 title: Modo vim
-description: Edita consultas con modos, movimientos, operadores y comandos : al estilo de Neovim.
+description: "Edita consultas con modos, movimientos, operadores y comandos : al estilo de Neovim."
 ---
 
 El editor de consultas puede funcionar como Neovim: un modo **normal** para moverse y editar con comandos, un modo

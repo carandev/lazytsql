@@ -1,6 +1,6 @@
 ---
 title: Vim mode
-description: Edit queries with Neovim-style modes, motions, operators and : commands.
+description: "Edit queries with Neovim-style modes, motions, operators and : commands."
 ---
 
 The query editor can work like Neovim: a **normal** mode for moving and editing with commands, an **insert** mode for
