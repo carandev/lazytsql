@@ -49,6 +49,12 @@ public class SqlCompletionTests
     }
 
     [Fact]
+    public void After_DELETE_tables_are_suggested_even_without_FROM()
+    {
+        Assert.Equal(["customers", "sales.customer_totals", "customer_rank"], Texts(Suggest("DELETE cu|")));
+    }
+
+    [Fact]
     public void After_JOIN_names_that_need_brackets_get_them()
     {
         Assert.Contains("[order details]", Texts(Suggest("SELECT * FROM a\nJOIN ord|")));

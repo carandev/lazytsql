@@ -38,7 +38,8 @@ public static class SqlCompletion
 {
     private const int MaxItems = 200;
 
-    private static readonly HashSet<string> ObjectKeywords = new(StringComparer.OrdinalIgnoreCase) { "FROM", "JOIN", "UPDATE", "INTO", "APPLY", "TABLE" };
+    // FROM is optional in T-SQL's DELETE, so "DELETE customers" (no FROM) is itself a table position.
+    private static readonly HashSet<string> ObjectKeywords = new(StringComparer.OrdinalIgnoreCase) { "FROM", "JOIN", "UPDATE", "INTO", "APPLY", "TABLE", "DELETE" };
     private static readonly HashSet<string> RoutineKeywords = new(StringComparer.OrdinalIgnoreCase) { "EXEC", "EXECUTE" };
 
     public static CompletionResult Suggest(IReadOnlyList<string> lines, int row, int column, SchemaCatalog catalog, string database)
