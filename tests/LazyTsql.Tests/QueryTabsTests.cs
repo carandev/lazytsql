@@ -1,4 +1,9 @@
 using System.Text;
+using LazyTsql.Core;
+using LazyTsql.Core.Batches;
+using LazyTsql.Core.Editing;
+using LazyTsql.Core.Execution;
+using LazyTsql.Core.Schema;
 using LazyTsql.Infrastructure;
 using LazyTsql.Tui;
 
@@ -7,6 +12,27 @@ namespace LazyTsql.Tests;
 public class QueryTabsTests
 {
     private static ScriptFile Script(string name) => new(Path.GetFullPath(name), Encoding.UTF8, "\n");
+
+    private static ShownResult Result() =>
+        new(new ResultSet([new ColumnInfo("id", "int")], [[1]], IsTruncated: false), new FakeSession(), new SqlBatch("SELECT 1;", 1), 0, "master");
+
+    private sealed class FakeSession : IDatabaseSession
+    {
+        public string ServerVersion => "fake";
+        public string CurrentDatabase => "master";
+        public string? ConfiguredDatabase => null;
+        public Task<BatchResult> ExecuteAsync(SqlBatch batch, QueryOptions options, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<long> StreamResultSetAsync(SqlBatch batch, int resultSetIndex, IRowSink sink, QueryOptions options, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task ChangeDatabaseAsync(string database, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<IReadOnlyList<string>> GetDatabasesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<DbObject>> GetObjectsAsync(string database, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ColumnDefinition>> GetColumnsAsync(string database, DbObject table, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ForeignKey>> GetForeignKeysAsync(string database, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<DbObject>> GetSynonymsAsync(string database, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<string> GetDefinitionAsync(DbObject routine, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<SourceColumn>> DescribeResultAsync(string database, SqlBatch batch, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
 
     [Fact]
     public void Starts_with_one_untitled_tab_holding_the_initial_text()
@@ -126,6 +152,74 @@ public class QueryTabsTests
         Assert.True(tabs.Current.IsDirty);
         Assert.True(tabs.Current.HasUnsavedText);
         Assert.Equal(["a.sql"], tabs.Dirty.Select(tab => tab.Name));
+    }
+
+    [Fact]
+    public void A_new_tab_starts_with_no_result_sets()
+    {
+        var tabs = new QueryTabs("SELECT 1;");
+        Assert.Empty(tabs.Current.ResultSets);
+        Assert.Equal(0, tabs.Current.ResultIndex);
+    }
+
+    [Fact]
+    public void Each_tab_keeps_its_own_result_sets_when_switching()
+    {
+        var tabs = new QueryTabs("SELECT 1;");
+        tabs.Current.ResultSets = [Result()];
+        tabs.Current.ResultIndex = 0;
+
+        tabs.Add();
+        Assert.Empty(tabs.Current.ResultSets);
+
+        tabs.Select(0);
+        Assert.Single(tabs.Current.ResultSets);
+    }
+
+    [Fact]
+    public void Reusing_an_untouched_untitled_tab_for_a_script_keeps_its_result_sets()
+    {
+        var tabs = new QueryTabs("SELECT 1;");
+        tabs.Current.ResultSets = [Result()];
+        tabs.Current.ResultIndex = 0;
+
+        tabs.Open(Script("a.sql"), "A");
+
+        Assert.Equal(1, tabs.Count);
+        Assert.Single(tabs.Current.ResultSets);
+    }
+
+    [Fact]
+    public void A_new_tab_has_no_connection_and_reusing_an_untouched_one_keeps_it()
+    {
+        var tabs = new QueryTabs("SELECT 1;");
+        Assert.Null(tabs.Current.ConnectionName);
+
+        tabs.Current.ConnectionName = "prod";
+        tabs.Open(Script("a.sql"), "A");
+
+        Assert.Equal(1, tabs.Count);
+        Assert.Equal("prod", tabs.Current.ConnectionName);
+    }
+
+    [Fact]
+    public void A_tab_on_its_connections_console_names_itself_after_the_connection()
+    {
+        var tabs = new QueryTabs("x");
+        tabs.Current.ConnectionName = "prod";
+        tabs.Current.Script = new ScriptFile(ConnectionConsole.PathFor("prod"), Encoding.UTF8, "\n");
+
+        Assert.Equal("[console] prod", tabs.Current.Name);
+    }
+
+    [Fact]
+    public void A_connected_tab_on_an_ordinary_file_keeps_its_file_name()
+    {
+        var tabs = new QueryTabs("x");
+        tabs.Current.ConnectionName = "prod";
+        tabs.Current.Script = Script("a.sql");
+
+        Assert.Equal("a.sql", tabs.Current.Name);
     }
 
     [Fact]

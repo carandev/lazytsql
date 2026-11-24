@@ -1,6 +1,7 @@
 using LazyTsql.Core.Completion;
 using LazyTsql.Core.Syntax;
 using Terminal.Gui.Drawing;
+using Terminal.Gui.Drivers;
 using Terminal.Gui.Input;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
@@ -30,6 +31,9 @@ public sealed partial class SqlEditor : TextView
     private (string[] Lines, (int Row, int Column)? Cursor, string Database, int Generation)? _diagnosedFor;
     private int _catalogGeneration;
 
+    // The shape TextView starts with, kept so vim mode can hand it back once it turns off or leaves insert.
+    private readonly CursorStyle _plainCursorStyle;
+
     public SqlEditor()
     {
         PostToUi = action => App?.Invoke(action);
@@ -37,6 +41,7 @@ public sealed partial class SqlEditor : TextView
         ContentsChanged += (_, _) => OnEdited();
         // TextView attaches it to itself in EndInit, once the view is in the tree.
         Autocomplete = new PrefixAutocomplete();
+        _plainCursorStyle = Cursor.Style;
     }
 
     /// <summary>How long the editor must be still before unknown names are looked for.</summary>
