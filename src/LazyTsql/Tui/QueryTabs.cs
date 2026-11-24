@@ -1,11 +1,22 @@
 using System.Drawing;
+using LazyTsql.Core;
+using LazyTsql.Core.Batches;
+using LazyTsql.Core.Editing;
+using LazyTsql.Core.Execution;
 using LazyTsql.Infrastructure;
 
 namespace LazyTsql.Tui;
 
+/// <summary>A result set with the session and batch that produced it, so an export can fetch every row again.</summary>
+/// <summary>The database it ran in is where its query is described for editing; its edits stay until saved or discarded.</summary>
+public sealed record ShownResult(ResultSet Set, IDatabaseSession Session, SqlBatch Batch, int Index, string Database)
+{
+    public ResultEdits? Edits { get; set; }
+}
+
 /// <summary>
-/// One query in the editor: its text, the script it belongs to (none for an untitled query) and where the cursor was,
-/// so switching back restores it.
+/// One query in the editor: its text, the script it belongs to (none for an untitled query), where the cursor was, and
+/// the result sets it last ran, so switching back restores it all.
 /// </summary>
 public sealed class QueryTab(ScriptFile? script, string text, string savedText)
 {
@@ -14,6 +25,8 @@ public sealed class QueryTab(ScriptFile? script, string text, string savedText)
     /// <summary>The text as last saved, or as it opened for an untitled query.</summary>
     public string SavedText { get; set; } = savedText;
     public Point Cursor { get; set; }
+    public List<ShownResult> ResultSets { get; set; } = [];
+    public int ResultIndex { get; set; }
 
     public string Name => Script?.Name ?? "untitled";
 
@@ -60,7 +73,7 @@ public sealed class QueryTabs
 
             if (Current.IsUntouchedUntitled)
             {
-                _tabs[Index] = new QueryTab(script, text, text);
+                _tabs[Index] = new QueryTab(script, text, text) { ResultSets = Current.ResultSets, ResultIndex = Current.ResultIndex };
                 return Current;
             }
         }

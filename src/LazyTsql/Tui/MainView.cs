@@ -48,9 +48,7 @@ public sealed class MainView : Runnable
     private IReadOnlyList<ConnectionProfile> _profiles = [];
     private IDatabaseSession? _session;
     private string? _sessionName;
-    private List<ShownResult> _resultSets = [];
     private int _maxRows = new QueryOptions().MaxRows;
-    private int _resultIndex;
     private bool _quitConfirmed;
     // Set while result edits are being saved, so the changes being saved cannot change underneath.
     private bool _savingEdits;
@@ -388,8 +386,8 @@ public sealed class MainView : Runnable
         else if (_results.HasFocus && key == Key.S) SaveEdits();
         else if (_results.HasFocus && key.AsRune.Value == 'u') RevertCell();
         else if (_results.HasFocus && key.AsRune.Value == 'U') RevertAllEdits();
-        else if (_results.HasFocus && key.AsRune.Value == ']') ShowResultSet(_resultIndex + 1);
-        else if (_results.HasFocus && key.AsRune.Value == '[') ShowResultSet(_resultIndex - 1);
+        else if (_results.HasFocus && key.AsRune.Value == ']') ShowResultSet(_tabs.Current.ResultIndex + 1);
+        else if (_results.HasFocus && key.AsRune.Value == '[') ShowResultSet(_tabs.Current.ResultIndex - 1);
         else if (_results.HasFocus && key == Key.X) ExportResultSet();
         else if (_results.HasFocus && key.AsRune.Value == 'y') CopyCells();
         else if (_results.HasFocus && key == Key.M) ChangeRowLimit();
@@ -924,7 +922,9 @@ public sealed class MainView : Runnable
 
         if (PendingEdits > 0 && !ConfirmDialog.Show(App!, "Unsaved edits", $"Run the query and discard {Count(PendingEdits, "unsaved change")} to the results?", "Discard", confirmIsDefault: false)) return;
 
-        ReleaseResults();
+        // The tab this query belongs to: it may no longer be the one shown once this background run finishes.
+        var tab = _tabs.Current;
+        ReleaseResults(tab);
         _panels[ResultsPanel].Title = _operations.IsBusy ? "[5] Results · queued…" : "[5] Results · running…";
 
         RunInBackground(async token =>
@@ -934,7 +934,7 @@ public sealed class MainView : Runnable
             var target = $"{_sessionName} › {session.CurrentDatabase}";
             OnUi(() =>
             {
-                _panels[ResultsPanel].Title = "[5] Results · running…";
+                if (tab == _tabs.Current) _panels[ResultsPanel].Title = "[5] Results · running…";
                 WriteActivity($"Running on {target}:\n{script}");
                 Log("Running…");
             });
@@ -949,12 +949,16 @@ public sealed class MainView : Runnable
 
             OnUi(() =>
             {
-                _resultSets = resultSets;
-                ShowResultSet(0);
-                UpdateEditorTitle();
+                tab.ResultSets = resultSets;
+                if (tab == _tabs.Current)
+                {
+                    ShowResultSet(0);
+                    UpdateEditorTitle();
+                }
+
                 Log($"Done in {total.TotalMilliseconds:0} ms.");
             });
-        }, cancellable: true, onError: () => _panels[ResultsPanel].Title = "[5] Results", queued: "the query");
+        }, cancellable: true, onError: () => { if (tab == _tabs.Current) _panels[ResultsPanel].Title = "[5] Results"; }, queued: "the query");
     }
 
     private void CancelQuery()
@@ -966,32 +970,35 @@ public sealed class MainView : Runnable
     /// Drops the shown results before a run, so the old and the new rows are never held together. After a large result
     /// the heap is compacted, which gives its memory back to the system instead of keeping it for the next run.
     /// </summary>
-    private void ReleaseResults()
+    private void ReleaseResults(QueryTab tab)
     {
-        var rows = _resultSets.Sum(shown => (long)shown.Set.Rows.Count);
-        _resultSets = [];
-        ShowResultSet(0);
+        var rows = tab.ResultSets.Sum(shown => (long)shown.Set.Rows.Count);
+        tab.ResultSets = [];
+        if (tab == _tabs.Current) ShowResultSet(0);
         if (rows >= 100_000) GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
     }
 
+    /// <summary>Shows a result set of the current tab in the results panel; call only while it is the one in view.</summary>
     private void ShowResultSet(int index)
     {
-        if (_resultSets.Count == 0)
+        var tab = _tabs.Current;
+        if (tab.ResultSets.Count == 0)
         {
             _results.Table = null;
             _panels[ResultsPanel].Title = "[5] Results";
             return;
         }
 
-        _resultIndex = Math.Clamp(index, 0, _resultSets.Count - 1);
-        _results.Table = new ResultSetTableSource(_resultSets[_resultIndex].Set);
-        ShowEdits(_resultSets[_resultIndex]);
+        tab.ResultIndex = Math.Clamp(index, 0, tab.ResultSets.Count - 1);
+        _results.Table = new ResultSetTableSource(tab.ResultSets[tab.ResultIndex].Set);
+        ShowEdits(tab.ResultSets[tab.ResultIndex]);
     }
 
     /// <summary>Shows the pending edits of the shown result set: new values in their color, and their count in the title.</summary>
     private void ShowEdits(ShownResult shown)
     {
-        if (_resultSets.ElementAtOrDefault(_resultIndex) != shown || _results.Table is not ResultSetTableSource source) return;
+        var tab = _tabs.Current;
+        if (tab.ResultSets.ElementAtOrDefault(tab.ResultIndex) != shown || _results.Table is not ResultSetTableSource source) return;
 
         source.Edits = shown.Edits;
         _results.Style.ColumnStyles.Clear();
@@ -1006,7 +1013,7 @@ public sealed class MainView : Runnable
 
         var count = shown.Set.Rows.Count;
         var rows = shown.Set.IsTruncated ? $"first {count} rows" : Count(count, "row");
-        var position = _resultSets.Count > 1 ? $" {_resultIndex + 1}/{_resultSets.Count} [ ]" : string.Empty;
+        var position = tab.ResultSets.Count > 1 ? $" {tab.ResultIndex + 1}/{tab.ResultSets.Count} [ ]" : string.Empty;
         var pending = shown.Edits is { Count: > 0 } changed ? $" · {Count(changed.Count, "unsaved change")} (s save)" : string.Empty;
         _panels[ResultsPanel].Title = $"[5] Results{position} · {rows}{pending}";
         _results.SetNeedsDraw();
@@ -1014,7 +1021,7 @@ public sealed class MainView : Runnable
 
     private (int Row, int Column) SelectedCell() => _results.Value?.SelectedCell is { } cell ? (cell.Y, cell.X) : (-1, -1);
 
-    private int PendingEdits => _resultSets.Sum(shown => shown.Edits?.Count ?? 0);
+    private int PendingEdits => _tabs.Current.ResultSets.Sum(shown => shown.Edits?.Count ?? 0);
 
     private static string Count(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
 
@@ -1048,7 +1055,7 @@ public sealed class MainView : Runnable
             {
                 shown.Edits ??= ResultEdits.Create(shown.Set, source, shown.Database);
                 ShowEdits(shown);
-                if (_resultSets.ElementAtOrDefault(_resultIndex) == shown && _results.HasFocus) EditCell(shown, shown.Edits);
+                if (_tabs.Current.ResultSets.ElementAtOrDefault(_tabs.Current.ResultIndex) == shown && _results.HasFocus) EditCell(shown, shown.Edits);
             });
         });
     }
@@ -1077,13 +1084,14 @@ public sealed class MainView : Runnable
 
     private ShownResult? EditableResult()
     {
-        if (_resultSets.Count == 0)
+        var tab = _tabs.Current;
+        if (tab.ResultSets.Count == 0)
         {
             Log("Nothing to edit. Run a query first.");
             return null;
         }
 
-        var shown = _resultSets[_resultIndex];
+        var shown = tab.ResultSets[tab.ResultIndex];
         if (_savingEdits)
         {
             Log("Saving the result edits; wait for it to finish.");
@@ -1107,7 +1115,7 @@ public sealed class MainView : Runnable
 
     private void RevertCell()
     {
-        if (_savingEdits || _resultSets.ElementAtOrDefault(_resultIndex) is not { Edits: { } edits } shown) return;
+        if (_savingEdits || _tabs.Current.ResultSets.ElementAtOrDefault(_tabs.Current.ResultIndex) is not { Edits: { } edits } shown) return;
         var (row, column) = SelectedCell();
         edits.Revert(row, column);
         ShowEdits(shown);
@@ -1115,7 +1123,7 @@ public sealed class MainView : Runnable
 
     private void RevertAllEdits()
     {
-        if (_savingEdits || _resultSets.ElementAtOrDefault(_resultIndex) is not { Edits: { Count: > 0 } edits } shown) return;
+        if (_savingEdits || _tabs.Current.ResultSets.ElementAtOrDefault(_tabs.Current.ResultIndex) is not { Edits: { Count: > 0 } edits } shown) return;
         if (!ConfirmDialog.Show(App!, "Undo edits", $"Undo {Count(edits.Count, "unsaved change")} to these results?", "Undo", confirmIsDefault: false)) return;
         edits.RevertAll();
         ShowEdits(shown);
@@ -1127,7 +1135,7 @@ public sealed class MainView : Runnable
     /// </summary>
     private void SaveEdits()
     {
-        if (_resultSets.ElementAtOrDefault(_resultIndex) is not { Edits: { Count: > 0 } edits })
+        if (_tabs.Current.ResultSets.ElementAtOrDefault(_tabs.Current.ResultIndex) is not { Edits: { Count: > 0 } edits })
         {
             Log("No changes to save. Press e on a cell to edit it.");
             return;
@@ -1164,13 +1172,14 @@ public sealed class MainView : Runnable
 
     private void ExportResultSet()
     {
-        if (_resultSets.Count == 0)
+        var tab = _tabs.Current;
+        if (tab.ResultSets.Count == 0)
         {
             Log("Nothing to export. Run a query first.");
             return;
         }
 
-        var shown = _resultSets[_resultIndex];
+        var shown = tab.ResultSets[tab.ResultIndex];
         if (shown.Set.IsTruncated && shown.Session != _session)
         {
             Log("✗ The connection changed since this result was fetched. Run the query again to export every row.");
@@ -1292,7 +1301,7 @@ public sealed class MainView : Runnable
     /// <summary>Copies the selected cell, or the cells selected with Shift+arrows as tab-separated rows, showing pending edits.</summary>
     private void CopyCells()
     {
-        if (_resultSets.ElementAtOrDefault(_resultIndex) is not { } shown || shown.Set.Rows.Count == 0) return;
+        if (_tabs.Current.ResultSets.ElementAtOrDefault(_tabs.Current.ResultIndex) is not { } shown || shown.Set.Rows.Count == 0) return;
         var cells = _results.GetAllSelectedCells().Select(cell => (Row: cell.Y, Column: cell.X))
             .Where(cell => cell.Row < shown.Set.Rows.Count && cell.Column < shown.Set.Columns.Count).ToList();
         if (cells.Count == 0) return;
@@ -1418,7 +1427,7 @@ public sealed class MainView : Runnable
         _tabs.Current.Cursor = _editor.InsertionPoint;
     }
 
-    /// <summary>Puts the current tab's text and cursor in the editor.</summary>
+    /// <summary>Puts the current tab's text, cursor and last results in the editor and results panel.</summary>
     private void ShowTab()
     {
         var tab = _tabs.Current;
@@ -1427,6 +1436,7 @@ public sealed class MainView : Runnable
         // Another text: vim starts over in normal mode, with no undo steps from the tab before.
         _editor.ForgetVimHistory();
         if (_editor.VimEnabled) _editor.Vim.Reset();
+        ShowResultSet(tab.ResultIndex);
         UpdateEditorTitle();
         _editor.SetNeedsDraw();
     }
@@ -1806,12 +1816,5 @@ public sealed class MainView : Runnable
                 });
             }
         }
-    }
-
-    /// <summary>A result set with the session and batch that produced it, so an export can fetch every row again.</summary>
-    /// <summary>The database it ran in is where its query is described for editing; its edits stay until saved or discarded.</summary>
-    private sealed record ShownResult(ResultSet Set, IDatabaseSession Session, Core.Batches.SqlBatch Batch, int Index, string Database)
-    {
-        public ResultEdits? Edits { get; set; }
     }
 }
