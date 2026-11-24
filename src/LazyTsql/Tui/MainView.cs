@@ -338,7 +338,7 @@ public sealed class MainView : Runnable
         var handled = true;
 
         if (key == Key.F5 || key == Key.E.WithCtrl) RunQuery();
-        else if (_editor.VimEnabled && VimPanelDirection(key) is { } direction) MoveToPanel(direction);
+        else if (_editor.VimEnabled && VimPanelDirection(key, inEditor && _editor.Vim.Mode == VimMode.Insert) is { } direction) MoveToPanel(direction);
         else if (key == (_editor.VimEnabled ? Key.C.WithCtrl : Key.K.WithCtrl)) CancelQuery();
         else if (key == Key.F1) HelpDialog.Show(App!, PanelContext());
         else if (key == Key.F2) SetVimMode(!_editor.VimEnabled);
@@ -400,12 +400,13 @@ public sealed class MainView : Runnable
 
     /// <summary>
     /// Ctrl+h/j/k/l in vim mode. Terminals send Ctrl+H as Ctrl+Backspace and Ctrl+J as Ctrl+Enter; terminals that tell
-    /// the keys apart send the letters.
+    /// the keys apart send the letters. While insert mode is actually editing text, that ambiguous pair keeps its
+    /// normal editing meaning (delete word back, newline) instead of switching panels; the letter keys still move.
     /// </summary>
-    private static char? VimPanelDirection(Key key)
+    private static char? VimPanelDirection(Key key, bool editingText)
     {
-        if (key == Key.Backspace.WithCtrl || key == Key.H.WithCtrl) return 'h';
-        if (key == Key.Enter.WithCtrl || key == Key.J.WithCtrl) return 'j';
+        if (key == Key.H.WithCtrl || (!editingText && key == Key.Backspace.WithCtrl)) return 'h';
+        if (key == Key.J.WithCtrl || (!editingText && key == Key.Enter.WithCtrl)) return 'j';
         if (key == Key.K.WithCtrl) return 'k';
         if (key == Key.L.WithCtrl) return 'l';
         return null;
