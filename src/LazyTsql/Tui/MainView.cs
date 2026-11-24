@@ -687,6 +687,8 @@ public sealed class MainView : Runnable
         if (SelectedProfile() is not { } profile) return;
         try
         {
+            // Already on another connection: keep its tab as it is and connect this one in a new tab instead.
+            if (_tabs.Current.ConnectionName is { } current && !current.Equals(profile.Name, StringComparison.OrdinalIgnoreCase)) NewTab();
             Connect(ConnectionStringResolver.Resolve(profile.ConnectionString, Environment.GetEnvironmentVariable), profile.Name);
         }
         catch (InvalidOperationException ex)
