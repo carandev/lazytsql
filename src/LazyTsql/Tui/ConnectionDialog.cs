@@ -26,7 +26,7 @@ public static class ConnectionDialog
         {
             Title = existing is null ? "New connection" : $"Edit {existing.Name}",
             Width = Dim.Percent(80),
-            Height = 20,
+            Height = 22,
             BorderStyle = LineStyle.Rounded,
             Data = KeyContext.ConnectionForm,
             HotKeySpecifier = Theme.NoHotKey,
@@ -85,8 +85,15 @@ public static class ConnectionDialog
         fieldsPane.Add(encrypt, trust);
         fieldsPane.Add(new Label { Text = "Tip: type ${VAR} as the password to read it from an environment variable.", X = 1, Y = 7 });
 
-        var error = new Label { Text = string.Empty, X = 1, Y = 15, HotKeySpecifier = Theme.NoHotKey };
-        dialog.Add(stringPane, fieldsPane, error);
+        var production = new CheckBox
+        {
+            Text = "Production (warn before running queries that modify data)",
+            X = 1,
+            Y = 15,
+            Value = existing?.IsProduction ?? false ? CheckState.Checked : CheckState.UnChecked,
+        };
+        var error = new Label { Text = string.Empty, X = 1, Y = 16, HotKeySpecifier = Theme.NoHotKey };
+        dialog.Add(stringPane, fieldsPane, production, error);
 
         SqlServerConnectionFields ReadFields() => new(
             server.Text,
@@ -150,7 +157,7 @@ public static class ConnectionDialog
                 return;
             }
 
-            result = new ConnectionProfile(trimmedName, connectionString);
+            result = new ConnectionProfile(trimmedName, connectionString, production.Value == CheckState.Checked);
             app.RequestStop(dialog);
         };
         cancel.Accepting += (_, e) =>

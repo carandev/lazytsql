@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace LazyTsql.Core.Connections;
 
-public sealed record ConnectionProfile(string Name, string ConnectionString);
+public sealed record ConnectionProfile(string Name, string ConnectionString, bool IsProduction = false);
 
 public static partial class ConnectionStringResolver
 {

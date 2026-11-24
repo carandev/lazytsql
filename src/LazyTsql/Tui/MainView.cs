@@ -633,7 +633,7 @@ public sealed class MainView : Runnable
         }
 
         _connectionNames.Clear();
-        foreach (var profile in _profiles) _connectionNames.Add(profile.Name);
+        foreach (var profile in _profiles) _connectionNames.Add(profile.IsProduction ? $"⚠ {profile.Name} (production)" : profile.Name);
         if (_profiles.Count > 0) _connectionsList.SelectedItem = 0;
         if (_profiles.Count == 0) Log("No saved connections. Focus [1] and press 'a' to add one.");
     }
@@ -921,6 +921,8 @@ public sealed class MainView : Runnable
 
         if (PendingEdits > 0 && !ConfirmDialog.Show(App!, "Unsaved edits", $"Run the query and discard {Count(PendingEdits, "unsaved change")} to the results?", "Discard", confirmIsDefault: false)) return;
 
+        if (!ConfirmUnsafeStatements(tab, script)) return;
+
         ReleaseResults(tab);
         _panels[ResultsPanel].Title = _operations.IsBusy ? "[5] Results · queued…" : "[5] Results · running…";
 
@@ -961,6 +963,19 @@ public sealed class MainView : Runnable
     private void CancelQuery()
     {
         if (_operations.Cancel()) Log("Cancel requested.");
+    }
+
+    /// <summary>Warns before running an UPDATE or DELETE with no WHERE clause, since it would touch every row.</summary>
+    private bool ConfirmUnsafeStatements(QueryTab tab, string script)
+    {
+        var unsafeStatements = DestructiveStatementScanner.FindUnsafeStatements(script);
+        if (unsafeStatements.Count == 0) return true;
+
+        var isProduction = _profiles.FirstOrDefault(p => p.Name.Equals(tab.ConnectionName, StringComparison.OrdinalIgnoreCase))?.IsProduction ?? false;
+        var statements = string.Join(", ", unsafeStatements.Select(s => $"{s.Verb} (line {s.Line})"));
+        var title = isProduction ? "No WHERE clause — PRODUCTION connection" : "No WHERE clause";
+        var message = $"{Count(unsafeStatements.Count, "statement")} with no WHERE clause will affect every row: {statements}.\n\nRun anyway?";
+        return ConfirmDialog.Show(App!, title, message, "Run anyway", confirmIsDefault: false);
     }
 
     /// <summary>
