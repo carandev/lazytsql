@@ -1,6 +1,7 @@
 using System.Drawing;
 using LazyTsql.Tui;
 using LazyTsql.Tui.Vim;
+using Terminal.Gui.Drivers;
 using Terminal.Gui.Input;
 
 #pragma warning disable CS0618
@@ -155,5 +156,28 @@ public class VimEditorTests
         Assert.Equal(VimMode.Normal, editor.Vim.Mode);
         Type(editor, "x");
         Assert.Equal("axbc", editor.Text);
+    }
+
+    [Fact]
+    public void Normal_visual_and_command_mode_show_a_block_cursor_and_insert_mode_a_bar()
+    {
+        var plain = new SqlEditor().Cursor.Style;
+        var editor = Editor("abc", new Point(0, 0));
+        Assert.Equal(CursorStyle.SteadyBlock, editor.Cursor.Style);
+
+        Type(editor, "i");
+        Assert.Equal(CursorStyle.BlinkingBar, editor.Cursor.Style);
+
+        Press(editor, Key.Esc);
+        Assert.Equal(CursorStyle.SteadyBlock, editor.Cursor.Style);
+
+        Type(editor, "v");
+        Assert.Equal(CursorStyle.SteadyBlock, editor.Cursor.Style);
+
+        Type(editor, ":");
+        Assert.Equal(CursorStyle.SteadyBlock, editor.Cursor.Style);
+
+        editor.SetVimEnabled(false);
+        Assert.Equal(plain, editor.Cursor.Style);
     }
 }

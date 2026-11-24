@@ -31,8 +31,13 @@ public sealed partial class SqlEditor : IVimBuffer
         VimEnabled = enabled;
         Vim.Reset();
         ForgetVimHistory();
+        UpdateCursorStyle();
         SetNeedsDraw();
     }
+
+    /// <summary>Like real vim: a block cursor in normal/visual/command mode, a bar while actually typing text.</summary>
+    private void UpdateCursorStyle() =>
+        Cursor = Cursor with { Style = VimEnabled ? Vim.Mode == VimMode.Insert ? CursorStyle.BlinkingBar : CursorStyle.SteadyBlock : _plainCursorStyle };
 
     /// <summary>Drops vim's undo steps, when the editor shows other text (another tab, a file just opened).</summary>
     public void ForgetVimHistory()
@@ -148,6 +153,7 @@ public sealed partial class SqlEditor : IVimBuffer
         if (!Vim.HandleKey(vimKey)) return false;
         // i, a, o and the like: what gets typed next is undone together with them.
         if (!wasInsert && Vim.Mode == VimMode.Insert) SaveForUndo();
+        if (wasInsert != (Vim.Mode == VimMode.Insert)) UpdateCursorStyle();
         SetNeedsDraw();
         return true;
     }
