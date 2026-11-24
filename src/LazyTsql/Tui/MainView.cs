@@ -730,10 +730,16 @@ public sealed class MainView : Runnable
             OnUi(() =>
             {
                 tab.ConnectionName = displayName;
+                // A tab nobody typed in yet opens straight on that connection's console, like DataGrip's default file.
+                if (tab.IsUntouchedUntitled)
+                {
+                    var (console, text) = ScriptFile.Open(ConnectionConsole.PathFor(displayName));
+                    (tab.Script, tab.Text, tab.SavedText) = (console, text, text);
+                }
+
                 Log($"Connected to {displayName} (SQL Server {session.ServerVersion}), database {session.CurrentDatabase}.");
                 if (tab != _tabs.Current) return;
-                ShowDatabases(databases, session);
-                UpdateEditorTitle();
+                ShowTab();
                 FocusPanel(SchemaPanel);
             });
         }, cancellable: true, queued: $"connecting to {displayName}");

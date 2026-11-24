@@ -30,7 +30,7 @@ public sealed class QueryTab(ScriptFile? script, string text, string savedText)
     /// <summary>The profile name this tab is connected to, or null; several tabs can share the same one.</summary>
     public string? ConnectionName { get; set; }
 
-    public string Name => Script?.Name ?? "untitled";
+    public string Name => ConnectionName is { } name && Script?.Path == ConnectionConsole.PathFor(name) ? $"[console] {name}" : Script?.Name ?? "untitled";
 
     /// <summary>A script whose text differs from the file.</summary>
     public bool IsDirty => Script is not null && Text != SavedText;

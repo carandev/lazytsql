@@ -203,6 +203,26 @@ public class QueryTabsTests
     }
 
     [Fact]
+    public void A_tab_on_its_connections_console_names_itself_after_the_connection()
+    {
+        var tabs = new QueryTabs("x");
+        tabs.Current.ConnectionName = "prod";
+        tabs.Current.Script = new ScriptFile(ConnectionConsole.PathFor("prod"), Encoding.UTF8, "\n");
+
+        Assert.Equal("[console] prod", tabs.Current.Name);
+    }
+
+    [Fact]
+    public void A_connected_tab_on_an_ordinary_file_keeps_its_file_name()
+    {
+        var tabs = new QueryTabs("x");
+        tabs.Current.ConnectionName = "prod";
+        tabs.Current.Script = Script("a.sql");
+
+        Assert.Equal("a.sql", tabs.Current.Name);
+    }
+
+    [Fact]
     public void Position_shows_only_with_more_than_one_tab()
     {
         var tabs = new QueryTabs("x");
