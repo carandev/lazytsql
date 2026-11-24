@@ -28,16 +28,15 @@ public sealed class MainView : Runnable
 
     private readonly IDatabaseConnector _connector;
     private readonly IBacpacTool _bacpac;
-    // sqlpackage opens its own connection, so it needs the connection string, not the session.
-    private string? _connectionString;
     private readonly FileConnectionStore _store;
     private readonly ActivityLog _activity;
     private bool _activityFailed;
     private readonly OperationQueue _operations = new();
-    private readonly SchemaCatalog _catalog = new();
+    // Live connections by profile name, shared by every tab connected to that profile; a tab only keeps the name.
+    private readonly Dictionary<string, Connection> _connections = new(StringComparer.OrdinalIgnoreCase);
     private readonly ObservableCollection<string> _connectionNames = [];
     private readonly FrameView[] _panels;
-    private readonly ListView _connections;
+    private readonly ListView _connectionsList;
     private readonly TreeView<FileNode> _files;
     private readonly TreeView<SchemaNode> _schema;
     private readonly SqlEditor _editor;
@@ -46,8 +45,6 @@ public sealed class MainView : Runnable
     private readonly Label _hints;
 
     private IReadOnlyList<ConnectionProfile> _profiles = [];
-    private IDatabaseSession? _session;
-    private string? _sessionName;
     private int _maxRows = new QueryOptions().MaxRows;
     private bool _quitConfirmed;
     // Set while result edits are being saved, so the changes being saved cannot change underneath.
@@ -84,8 +81,8 @@ public sealed class MainView : Runnable
         _bacpac = bacpac;
         _store = store;
 
-        _connections = new ListView { Width = Dim.Fill(), Height = Dim.Fill() };
-        _connections.SetSource(_connectionNames);
+        _connectionsList = new ListView { Width = Dim.Fill(), Height = Dim.Fill() };
+        _connectionsList.SetSource(_connectionNames);
 
         _files = new TreeView<FileNode>
         {
@@ -115,7 +112,7 @@ public sealed class MainView : Runnable
         _results.Style.AlwaysShowHeaders = true;
         _messages = new TextView { Width = Dim.Fill(), Height = Dim.Fill(), ReadOnly = true, WordWrap = true };
 
-        var connectionsPanel = Panel("[1] Connections", _connections, 0, 0, Dim.Percent(28), Dim.Percent(20));
+        var connectionsPanel = Panel("[1] Connections", _connectionsList, 0, 0, Dim.Percent(28), Dim.Percent(20));
         var filesPanel = Panel("[2] Files · o to add", _files, 0, Pos.Bottom(connectionsPanel), Dim.Percent(28), Dim.Percent(30));
         var schemaPanel = Panel("[3] Schema", _schema, 0, Pos.Bottom(filesPanel), Dim.Percent(28), Dim.Fill(1));
         var editorPanel = Panel("[4] Query", _editor, Pos.Right(connectionsPanel), 0, Dim.Fill(), Dim.Percent(38));
@@ -132,7 +129,7 @@ public sealed class MainView : Runnable
         _hints.SetScheme(Theme.Hints);
         foreach (var panel in _panels) panel.HasFocusChanged += (_, _) => UpdateHints();
         _editor.ContentsChanged += (_, _) => UpdateEditorTitle();
-        _editor.EnableCompletion(() => _session is { } session ? (_catalog, session.CurrentDatabase) : null);
+        _editor.EnableCompletion(() => CurrentConnection() is { } connection ? (connection.Catalog, connection.Session.CurrentDatabase) : null);
         _editor.Autocomplete.Scheme = Theme.Popup;
         _editor.Vim.Changed += UpdateHints;
         // Run after the key that typed them, outside the editor's key handling: some replace the editor's text.
@@ -140,9 +137,6 @@ public sealed class MainView : Runnable
         _editor.Vim.Yanked += text => Copy(text);
         _editor.Vim.Error += message => Log($"✗ {message}");
         LoadEditorMode();
-        _catalog.ObjectsNeeded += LoadCatalogObjects;
-        _catalog.ColumnsNeeded += LoadCatalogColumns;
-        _catalog.ForeignKeysNeeded += LoadCatalogForeignKeys;
 
         SetScheme(Theme.Content);
         Add(connectionsPanel, filesPanel, schemaPanel, editorPanel, resultsPanel, messagesPanel, _hints);
@@ -260,7 +254,7 @@ public sealed class MainView : Runnable
         {
             KeySequenceGuard.Skipped -= OnSequenceSkipped;
             _operations.Dispose();
-            _session?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            foreach (var connection in _connections.Values) connection.Session.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
 
         base.Dispose(disposing);
@@ -366,10 +360,10 @@ public sealed class MainView : Runnable
         else if (key.AsRune.Value == '-') ResizePanel(-1);
         else if (key == Key.Tab) FocusPanel((CurrentPanel() + 1) % _panels.Length);
         else if (key.AsRune.Value == '?') HelpDialog.Show(App!, PanelContext());
-        else if (_connections.HasFocus && key == Key.Enter) ConnectSelected();
-        else if (_connections.HasFocus && key == Key.A) EditConnection(null);
-        else if (_connections.HasFocus && key == Key.E) EditConnection(SelectedProfile());
-        else if (_connections.HasFocus && key == Key.D) DeleteConnection();
+        else if (_connectionsList.HasFocus && key == Key.Enter) ConnectSelected();
+        else if (_connectionsList.HasFocus && key == Key.A) EditConnection(null);
+        else if (_connectionsList.HasFocus && key == Key.E) EditConnection(SelectedProfile());
+        else if (_connectionsList.HasFocus && key == Key.D) DeleteConnection();
         else if (_files.HasFocus && key == Key.Enter) OpenSelectedFile();
         else if (_files.HasFocus && key == Key.R) ReloadFiles();
         else if (_files.HasFocus && key == Key.O) OpenFolder();
@@ -640,20 +634,20 @@ public sealed class MainView : Runnable
 
         _connectionNames.Clear();
         foreach (var profile in _profiles) _connectionNames.Add(profile.Name);
-        if (_profiles.Count > 0) _connections.SelectedItem = 0;
+        if (_profiles.Count > 0) _connectionsList.SelectedItem = 0;
         if (_profiles.Count == 0) Log("No saved connections. Focus [1] and press 'a' to add one.");
     }
 
     private ConnectionProfile? SelectedProfile()
     {
-        var index = _connections.SelectedItem ?? 0;
+        var index = _connectionsList.SelectedItem ?? 0;
         return index < _profiles.Count ? _profiles[index] : null;
     }
 
     private void SelectProfile(string name)
     {
         var index = _profiles.ToList().FindIndex(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-        if (index >= 0) _connections.SelectedItem = index;
+        if (index >= 0) _connectionsList.SelectedItem = index;
     }
 
     private void EditConnection(ConnectionProfile? existing)
@@ -701,8 +695,10 @@ public sealed class MainView : Runnable
         }
     }
 
+    /// <summary>Connects the current tab to <paramref name="displayName"/>; other tabs on that profile pick it up too.</summary>
     private void Connect(string connectionString, string displayName)
     {
+        var tab = _tabs.Current;
         RunInBackground(async token =>
         {
             OnUi(() => Log($"Connecting to {displayName}…"));
@@ -718,18 +714,24 @@ public sealed class MainView : Runnable
                 throw;
             }
 
-            var previous = _session;
-            _session = session;
-            _sessionName = displayName;
-            _connectionString = connectionString;
-            if (previous is not null) await previous.DisposeAsync();
+            _connections.TryGetValue(displayName, out var previous);
+            var catalog = new SchemaCatalog { Databases = databases };
+            var connection = new Connection(session, connectionString, catalog);
+            // Closures capture this Connection directly: a later reconnect replaces the dictionary entry, and a load
+            // still in flight for the old one writes into a catalog nothing references any more, which is harmless.
+            catalog.ObjectsNeeded += database => LoadCatalogObjects(connection, database);
+            catalog.ColumnsNeeded += (database, table) => LoadCatalogColumns(connection, database, table);
+            catalog.ForeignKeysNeeded += database => LoadCatalogForeignKeys(connection, database);
+            _connections[displayName] = connection;
+            if (previous is not null) await previous.Session.DisposeAsync();
 
             OnUi(() =>
             {
-                ResetCatalog(databases);
+                tab.ConnectionName = displayName;
+                Log($"Connected to {displayName} (SQL Server {session.ServerVersion}), database {session.CurrentDatabase}.");
+                if (tab != _tabs.Current) return;
                 ShowDatabases(databases, session);
                 UpdateEditorTitle();
-                Log($"Connected to {displayName} (SQL Server {session.ServerVersion}), database {session.CurrentDatabase}.");
                 FocusPanel(SchemaPanel);
             });
         }, cancellable: true, queued: $"connecting to {displayName}");
@@ -760,9 +762,10 @@ public sealed class MainView : Runnable
 
     private void LoadChildren(SchemaNode node)
     {
+        var tab = _tabs.Current;
         RunInBackground(async token =>
         {
-            var session = RequireSession();
+            var session = RequireSession(tab);
             List<SchemaNode> children = node switch
             {
                 DatabaseNode database => await LoadDatabaseAsync(session, database.Name, token),
@@ -802,60 +805,44 @@ public sealed class MainView : Runnable
     private static Task UseDatabaseAsync(IDatabaseSession session, string database, CancellationToken token) =>
         session.CurrentDatabase == database ? Task.CompletedTask : session.ChangeDatabaseAsync(database, token);
 
-    private void ResetCatalog(IReadOnlyList<string> databases)
-    {
-        _catalog.Clear();
-        _catalog.Databases = databases;
-    }
-
     /// <summary>Loads completion names in the background; suggestions refresh when they arrive.</summary>
-    private void LoadCatalogObjects(string database)
+    private void LoadCatalogObjects(Connection connection, string database)
     {
-        var session = _session;
-        if (session is null) return;
         RunInBackground(async token =>
         {
-            IReadOnlyList<DbObject> objects = [.. await session.GetObjectsAsync(database, token), .. await session.GetSynonymsAsync(database, token)];
+            IReadOnlyList<DbObject> objects = [.. await connection.Session.GetObjectsAsync(database, token), .. await connection.Session.GetSynonymsAsync(database, token)];
             OnUi(() =>
             {
-                // A reconnect while loading starts a new catalog; these names belong to the old connection.
-                if (_session != session) return;
-                _catalog.SetObjects(database, objects);
+                connection.Catalog.SetObjects(database, objects);
                 _editor.RefreshCompletion();
             });
-        }, onError: () => _catalog.SetObjects(database, []));
+        }, onError: () => connection.Catalog.SetObjects(database, []));
     }
 
-    private void LoadCatalogColumns(string database, DbObject table)
+    private void LoadCatalogColumns(Connection connection, string database, DbObject table)
     {
-        var session = _session;
-        if (session is null) return;
         RunInBackground(async token =>
         {
-            var columns = await session.GetColumnsAsync(database, table, token);
+            var columns = await connection.Session.GetColumnsAsync(database, table, token);
             OnUi(() =>
             {
-                if (_session != session) return;
-                _catalog.SetColumns(database, table, columns);
+                connection.Catalog.SetColumns(database, table, columns);
                 _editor.RefreshCompletion();
             });
-        }, onError: () => _catalog.SetColumns(database, table, []));
+        }, onError: () => connection.Catalog.SetColumns(database, table, []));
     }
 
-    private void LoadCatalogForeignKeys(string database)
+    private void LoadCatalogForeignKeys(Connection connection, string database)
     {
-        var session = _session;
-        if (session is null) return;
         RunInBackground(async token =>
         {
-            var foreignKeys = await session.GetForeignKeysAsync(database, token);
+            var foreignKeys = await connection.Session.GetForeignKeysAsync(database, token);
             OnUi(() =>
             {
-                if (_session != session) return;
-                _catalog.SetForeignKeys(database, foreignKeys);
+                connection.Catalog.SetForeignKeys(database, foreignKeys);
                 _editor.RefreshCompletion();
             });
-        }, onError: () => _catalog.SetForeignKeys(database, []));
+        }, onError: () => connection.Catalog.SetForeignKeys(database, []));
     }
 
     private void ToggleSchemaNode()
@@ -867,15 +854,16 @@ public sealed class MainView : Runnable
 
     private void ReloadSchema()
     {
-        if (_session is null) return;
+        var tab = _tabs.Current;
+        if (CurrentConnection() is not { } connection) return;
         RunInBackground(async token =>
         {
-            var session = RequireSession();
-            var databases = await SchemaDatabasesAsync(session, token);
+            var databases = await SchemaDatabasesAsync(connection.Session, token);
             OnUi(() =>
             {
-                ResetCatalog(databases);
-                ShowDatabases(databases, session);
+                connection.Catalog.Clear();
+                connection.Catalog.Databases = databases;
+                if (tab == _tabs.Current) ShowDatabases(databases, connection.Session);
                 Log($"Schema reloaded: {databases.Count} databases.");
             });
         });
@@ -891,9 +879,10 @@ public sealed class MainView : Runnable
     private void OpenDefinition()
     {
         if (_schema.SelectedObject is not ObjectNode { HasColumns: false } routine) return;
+        var tab = _tabs.Current;
         RunInBackground(async token =>
         {
-            var session = RequireSession();
+            var session = RequireSession(tab);
             await UseDatabaseAsync(session, routine.Database, token);
             var definition = await session.GetDefinitionAsync(routine.Value, token);
             OnUi(() =>
@@ -906,7 +895,9 @@ public sealed class MainView : Runnable
 
     private void RunQuery()
     {
-        if (_session is null)
+        // The tab this query belongs to: it may no longer be the one shown once this background run finishes.
+        var tab = _tabs.Current;
+        if (tab.ConnectionName is null)
         {
             Log("Not connected. Pick a connection in [1] and press Enter.");
             return;
@@ -922,16 +913,14 @@ public sealed class MainView : Runnable
 
         if (PendingEdits > 0 && !ConfirmDialog.Show(App!, "Unsaved edits", $"Run the query and discard {Count(PendingEdits, "unsaved change")} to the results?", "Discard", confirmIsDefault: false)) return;
 
-        // The tab this query belongs to: it may no longer be the one shown once this background run finishes.
-        var tab = _tabs.Current;
         ReleaseResults(tab);
         _panels[ResultsPanel].Title = _operations.IsBusy ? "[5] Results · queued…" : "[5] Results · running…";
 
         RunInBackground(async token =>
         {
             // The connection and database are the ones it runs on, which an operation queued before it may have changed.
-            var session = RequireSession();
-            var target = $"{_sessionName} › {session.CurrentDatabase}";
+            var session = RequireSession(tab);
+            var target = $"{tab.ConnectionName} › {session.CurrentDatabase}";
             OnUi(() =>
             {
                 if (tab == _tabs.Current) _panels[ResultsPanel].Title = "[5] Results · running…";
@@ -1098,7 +1087,7 @@ public sealed class MainView : Runnable
             return null;
         }
 
-        if (shown.Session != _session)
+        if (shown.Session != CurrentConnection()?.Session)
         {
             Log("These results came from another connection. Run the query again to edit them.");
             return null;
@@ -1144,11 +1133,11 @@ public sealed class MainView : Runnable
         if (EditableResult() is not { } shown) return;
         var script = edits.Script();
         var count = edits.Count;
-        var question = $"Run this on {_sessionName} to save {Count(count, "change")}?\nIt saves all of them or none.";
+        var question = $"Run this on {_tabs.Current.ConnectionName} to save {Count(count, "change")}?\nIt saves all of them or none.";
         if (!ConfirmDialog.ShowScript(App!, "Save edits", question, script, "Run")) return;
 
         _savingEdits = true;
-        WriteActivity($"Saving result edits on {_sessionName}:\n{script}");
+        WriteActivity($"Saving result edits on {_tabs.Current.ConnectionName}:\n{script}");
         Log("Saving…");
         RunInBackground(async token =>
         {
@@ -1180,7 +1169,7 @@ public sealed class MainView : Runnable
         }
 
         var shown = tab.ResultSets[tab.ResultIndex];
-        if (shown.Set.IsTruncated && shown.Session != _session)
+        if (shown.Set.IsTruncated && shown.Session != CurrentConnection()?.Session)
         {
             Log("✗ The connection changed since this result was fetched. Run the query again to export every row.");
             return;
@@ -1317,7 +1306,7 @@ public sealed class MainView : Runnable
     /// <summary>Exports the database of the selected schema node (or the current one) with sqlpackage.</summary>
     private void ExportBacpac()
     {
-        if (_session is not { } session || _connectionString is not { } connectionString)
+        if (CurrentConnection() is not { } connection)
         {
             Log("Not connected. Pick a connection in [1] and press Enter.");
             return;
@@ -1327,19 +1316,19 @@ public sealed class MainView : Runnable
         {
             DatabaseNode node => node.Name,
             ObjectNode node => node.Database,
-            _ => session.CurrentDatabase,
+            _ => connection.Session.CurrentDatabase,
         };
         var suggested = Path.Combine(Environment.CurrentDirectory, $"{database}-{DateTime.Now:yyyyMMdd-HHmmss}.bacpac");
         if (FilePicker.Show(App!, $"Export {database}", "Export", suggested, ".bacpac") is not { } path) return;
 
         RunSqlPackage($"Exporting {database} to {path}…", $"Exported {database} to {path}.", token =>
-            _bacpac.ExportAsync(connectionString, database, path, line => OnUi(() => Log(line)), token), onCancel: null);
+            _bacpac.ExportAsync(connection.ConnectionString, database, path, line => OnUi(() => Log(line)), token), onCancel: null);
     }
 
     /// <summary>Imports a .bacpac as a new database with sqlpackage, then reloads the schema.</summary>
     private void ImportBacpac()
     {
-        if (_session is null || _connectionString is not { } connectionString)
+        if (CurrentConnection() is not { } connection)
         {
             Log("Not connected. Pick a connection in [1] and press Enter.");
             return;
@@ -1356,7 +1345,7 @@ public sealed class MainView : Runnable
 
         RunSqlPackage($"Importing {path} as {database}…", $"Imported {path} as {database}.", async token =>
         {
-            await _bacpac.ImportAsync(connectionString, database, path, line => OnUi(() => Log(line)), token);
+            await _bacpac.ImportAsync(connection.ConnectionString, database, path, line => OnUi(() => Log(line)), token);
             OnUi(ReloadSchema);
         }, onCancel: $"The database {database} may exist partially imported.");
     }
@@ -1416,7 +1405,9 @@ public sealed class MainView : Runnable
         var tab = _tabs.Current;
         var dirty = tab.Script is not null && _editor.Text != tab.SavedText;
         var name = tab.Script is null && _tabs.Count == 1 ? string.Empty : $" · {tab.Name}{(dirty ? "*" : string.Empty)}";
-        var connection = _session is null ? string.Empty : $" · {_sessionName} › {_session.CurrentDatabase}";
+        var connection = tab.ConnectionName is { } connectionName && _connections.TryGetValue(connectionName, out var current)
+            ? $" · {connectionName} › {current.Session.CurrentDatabase}"
+            : string.Empty;
         _panels[QueryPanel].Title = $"[4] Query{_tabs.Position}{name}{connection}";
     }
 
@@ -1437,6 +1428,8 @@ public sealed class MainView : Runnable
         _editor.ForgetVimHistory();
         if (_editor.VimEnabled) _editor.Vim.Reset();
         ShowResultSet(tab.ResultIndex);
+        if (CurrentConnection() is { } connection) ShowDatabases(connection.Catalog.Databases, connection.Session);
+        else _schema.ClearObjects();
         UpdateEditorTitle();
         _editor.SetNeedsDraw();
     }
@@ -1770,8 +1763,17 @@ public sealed class MainView : Runnable
         }
     }
 
-    private IDatabaseSession RequireSession() =>
-        _session ?? throw new InvalidOperationException("Not connected.");
+    /// <summary>The live connection of <paramref name="tab"/>, resolved by name so a reconnect is picked up even by a
+    /// query already queued when it happens.</summary>
+    private IDatabaseSession RequireSession(QueryTab tab) =>
+        tab.ConnectionName is { } name && _connections.TryGetValue(name, out var connection) ? connection.Session : throw new InvalidOperationException("Not connected.");
+
+    /// <summary>The current tab's live connection, or null when it is not connected to one.</summary>
+    private Connection? CurrentConnection() =>
+        _tabs.Current.ConnectionName is { } name && _connections.TryGetValue(name, out var connection) ? connection : null;
+
+    /// <summary>A live connection: its session, the connection string sqlpackage needs (it opens its own), and its catalog.</summary>
+    private sealed record Connection(IDatabaseSession Session, string ConnectionString, SchemaCatalog Catalog);
 
     /// <summary>Every message also goes to the activity log on disk.</summary>
     private void Log(string text)
@@ -1791,7 +1793,7 @@ public sealed class MainView : Runnable
 
     private void OnUi(Action action) => App?.Invoke(action);
 
-    /// <summary>Runs database work off the UI thread, one operation at a time since a session has a single connection.</summary>
+    /// <summary>Runs database work off the UI thread; one operation at a time across every connection, not just this one.</summary>
     /// <summary>
     /// Queues work on the connection after the operations asked before it. A <paramref name="cancellable"/> one stops on
     /// Ctrl+K, waiting or running; one with a <paramref name="queued"/> label says so when it has to wait.

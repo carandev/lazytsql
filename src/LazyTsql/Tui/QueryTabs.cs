@@ -27,6 +27,8 @@ public sealed class QueryTab(ScriptFile? script, string text, string savedText)
     public Point Cursor { get; set; }
     public List<ShownResult> ResultSets { get; set; } = [];
     public int ResultIndex { get; set; }
+    /// <summary>The profile name this tab is connected to, or null; several tabs can share the same one.</summary>
+    public string? ConnectionName { get; set; }
 
     public string Name => Script?.Name ?? "untitled";
 
@@ -73,7 +75,7 @@ public sealed class QueryTabs
 
             if (Current.IsUntouchedUntitled)
             {
-                _tabs[Index] = new QueryTab(script, text, text) { ResultSets = Current.ResultSets, ResultIndex = Current.ResultIndex };
+                _tabs[Index] = new QueryTab(script, text, text) { ResultSets = Current.ResultSets, ResultIndex = Current.ResultIndex, ConnectionName = Current.ConnectionName };
                 return Current;
             }
         }

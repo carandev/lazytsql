@@ -190,6 +190,19 @@ public class QueryTabsTests
     }
 
     [Fact]
+    public void A_new_tab_has_no_connection_and_reusing_an_untouched_one_keeps_it()
+    {
+        var tabs = new QueryTabs("SELECT 1;");
+        Assert.Null(tabs.Current.ConnectionName);
+
+        tabs.Current.ConnectionName = "prod";
+        tabs.Open(Script("a.sql"), "A");
+
+        Assert.Equal(1, tabs.Count);
+        Assert.Equal("prod", tabs.Current.ConnectionName);
+    }
+
+    [Fact]
     public void Position_shows_only_with_more_than_one_tab()
     {
         var tabs = new QueryTabs("x");
