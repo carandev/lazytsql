@@ -114,6 +114,7 @@ public sealed class MainView : Runnable
         _results.Style.ShowHorizontalHeaderOverline = false;
         _results.Style.ShowHorizontalBottomLine = false;
         _results.Style.HeaderScheme = Theme.TableHeader;
+        _results.Style.AlwaysShowHeaders = true;
         _messages = new TextView { Width = Dim.Fill(), Height = Dim.Fill(), ReadOnly = true, WordWrap = true };
 
         var connectionsPanel = Panel("[1] Connections", _connections, 0, 0, Dim.Percent(28), Dim.Percent(20));
